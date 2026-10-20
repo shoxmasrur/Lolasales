@@ -31,7 +31,7 @@ import {
 import { Avatar, EmptyState, ErrorNote, Spinner, Toggle } from '@/components/ui';
 import NomalumPanel from '@/components/NomalumPanel';
 import MessageBubble from '@/components/MessageBubble';
-import { ReceiptConfirmButton, type ReceiptReview } from '@/components/ReceiptConfirmButton';
+import { ReceiptConfirmButton, SendLinkButton, type ReceiptReview } from '@/components/ReceiptConfirmButton';
 import { Sheet } from '@/components/Sheet';
 import { useIsDesktopWide, useIsMobile } from '@/lib/useBreakpoint';
 
@@ -50,6 +50,8 @@ interface ConversationDetail {
   accountOptions: AccountOption[];
   /** Ochiq chek tekshiruvi — "Tasdiqlash"/"Rad etish" tugmalari uchun. */
   receiptReview: ReceiptReview | null;
+  /** Kurs qoidasi bajarilgan, guruh havolasi bor, lekin hali yuborilmagan. */
+  linkPending: boolean;
   debtMonthly: number;
   debtTotal: number;
   daysOverdue: number;
@@ -999,6 +1001,14 @@ function ClientPanelBody({ detail }: { detail: ConversationDetail }) {
         key={detail.conversation.id}
         conversationId={detail.conversation.id}
         receiptReview={detail.receiptReview}
+      />
+      <SendLinkButton
+        key={`havola-${detail.conversation.id}`}
+        conversationId={detail.conversation.id}
+        visible={
+          detail.linkPending ||
+          (detail.conversation.needsHuman && detail.conversation.humanReason === "Guruh havolasini yuborib bo'lmadi")
+        }
       />
 
       {/* Agent va operator mijoz bilan oyma-oy kechikish haqida gaplashadi —

@@ -49,6 +49,7 @@ function build(opts: {
   noReview?: boolean;
 } = {}) {
   const tartib: string[] = [];
+  const holat = { sendThrows: opts.sendThrows ?? false };
   const patches: ConversationPatch[] = [];
   const audits: Array<{ action: string; payload: Record<string, unknown> }> = [];
   const sends: Array<{ body: string; meta: unknown; author: string }> = [];
@@ -86,6 +87,9 @@ function build(opts: {
       p.paidAmount += amount;
       return { ...p };
     },
+    unmarkLinkSent: async (id: string) => {
+      purchases.find((x) => x.id === id)!.linkSentAt = null;
+    },
     markLinkSent: async (id: string, at: Date) => {
       const p = purchases.find((x) => x.id === id)!;
       if (p.linkSentAt) return false;
@@ -113,13 +117,22 @@ function build(opts: {
   if (!opts.noReview) yangiChek(opts.checkCreatedAt);
   const checkRepo = {
     findOpenByConversation: async (id: string) => checks.find((c) => c.conversationId === id && c.status === 'reviewing') ?? null,
-    openReceiptReview: async () => yangiChek(),
+    openReceiptReview: async (d: { purchaseId: string | null; messageId: string | null }) =>
+      Object.assign(yangiChek(), { purchaseId: d.purchaseId, messageId: d.messageId }),
     raiseReceiptSource: async () => undefined,
     confirmByOperator: async (id: string, actor: string, amount: number, at: Date) => {
       const c = checks.find((x) => x.id === id && x.status === 'reviewing');
       if (!c) return false;
       Object.assign(c, { status: 'confirmed_by_operator', confirmedBy: actor, confirmedAmount: amount, confirmedAt: at });
       return true;
+    },
+    confirmWithPayment: async (id: string, actor: string, amount: number, purchaseId: string, at: Date) => {
+      const c = checks.find((x) => x.id === id && x.status === 'reviewing');
+      if (!c) return null;
+      Object.assign(c, { status: 'confirmed_by_operator', confirmedBy: actor, confirmedAmount: amount, confirmedAt: at });
+      const p = purchases.find((x) => x.id === purchaseId)!;
+      p.paidAmount += amount;
+      return { ...p };
     },
     reject: async (id: string, actor: string, reason: string, at: Date) => {
       const c = checks.find((x) => x.id === id && x.status === 'reviewing');
@@ -165,7 +178,7 @@ function build(opts: {
   const dispatcher = {
     send: async (o: { body: string; meta?: unknown; author: string }) => {
       tartib.push('send');
-      if (opts.sendThrows) throw new Error('Telegram ulanmagan');
+      if (holat.sendThrows) throw new Error('Telegram ulanmagan');
       sends.push({ body: o.body, meta: o.meta, author: o.author });
       return {} as never;
     },
@@ -176,7 +189,7 @@ function build(opts: {
     checkRepo, conversations, purchaseRepo, courses, xarid, agent as never, dispatcher as never,
     audit, events, clock, settings as never,
   );
-  return { service, xarid, purchases, checks, patches, audits, sends, thanks, rejects, tartib, suhbat };
+  return { service, xarid, purchases, checks, patches, audits, sends, thanks, rejects, tartib, suhbat, holat };
 }
 
 const oxirgiPatch = (m: ReturnType<typeof build>) => m.patches.at(-1);
@@ -267,7 +280,7 @@ const oxirgiPatch = (m: ReturnType<typeof build>) => m.patches.at(-1);
 {
   const m = build({ course: null, purchase: { totalAmount: null } });
   const out = await m.service.confirmReceipt('cv1', MENEJER, 700_000);
-  check('summasiz: tasdiqlandi, bosqich o\'zgarmadi', out.kind === 'confirmed' && out.stage === 'chek_keldi' && !out.linkSent, JSON.stringify(out));
+  check('summasiz: needs_human summa_yoq, bosqich o\'zgarmadi', out.kind === 'needs_human' && out.reason === 'summa_yoq' && out.stage === 'chek_keldi', JSON.stringify(out));
   check('summasiz: to\'lov qo\'shildi', m.purchases[0]!.paidAmount === 700_000);
   check('summasiz: menejerga aniq sabab', m.suhbat.needsHuman === true && m.suhbat.humanReason === CHEK_SABABLARI.summaYoq, String(m.suhbat.humanReason));
   check('summasiz: rahmat ham, havola ham yo\'q', m.thanks.length === 0 && m.sends.length === 0);
@@ -281,20 +294,61 @@ const oxirgiPatch = (m: ReturnType<typeof build>) => m.patches.at(-1);
 {
   const m = build({ agentThrows: true });
   const out = await m.service.confirmReceipt('cv1', MENEJER, 500_000);
-  check('agent yiqildi: not_sent agent_error', out.kind === 'not_sent' && out.reason === 'agent_error', JSON.stringify(out));
+  check('agent yiqildi: not_sent agent_error, bosqich va havola bilan', out.kind === 'not_sent' && out.reason === 'agent_error' && out.stage === 'qisman_toladi' && out.linkSent, JSON.stringify(out));
   check('agent yiqildi: bosqich va havola baribir', m.purchases[0]!.stage === 'qisman_toladi' && m.sends.length === 1);
 
   const s = build({ sendThrows: true });
   const o2 = await s.service.confirmReceipt('cv1', MENEJER, 500_000);
   check('havola ketmadi: xato otilmadi', o2.kind === 'confirmed' && !o2.linkSent, JSON.stringify(o2));
   check('havola ketmadi: menejerga', s.suhbat.needsHuman === true && s.suhbat.humanReason === "Guruh havolasini yuborib bo'lmadi", String(s.suhbat.humanReason));
+  check('havola ketmadi: link_sent_at qaytarildi', s.purchases[0]!.linkSentAt === null);
+  check('havola ketmadi: kutilmoqda', await s.service.havolaKutyaptimi('c1'));
+
+  // Qayta yuborish: avval yana yiqiladi (belgi qaytadi), keyin ketadi — bir marta.
+  const r1 = await s.service.sendLink('cv1', MENEJER);
+  check('qayta: yiqildi → failed, belgi yo\'q', r1.kind === 'failed' && s.purchases[0]!.linkSentAt === null, JSON.stringify(r1));
+  s.holat.sendThrows = false;
+  const r2 = await s.service.sendLink('cv1', MENEJER);
+  check('qayta: sent', r2.kind === 'sent', JSON.stringify(r2));
+  check('qayta: aniq matn, meta havola, bir marta', s.sends.length === 1 && s.sends[0]!.body === HAVOLA_MATNI && JSON.stringify(s.sends[0]!.meta) === '{"kind":"havola"}');
+  check('qayta: needsHuman tozalandi', s.suhbat.needsHuman === false);
+  const r3 = await s.service.sendLink('cv1', MENEJER);
+  check('qayta: ikkinchisi already_sent', r3.kind === 'already_sent' && s.sends.length === 1, JSON.stringify(r3));
+  check('qayta: endi kutilmaydi', !(await s.service.havolaKutyaptimi('c1')));
+  const toliqQism = build({ course: { linkAfter: 'toliq' }, purchase: { paidAmount: 500_000 } });
+  check('qayta: qoida bajarilmagan → not_eligible', (await toliqQism.service.sendLink('cv1', MENEJER)).kind === 'not_eligible');
+  const linksiz = build({ course: { groupLink: null }, purchase: { paidAmount: 500_000 } });
+  check('qayta: havola yo\'q → no_link', (await linksiz.service.sendLink('cv1', MENEJER)).kind === 'no_link');
 
   const k = build({ killSwitch: true });
   const o3 = await k.service.confirmReceipt('cv1', MENEJER, 500_000);
-  check('kill switch: not_sent', o3.kind === 'not_sent' && o3.reason === 'kill_switch', JSON.stringify(o3));
+  check('kill switch: not_sent', o3.kind === 'not_sent' && o3.reason === 'kill_switch' && !o3.linkSent, JSON.stringify(o3));
   check('kill switch: havola belgilanmadi va yuborilmadi', k.purchases[0]!.linkSentAt === null && k.sends.length === 0);
   check('kill switch: summa va bosqich yozildi', k.purchases[0]!.paidAmount === 500_000 && k.purchases[0]!.stage === 'qisman_toladi');
   check('kill switch: menejerga', k.suhbat.needsHuman === true && k.suhbat.humanReason === CHEK_SABABLARI.havolaKetmadi);
+}
+
+// ─── 9. Yakunlangan xaridga kelgan chek ─────────────────────────────────
+{
+  const m = build({ noReview: true, purchase: { stage: 'toladi', paidAmount: 1_500_000, installment: false, linkSentAt: NOW } });
+  const chek = await m.service.openReceiptReview('cv1', 'c1', 'm7', 'tolov');
+  check('toladi mijoz: yangi xarid ochilmadi', m.purchases.length === 1, String(m.purchases.length));
+  check('toladi mijoz: oxirgi xaridga bog\'landi', chek.purchaseId === 'p1', String(chek.purchaseId));
+  check('toladi mijoz: bosqich chek_keldi emas', (await m.xarid.faolXaridBosqichi('c1', 'chek_keldi', 'tizim')) === null && m.purchases[0]!.stage === 'toladi');
+  const out = await m.service.confirmReceipt('cv1', MENEJER, 300_000);
+  check('toladi mijoz: needs_human yakunlangan_xarid', out.kind === 'needs_human' && out.reason === 'yakunlangan_xarid' && out.stage === 'toladi', JSON.stringify(out));
+  check('toladi mijoz: pul qo\'shilmadi', m.purchases[0]!.paidAmount === 1_500_000);
+  check('toladi mijoz: chek summasi bilan yopildi', m.checks[0]!.status === 'confirmed_by_operator' && m.checks[0]!.confirmedAmount === 300_000);
+  check('toladi mijoz: havola/rahmat yo\'q', m.sends.length === 0 && m.thanks.length === 0);
+  check('toladi mijoz: menejerga aniq sabab', m.suhbat.needsHuman === true && m.suhbat.humanReason === "Chek yakunlangan xaridga keldi — qo'lda tekshiring", String(m.suhbat.humanReason));
+  check('toladi mijoz: rad etish ham xarid ochmaydi', (await m.service.openReceiptReview('cv1', 'c1', 'm8', 'tolov')) && (await m.service.rejectReceipt('cv1', MENEJER, 'x')).kind === 'rejected' && m.purchases.length === 1 && m.purchases[0]!.stage === 'toladi');
+
+  const bosh = build({ noReview: true });
+  bosh.purchases.length = 0;
+  const c2 = await bosh.service.openReceiptReview('cv1', 'c1', null, 'tolov');
+  check('xaridsiz mijoz: bog\'lanmagan, xarid ochilmadi', c2.purchaseId === null && bosh.purchases.length === 0);
+  const o2 = await bosh.service.confirmReceipt('cv1', MENEJER, 100_000);
+  check('xaridsiz mijoz: needs_human', o2.kind === 'needs_human' && o2.reason === 'yakunlangan_xarid' && o2.stage === null, JSON.stringify(o2));
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");

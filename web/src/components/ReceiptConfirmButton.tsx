@@ -7,7 +7,8 @@ import { useCan } from '@/store/auth';
 /** Server qaytaradigan natijalar — `PaymentCheckService` bilan bir xil. */
 type ReceiptConfirmOutcome =
   | { kind: 'confirmed'; stage: string; linkSent: boolean }
-  | { kind: 'not_sent'; reason: 'kill_switch' | 'agent_disabled' | 'agent_error' }
+  | { kind: 'not_sent'; reason: 'kill_switch' | 'agent_disabled' | 'agent_error'; stage: string; linkSent: boolean }
+  | { kind: 'needs_human'; reason: 'yakunlangan_xarid' | 'summa_yoq'; stage: string | null }
   | { kind: 'no_review' };
 type ReceiptRejectOutcome = { kind: 'rejected' } | { kind: 'no_review' };
 type Natija = ReceiptConfirmOutcome | ReceiptRejectOutcome;
@@ -28,7 +29,11 @@ function natijaMatni(n: Natija): string {
     case 'confirmed':
       return `Tasdiqlandi — ${BOSQICH[n.stage] ?? n.stage}${n.linkSent ? ', guruh havolasi yuborildi' : ''}`;
     case 'not_sent':
-      return 'Summa yozildi, lekin agent rahmat yoza olmadi — mijozga o\'zingiz yozing';
+      return `Summa yozildi — ${BOSQICH[n.stage] ?? n.stage}${n.linkSent ? ', guruh havolasi yuborildi' : ''}. Agent rahmat yoza olmadi — mijozga o'zingiz yozing`;
+    case 'needs_human':
+      return n.reason === 'summa_yoq'
+        ? 'Summa yozildi, lekin xarid summasi noma\'lum — bosqichni qo\'lda belgilang'
+        : 'Chek yakunlangan xaridga keldi — summa xaridga qo\'shilmadi, qo\'lda tekshiring';
     case 'rejected':
       return 'Rad etildi — agent mijozdan qayta chek so\'raydi';
     case 'no_review':
@@ -142,7 +147,7 @@ export function ReceiptConfirmButton({
           className={`mt-1.5 text-[11px] leading-relaxed ${
             outcome.kind === 'confirmed' || outcome.kind === 'rejected'
               ? 'text-emerald-300'
-              : outcome.kind === 'not_sent'
+              : outcome.kind === 'not_sent' || outcome.kind === 'needs_human'
                 ? 'text-amber-300'
                 : 'text-ink-400'
           }`}
@@ -154,6 +159,49 @@ export function ReceiptConfirmButton({
       {tasdiq.isError || rad.isError ? (
         <p className="mt-1.5 text-[11px] text-red-300">Saqlab bo'lmadi, qaytadan urinib ko'ring.</p>
       ) : null}
+    </div>
+  );
+}
+
+type SendLinkOutcome = { kind: 'sent' | 'already_sent' | 'not_eligible' | 'no_link' | 'failed' };
+
+const HAVOLA_NATIJASI: Record<SendLinkOutcome['kind'], string> = {
+  sent: 'Guruh havolasi yuborildi',
+  already_sent: 'Havola avvalroq yuborilgan',
+  not_eligible: 'Kurs qoidasi hali bajarilmagan',
+  no_link: 'Kursga guruh havolasi kiritilmagan',
+  failed: 'Yuborib bo\'lmadi — Telegram ulanishini tekshirib, qayta urinib ko\'ring',
+};
+
+/**
+ * "Havolani yuborish" — avtomatik yuborish yiqilganda yoki havola kursga
+ * keyin kiritilganda. Matnni tizim yuboradi (aniq qiymatdan), bir marta.
+ */
+export function SendLinkButton({ conversationId, visible }: { conversationId: string; visible: boolean }) {
+  const canConfirm = useCan('receipts.confirm');
+  const queryClient = useQueryClient();
+  const yubor = useMutation({
+    mutationFn: () => api.post<SendLinkOutcome>(`/conversations/${conversationId}/send-link`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+    },
+  });
+  if (!canConfirm || (!visible && !yubor.data)) return null;
+  return (
+    <div className="mb-3">
+      {visible ? (
+        <button
+          type="button"
+          onClick={() => yubor.mutate()}
+          disabled={yubor.isPending}
+          className="btn-ghost w-full !py-1.5 text-xs"
+        >
+          {yubor.isPending ? 'Yuborilyapti…' : 'Havolani yuborish'}
+        </button>
+      ) : null}
+      {yubor.data ? <p className="mt-1.5 text-[11px] text-ink-400">{HAVOLA_NATIJASI[yubor.data.kind]}</p> : null}
+      {yubor.isError ? <p className="mt-1.5 text-[11px] text-red-300">Yuborib bo'lmadi, qaytadan urinib ko'ring.</p> : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import express from 'express';
-import type { ReceiptConfirmOutcome, ReceiptRejectOutcome } from '@/application/services/PaymentCheckService';
+import type { ReceiptConfirmOutcome, ReceiptRejectOutcome, SendLinkOutcome } from '@/application/services/PaymentCheckService';
 import type { Container } from '@/composition/container';
 import type { Permission } from '@/domain/entities/Permission';
 import type { PaymentCheck } from '@/domain/entities/PaymentCheck';
@@ -42,6 +42,8 @@ const radlar: Array<{ id: string; actor: string; reason: string }> = [];
 const bekorlar: string[] = [];
 let natija: ReceiptConfirmOutcome = { kind: 'confirmed', stage: 'qisman_toladi', linkSent: true };
 let radNatija: ReceiptRejectOutcome = { kind: 'rejected' };
+let havolaNatija: SendLinkOutcome = { kind: 'sent' };
+const havolalar: string[] = [];
 let ochiqTekshiruv: Partial<PaymentCheck> | null = null;
 
 const container = {
@@ -71,6 +73,11 @@ const container = {
     agent: { abort: () => undefined },
     javobYonaltiruvchi: { abort: () => 0 },
     paymentCheckService: {
+      havolaKutyaptimi: async () => true,
+      sendLink: async (id: string) => {
+        havolalar.push(id);
+        return havolaNatija;
+      },
       cancel: async (id: string) => void bekorlar.push(id),
       confirmReceipt: async (id: string, actor: string, amount: number) => {
         chaqiruvlar.push({ id, actor, amount });
@@ -144,9 +151,13 @@ try {
   eq('tasdiq — 200 va natija', [ok.status, ok.json], [200, { kind: 'confirmed', stage: 'qisman_toladi', linkSent: true }]);
   eq('operator emaili va summa servisga bordi', chaqiruvlar[0], { id: 'cv1', actor: 'operator@xonsaroy.uz', amount: 500000 });
 
-  natija = { kind: 'not_sent', reason: 'agent_error' };
+  natija = { kind: 'not_sent', reason: 'agent_error', stage: 'qisman_toladi', linkSent: false };
   const yozilmadi = await so('POST', '/cv1/receipt-confirm', true, { amount: 500000 });
-  eq('rahmat ketmadi — 200, sabab bilan', [yozilmadi.status, yozilmadi.json], [200, { kind: 'not_sent', reason: 'agent_error' }]);
+  eq('rahmat ketmadi — 200, sabab bilan', [yozilmadi.status, yozilmadi.json], [200, { kind: 'not_sent', reason: 'agent_error', stage: 'qisman_toladi', linkSent: false }]);
+
+  natija = { kind: 'needs_human', reason: 'yakunlangan_xarid', stage: 'toladi' };
+  const qolda = await so('POST', '/cv1/receipt-confirm', true, { amount: 500000 });
+  eq('yakunlangan xarid — 200 needs_human', [qolda.status, qolda.json?.kind], [200, 'needs_human']);
 
   natija = { kind: 'no_review' };
   const yoq = await so('POST', '/cv1/receipt-confirm', true, { amount: 500000 });
@@ -163,10 +174,20 @@ try {
   radNatija = { kind: 'no_review' };
   eq('rad: tekshiruv yo\'q — 409', (await so('POST', '/cv1/receipt-reject', true, { reason: 'x' })).status, 409);
 
+  // ── Havolani qayta yuborish ──
+  eq('havola: huquqsiz — 403', (await so('POST', '/cv1/send-link', false)).status, 403);
+  eq('havola: servis chaqirilmadi', havolalar.length, 0);
+  const hv = await so('POST', '/cv1/send-link');
+  eq('havola: 200 sent', [hv.status, hv.json], [200, { kind: 'sent' }]);
+  havolaNatija = { kind: 'already_sent' };
+  const hv2 = await so('POST', '/cv1/send-link');
+  eq('havola: allaqachon — 200, natija tanada', [hv2.status, hv2.json], [200, { kind: 'already_sent' }]);
+
   eq('check-payment endi yo\'q — 404', (await so('POST', '/cv1/check-payment')).status, 404);
 
   ochiqTekshiruv = { id: 'pc1', kind: 'receipt_review', clientId: 'c1', purchaseId: 'p1', messageId: 'm1', createdAt: NOW };
   const bor = await so('GET', '/cv1', false);
+  eq('GET: linkPending servisdan', bor.json?.linkPending, true);
   eq('GET: receiptReview kutilgan summa bilan', bor.json?.receiptReview, {
     id: 'pc1', messageId: 'm1', createdAt: NOW.toISOString(), expectedAmount: 1_000_000,
   });

@@ -1,4 +1,5 @@
 import type { NewReceiptReview, PaymentCheck } from '@/domain/entities/PaymentCheck';
+import type { Purchase } from '@/domain/entities/Purchase';
 
 export interface IPaymentCheckRepository {
   /**
@@ -18,10 +19,17 @@ export interface IPaymentCheckRepository {
    */
   markAcknowledged(id: string, at: Date): Promise<boolean>;
   /**
-   * Menejer summani kiritib tasdiqladi. `false` — yozuv allaqachon
-   * `reviewing` emas (parallel ikkinchi bosish yoki suhbat yopilgan).
+   * Menejer summani kiritib tasdiqladi — pul xaridga QO'SHILMAYDI (masalan,
+   * chek yakunlangan xaridga kelgan). `false` — yozuv allaqachon `reviewing`
+   * emas (parallel ikkinchi bosish yoki suhbat yopilgan).
    */
   confirmByOperator(id: string, actor: string, amount: number, at: Date): Promise<boolean>;
+  /**
+   * Tasdiq va `purchases.paid_amount += amount` BITTA tranzaksiyada: chek
+   * yopilib, pul yozilmay qolishi (yoki teskarisi) mumkin emas. `null` —
+   * yozuv allaqachon `reviewing` emas, hech narsa o'zgarmadi.
+   */
+  confirmWithPayment(id: string, actor: string, amount: number, purchaseId: string, at: Date): Promise<Purchase | null>;
   /** Menejer rad etdi. `false` — yozuv allaqachon `reviewing` emas. */
   reject(id: string, actor: string, reason: string, at: Date): Promise<boolean>;
   /** Ochiq tekshiruvni `cancelled` qiladi. */

@@ -92,6 +92,7 @@ const container = {
   },
   events: { publish: () => undefined },
   services: {
+    paymentCheckService: { havolaKutyaptimi: async () => false },
     agent: { abort: () => 0 },
     javobYonaltiruvchi: { abort: (id: string) => { uzilganlar.push(id); return 0; } },
     shartnomaBoglovchi: {

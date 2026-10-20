@@ -191,6 +191,17 @@ export function conversationRoutes(container: Container): Router {
     res.json(outcome);
   });
 
+  /**
+   * "Havolani yuborish" — avtomatik yuborish yiqilgan bo'lsa. Kurs qoidasi
+   * va "bir marta" belgisi servisda qaytadan tekshiriladi.
+   */
+  router.post('/:id/send-link', requirePermission('receipts.confirm'), async (req, res) => {
+    const user = currentUser(req);
+    const outcome = await container.services.paymentCheckService.sendLink(String(req.params.id), user.email);
+    // Natija turi (sent / already_sent / not_eligible / no_link / failed) tanada — UI shuni ko'rsatadi.
+    res.json(outcome);
+  });
+
   router.get('/:id', async (req, res) => {
     const id = String(req.params.id);
     const conversation = await conversations.findById(id);
@@ -204,6 +215,9 @@ export function conversationRoutes(container: Container): Router {
       paymentChecks.findOpenByConversation(id),
       nomalumSuhbatlar.find(id),
     ]);
+    // "Havolani yuborish" tugmasi: qoida bajarilgan, havola bor, lekin hali ketmagan.
+    // Noma'lum mijozda xarid yo'q — so'ralmaydi.
+    const linkPending = client?.nomalum ? false : await container.services.paymentCheckService.havolaKutyaptimi(conversation.clientId);
     // Agent topgan, tasdiq kutayotgan mijoz — operator kimga bog'layotganini ko'rsin.
     const topilgan = nomalum?.topilganClientId ? await clients.findById(nomalum.topilganClientId) : null;
 
@@ -233,6 +247,7 @@ export function conversationRoutes(container: Container): Router {
               expectedAmount: await kutilganSumma(openCheck),
             }
           : null,
+      linkPending,
       // Operator va agent oyma-oy kechikish bilan ishlaydi; umumiy kechikish —
       // faqat ma'lumot uchun.
       // Noma'lum mijoz suhbati holati (oddiy suhbatda `null`).

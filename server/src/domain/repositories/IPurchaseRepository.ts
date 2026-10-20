@@ -15,6 +15,8 @@ export interface IPurchaseRepository {
   addPaid(id: string, amount: number): Promise<Purchase>;
   /** Faqat `link_sent_at` null bo'lsa true. */
   markLinkSent(id: string, at: Date): Promise<boolean>;
+  /** Havola yuborilmay qoldi — `link_sent_at` tozalanadi, qayta yuborish mumkin. */
+  unmarkLinkSent(id: string): Promise<void>;
   addRemindedStage(id: string, stage: XaridBosqichi): Promise<void>;
   countByStage(): Promise<Record<XaridBosqichi, number>>;
 }

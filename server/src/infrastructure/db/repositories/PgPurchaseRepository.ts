@@ -96,6 +96,10 @@ export class PgPurchaseRepository implements IPurchaseRepository {
     return (rowCount ?? 0) > 0;
   }
 
+  async unmarkLinkSent(id: string): Promise<void> {
+    await query(`UPDATE purchases SET link_sent_at = NULL WHERE id = $1`, [id]);
+  }
+
   async addRemindedStage(id: string, stage: XaridBosqichi): Promise<void> {
     await query(
       `UPDATE purchases SET reminded_stages = array_append(reminded_stages, $2)

@@ -251,8 +251,7 @@ function muhit(opts: {
   const tekshiruvlar = opts.tekshiruvlar ?? new XotiraTekshiruvlar();
   const bosqichlar: string[] = [];
   const xarid = {
-    faolXarid: async () => ({ id: 'p1', stage: 'karta_yuborildi' }),
-    bosqich: async (clientId: string, stage: string, actor: string) => {
+    faolXaridBosqichi: async (clientId: string, stage: string, actor: string) => {
       bosqichlar.push(`${clientId}:${stage}:${actor}`);
       return null;
     },
@@ -273,7 +272,10 @@ function muhit(opts: {
   const service = new PaymentCheckService(
     tekshiruvlar as unknown as IPaymentCheckRepository,
     conversations,
-    {} as unknown as IPurchaseRepository,
+    {
+      findActiveByClient: async () => ({ id: 'p1', stage: 'karta_yuborildi' }),
+      findLatestByClient: async () => null,
+    } as unknown as IPurchaseRepository,
     { findById: async () => null },
     xarid,
     {} as unknown as AgentRunner,

@@ -1,7 +1,8 @@
 import type { NewReceiptReview, PaymentCheck } from '@/domain/entities/PaymentCheck';
 import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentCheckRepository';
-import { query } from '@/infrastructure/db/pool';
-import { mapPaymentCheck } from '@/infrastructure/db/mappers';
+import type { Purchase } from '@/domain/entities/Purchase';
+import { query, withTransaction } from '@/infrastructure/db/pool';
+import { mapPaymentCheck, mapPurchase } from '@/infrastructure/db/mappers';
 
 /** Ochiq tekshiruv holati — `payment_checks_one_open_idx` ning bir qismi. */
 const OCHIQ = `status = 'reviewing'`;
@@ -67,6 +68,26 @@ export class PgPaymentCheckRepository implements IPaymentCheckRepository {
       [id, actor, amount, at],
     );
     return (rowCount ?? 0) > 0;
+  }
+
+  async confirmWithPayment(id: string, actor: string, amount: number, purchaseId: string, at: Date): Promise<Purchase | null> {
+    return withTransaction(async (client) => {
+      const { rowCount } = await client.query(
+        `UPDATE payment_checks
+            SET status = 'confirmed_by_operator', confirmed_by = $2, confirmed_amount = $3,
+                confirmed_at = $4, updated_at = now()
+          WHERE id = $1 AND status = 'reviewing'`,
+        [id, actor, amount, at],
+      );
+      if (!rowCount) return null;
+      const { rows } = await client.query(
+        `UPDATE purchases SET paid_amount = paid_amount + $2 WHERE id = $1 RETURNING *`,
+        [purchaseId, amount],
+      );
+      // Xarid yo'q — tranzaksiya qaytariladi, chek ochiq qoladi.
+      if (!rows[0]) throw new Error(`Xarid topilmadi: ${purchaseId}`);
+      return mapPurchase(rows[0]);
+    });
   }
 
   async reject(id: string, actor: string, reason: string, at: Date): Promise<boolean> {

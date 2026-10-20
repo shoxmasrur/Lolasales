@@ -87,8 +87,8 @@ export class HandleIncomingMessageUseCase {
     private readonly nomalumOchuvchi: NomalumMijozOchuvchi | null = null,
     /** Hujjat kutilayotgan noma'lum suhbatga kelgan rasm/faylni operator tasdig'iga o'tkazadi. */
     private readonly hujjatQabul: Pick<NomalumHujjatQabul, 'qabulQil'> | null = null,
-    /** Chek kelganda faol xarid bosqichi `chek_keldi` bo'ladi; `null` — sinovlarda. */
-    private readonly xarid: Pick<XaridXizmati, 'bosqich'> | null = null,
+    /** Chek kelganda FAOL xarid bosqichi `chek_keldi` bo'ladi (yangi xarid ochilmaydi); `null` — sinovlarda. */
+    private readonly xarid: Pick<XaridXizmati, 'faolXaridBosqichi'> | null = null,
   ) {}
 
   async execute(incoming: IncomingMessage): Promise<IncomingOutcome> {
@@ -243,7 +243,7 @@ export class HandleIncomingMessageUseCase {
         );
         // Bosqich xatosi chekni operatordan chetda qoldirmasin — faqat jurnal.
         try {
-          await this.xarid?.bosqich(client.id, 'chek_keldi', 'tizim');
+          await this.xarid?.faolXaridBosqichi(client.id, 'chek_keldi', 'tizim');
         } catch (err) {
           log.warn({ conversationId: conversation.id, err }, 'Xarid bosqichi chek_keldi ga o\'tmadi');
         }

@@ -76,6 +76,17 @@ export class XaridXizmati {
     return updated;
   }
 
+  /**
+   * Tizim bosqichi faqat FAOL xaridga: faol xarid yo'q bo'lsa (mijozda xarid
+   * umuman yo'q yoki oxirgisi yakunlangan) hech narsa ochilmaydi, `null`.
+   * Chek oqimi shu yo'ldan: yakunlangan xariddan keyingi rasm "Chek keldi"
+   * bosqichli soxta xarid ochmasin.
+   */
+  async faolXaridBosqichi(clientId: string, requested: XaridBosqichi, actor: BosqichAktori): Promise<Purchase | null> {
+    if (!(await this.purchases.findActiveByClient(clientId))) return null;
+    return this.bosqich(clientId, requested, actor);
+  }
+
   /** Kursni belgilaydi (jami summa = kurs narxi) — faqat karta yuborilmagan bo'lsa. */
   async kursBelgila(clientId: string, courseId: string): Promise<Purchase> {
     const course = await this.courses.findById(courseId);
