@@ -16,7 +16,21 @@ export type TelegramLookupStatus =
    */
   | 'deactivated';
 
+export type ClientSource = 'reklama' | 'guruh' | 'raqam' | 'qolda';
+export const CLIENT_SOURCES: readonly ClientSource[] = ['reklama', 'guruh', 'raqam', 'qolda'];
+
+export const CLIENT_SOURCE_LABEL: Record<ClientSource, string> = {
+  reklama: 'Reklama',
+  guruh: 'Guruh',
+  raqam: 'Raqam',
+  qolda: "Qo'lda",
+};
+
 export interface Client {
+  /** Mijoz qayerdan kelgani. */
+  readonly source: ClientSource;
+  readonly sourceGroup: string | null;
+  readonly sourceComment: string | null;
   readonly id: string;
   readonly externalId: string | null;
   readonly fullName: string;

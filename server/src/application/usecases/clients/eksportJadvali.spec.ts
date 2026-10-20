@@ -46,6 +46,9 @@ function mijoz(overrides: Partial<ClientWithDebt> = {}): ClientWithDebt {
     accountAssignedAt: null,
     doNotContact: false,
     notes: null,
+    source: 'reklama',
+    sourceGroup: null,
+    sourceComment: null,
     createdAt: SANA,
     updatedAt: SANA,
     deletedAt: null,
@@ -61,7 +64,7 @@ function mijoz(overrides: Partial<ClientWithDebt> = {}): ClientWithDebt {
 }
 
 // ── 1. Ustunlar soni va qator uzunligi mos ────────────────────────────
-eq('12 ta ustun', EKSPORT_USTUNLARI.length, 12);
+eq('16 ta ustun', EKSPORT_USTUNLARI.length, 16);
 eq('qator uzunligi ustunlarga teng', eksportQatori(mijoz()).length, EKSPORT_USTUNLARI.length);
 eq('birinchi ustun F.I.O.', EKSPORT_USTUNLARI[0]?.nom, 'F.I.O.');
 eq('oxirgi ustun Izoh', EKSPORT_USTUNLARI[11]?.nom, 'Izoh');
@@ -80,6 +83,10 @@ eq('to\'liq qator', eksportQatori(mijoz()), [
   4_500_000,
   37,
   '',
+  'Reklama',
+  '',
+  '',
+  0,
 ]);
 
 // ── 3. Summalar RAQAM bo'lib qoladi — Excelda yig'indi shunga bog'liq ──
@@ -128,6 +135,19 @@ eq(
   'Новый статус',
 );
 eq('holatsiz mijoz', eksportQatori(mijoz({ contractStatuses: [] }))[6], '');
+
+// ── 8. Manba, bosqich, kurs, to'langan ────────────────────────────────
+{
+  const xarid = {
+    purchase: { stage: 'qisman_toladi', paidAmount: 500_000 } as never,
+    kursNomi: 'Python',
+  };
+  const qator = eksportQatori(mijoz({ source: 'qolda' }), xarid);
+  eq('manba nomi', qator[12], 'Qo\'lda');
+  eq('bosqich nomi', qator[13], 'Qisman to\'ladi');
+  eq('kurs nomi', qator[14], 'Python');
+  eq('to\'langan raqam', qator[15], 500_000);
+}
 
 console.log(failed === 0 ? '\nHammasi o\'tdi' : `\n${failed} ta test yiqildi`);
 process.exit(failed === 0 ? 0 : 1);

@@ -8,6 +8,8 @@ import { parseBody, parseQuery } from '@/presentation/http/middleware/validate';
 import { normalizePhone } from '@/shared/phone';
 import { AppError, NotFoundError, ValidationError } from '@/shared/errors';
 import { canAcceptClients } from '@/domain/entities/TelegramAccount';
+import { XARID_BOSQICHLARI } from '@/domain/entities/Purchase';
+import { CLIENT_SOURCES } from '@/domain/entities/Client';
 import { ALOQA_KALITLARI } from '@/domain/entities/aloqaHolati';
 import { EKSPORT_USTUNLARI, eksportQatori } from '@/application/usecases/clients/eksportJadvali';
 import type { ClientQuery } from '@/domain/repositories/IClientRepository';
@@ -161,6 +163,9 @@ export const listQuery = z.object({
   objectName: z.string().optional(),
   virtualStatus: kopQiymat(z.string()),
   aloqa: z.enum(ALOQA_KALITLARI).optional(),
+  stage: z.enum(XARID_BOSQICHLARI).optional(),
+  source: z.enum(CLIENT_SOURCES as [string, ...string[]]).optional(),
+  courseId: z.string().uuid().optional(),
   sort: z.enum(['debt', 'overdue', 'name', 'recent']).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
@@ -189,6 +194,9 @@ export function listFiltrlari(q: z.infer<typeof listQuery>): ClientQuery {
     objectName: q.objectName,
     virtualStatus: q.virtualStatus,
     aloqa: q.aloqa,
+    stage: q.stage,
+    source: q.source as ClientQuery['source'],
+    courseId: q.courseId,
   };
 }
 
@@ -201,6 +209,8 @@ const deleteSchema = z
   })
   .default({});
 
+const stageSchema = z.object({ stage: z.enum(XARID_BOSQICHLARI) });
+
 const updateSchema = z.object({
   fullName: z.string().min(2).optional(),
   phone: z.string().nullable().optional(),
@@ -211,7 +221,7 @@ const updateSchema = z.object({
 
 export function clientRoutes(container: Container): Router {
   const router = Router();
-  const { clients, contracts, conversations, contractPayments, audit, phoneBlocks } =
+  const { clients, contracts, conversations, contractPayments, audit, phoneBlocks, purchases } =
     container.repositories;
   const { contractSync, qamrovTekshiruvchi } = container.services;
 
@@ -265,7 +275,9 @@ export function clientRoutes(container: Container): Router {
       { ...listFiltrlari(q), sort: q.sort, limit: q.limit, offset: q.offset },
       qamrov(req),
     );
-    res.json(page);
+    // Har bir mijozga joriy xarid (faol yoki oxirgi) qo'shiladi.
+    const xaridlar = await purchases.findCurrentByClients(page.items.map((c) => c.id));
+    res.json({ ...page, items: page.items.map((c) => ({ ...c, purchase: xaridlar.get(c.id) ?? null })) });
   });
 
   /**
@@ -329,10 +341,17 @@ export function clientRoutes(container: Container): Router {
     sarlavha.font = { bold: true };
     sarlavha.commit();
 
+    const kurslar = new Map((await container.repositories.courses.list()).map((c) => [c.id, c.name]));
+
     let soni = 0;
     try {
       for await (const bolak of clients.searchAll(filters, 500, mijozQamrovi)) {
-        for (const mijoz of bolak) sheet.addRow(eksportQatori(mijoz)).commit();
+        const xaridlar = await purchases.findCurrentByClients(bolak.map((c) => c.id));
+        for (const mijoz of bolak) {
+          const purchase = xaridlar.get(mijoz.id) ?? null;
+          const kursNomi = purchase?.courseId ? (kurslar.get(purchase.courseId) ?? null) : null;
+          sheet.addRow(eksportQatori(mijoz, { purchase, kursNomi })).commit();
+        }
         soni += bolak.length;
       }
 
@@ -669,6 +688,7 @@ export function clientRoutes(container: Container): Router {
 
     res.json({
       client,
+      purchase: await purchases.findActiveByClient(id) ?? (await purchases.findLatestByClient(id)),
       contracts: clientContracts,
       conversation,
       blockedPhones,
@@ -686,6 +706,15 @@ export function clientRoutes(container: Container): Router {
       debtTotal: clientContracts.reduce((s, c) => s + c.debtTotal, 0),
       daysOverdue: clientContracts.reduce((m, c) => Math.max(m, c.daysOverdue), 0),
     });
+  });
+
+  /** Xarid bosqichini qo'lda o'zgartirish (menejer) — har qanday o'tish ruxsat. */
+  router.patch('/:id/stage', requirePermission('clients.edit'), async (req, res) => {
+    const id = String(req.params.id);
+    const { stage } = parseBody(stageSchema, req);
+    const purchase = await container.services.xaridXizmati.bosqich(id, stage, 'menejer', currentUser(req).id);
+    // `null` — bosqich allaqachon shu; xarid o'zgarishsiz qaytariladi.
+    res.json({ purchase: purchase ?? (await purchases.findActiveByClient(id)) });
   });
 
   router.patch('/:id', requirePermission('clients.edit'), async (req, res) => {

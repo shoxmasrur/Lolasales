@@ -8,7 +8,8 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Client, ClientProfile, Contract, Conversation } from '@/lib/types';
+import type { Client, ClientProfile, Contract, Conversation, Purchase, XaridBosqichi } from '@/lib/types';
+import { BOSQICH_CLASS, BOSQICH_YORLIGI, MANBA_YORLIGI, XARID_BOSQICHLARI } from '@/lib/xarid';
 import {
   dateUz,
   initials,
@@ -48,6 +49,8 @@ interface ClientPayments {
 
 export interface ClientDetail {
   client: Client;
+  /** Joriy xarid (faol, bo'lmasa oxirgi) — yo'q bo'lsa `null`. */
+  purchase?: Purchase | null;
   contracts: Contract[];
   conversation: Conversation | null;
   /**
@@ -599,6 +602,46 @@ export interface ClientDetailBodyProps {
   onClosed: () => void;
 }
 
+/** Xarid bosqichi va uni qo'lda o'zgartirish (menejer). */
+function PurchaseStageCard({ client, purchase, canEdit }: { client: Client; purchase: Purchase | null; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const change = useMutation({
+    mutationFn: (stage: XaridBosqichi) => api.patch(`/clients/${client.id}/stage`, { stage }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['clients'] });
+      void queryClient.invalidateQueries({ queryKey: ['client', client.id] });
+    },
+  });
+  const stage: XaridBosqichi = purchase?.stage ?? 'yangi';
+  return (
+    <div className="card !p-3">
+      <p className="text-[10px] uppercase text-ink-500">Xarid bosqichi</p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <span className={BOSQICH_CLASS[stage]}>{BOSQICH_YORLIGI[stage]}</span>
+        <span className="text-[11px] text-ink-500">Manba: {MANBA_YORLIGI[client.source] ?? '—'}</span>
+      </div>
+      {purchase && purchase.totalAmount ? (
+        <p className="mt-1 text-[11px] text-ink-500">
+          To'langan: {som(purchase.paidAmount)} / {som(purchase.totalAmount)}
+        </p>
+      ) : null}
+      {canEdit && !client.deletedAt ? (
+        <select
+          className="input mt-2 w-full"
+          value={stage}
+          disabled={change.isPending}
+          onChange={(e) => change.mutate(e.target.value as XaridBosqichi)}
+        >
+          {XARID_BOSQICHLARI.map((b) => (
+            <option key={b} value={b}>{BOSQICH_YORLIGI[b]}</option>
+          ))}
+        </select>
+      ) : null}
+      {change.error ? <ErrorNote error={change.error} /> : null}
+    </div>
+  );
+}
+
 /**
  * Mijoz kartasining mazmuni — kompyuterda yonma-yon `<aside>` panelida
  * ham, telefonda `Sheet` ichida ham aynan shu bitta komponent chiziladi
@@ -643,6 +686,12 @@ export function ClientDetailBody({
       {/* Telegram profili: xodim shu yerda "bu haqiqatan bizning
           mijozimizmi?" degan savolga javob topadi. */}
       <TelegramIdentityCard client={detailQuery.data.client} canConfirm={canLookup} />
+
+      <PurchaseStageCard
+        client={detailQuery.data.client}
+        purchase={detailQuery.data.purchase ?? null}
+        canEdit={canEdit}
+      />
 
       {/* Agent mijoz bilan FAQAT oyma-oy kechikish haqida gaplashadi,
           shuning uchun u birinchi va yirikroq. Umumiy kechikish xodim

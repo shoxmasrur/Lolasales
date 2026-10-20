@@ -1,3 +1,5 @@
+import { CLIENT_SOURCE_LABEL } from '@/domain/entities/Client';
+import { BOSQICH_YORLIGI, type Purchase } from '@/domain/entities/Purchase';
 import { SHARTNOMA_HOLATLARI } from '@/domain/entities/shartnomaHolati';
 import type { ClientWithDebt } from '@/domain/repositories/IClientRepository';
 
@@ -26,6 +28,10 @@ export const EKSPORT_USTUNLARI: readonly EksportUstuni[] = [
   { nom: 'Umumiy kechikish', kengligi: 16 },
   { nom: 'Kechikish (kun)', kengligi: 14 },
   { nom: 'Izoh', kengligi: 40 },
+  { nom: 'Manba', kengligi: 12 },
+  { nom: 'Bosqich', kengligi: 18 },
+  { nom: 'Kurs', kengligi: 28 },
+  { nom: 'To\'langan', kengligi: 16 },
 ];
 
 /**
@@ -62,7 +68,13 @@ export type EksportKatagi = string | number;
  * matn katakni yig'indiga qo'shmaydi va operator buni sezmaydi — ustun
  * pastidagi son shunchaki kam chiqadi.
  */
-export function eksportQatori(c: ClientWithDebt): EksportKatagi[] {
+export interface EksportXarid {
+  readonly purchase: Purchase | null;
+  readonly kursNomi: string | null;
+}
+
+export function eksportQatori(c: ClientWithDebt, xarid: EksportXarid | null = null): EksportKatagi[] {
+  const p = xarid?.purchase ?? null;
   return [
     c.fullName,
     c.phone ?? '',
@@ -76,5 +88,9 @@ export function eksportQatori(c: ClientWithDebt): EksportKatagi[] {
     c.debtTotal,
     c.daysOverdue,
     c.notes ?? '',
+    CLIENT_SOURCE_LABEL[c.source] ?? '',
+    p ? BOSQICH_YORLIGI[p.stage] : '',
+    xarid?.kursNomi ?? '',
+    p?.paidAmount ?? 0,
   ];
 }

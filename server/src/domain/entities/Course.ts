@@ -28,7 +28,11 @@ export interface CourseKnowledge {
   title: string;
   body: string;
   sortOrder: number;
+  isEnabled: boolean;
 }
+
+export type NewCourse = Omit<Course, 'id'>;
+export type NewKnowledge = Omit<CourseKnowledge, 'id' | 'courseId'>;
 
 const tartib = (a: Course, b: Course): number =>
   a.salesStart < b.salesStart ? -1 : a.salesStart > b.salesStart ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;

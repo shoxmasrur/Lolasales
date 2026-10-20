@@ -13,6 +13,9 @@ import { PgConversationRepository } from '@/infrastructure/db/repositories/PgCon
 import { PgNomalumSuhbatRepository } from '@/infrastructure/db/repositories/PgNomalumSuhbatRepository';
 import { PgMessageRepository } from '@/infrastructure/db/repositories/PgMessageRepository';
 import { PgPaymentPromiseRepository } from '@/infrastructure/db/repositories/PgPaymentPromiseRepository';
+import { PgCourseRepository } from '@/infrastructure/db/repositories/PgCourseRepository';
+import { PgPurchaseRepository } from '@/infrastructure/db/repositories/PgPurchaseRepository';
+import { XaridXizmati } from '@/application/services/XaridXizmati';
 import { PgPaymentCheckRepository } from '@/infrastructure/db/repositories/PgPaymentCheckRepository';
 import { PaymentCheckService } from '@/application/services/PaymentCheckService';
 import { MissedMessageSync } from '@/application/services/MissedMessageSync';
@@ -131,6 +134,8 @@ export function createContainer() {
   const nomalumSuhbatlar = new PgNomalumSuhbatRepository();
   const promises = new PgPaymentPromiseRepository();
   const paymentChecks = new PgPaymentCheckRepository();
+  const courses = new PgCourseRepository();
+  const purchases = new PgPurchaseRepository();
   const campaigns = new PgCampaignRepository();
   const telegramAccounts = new PgTelegramAccountRepository();
   const users = new PgUserRepository();
@@ -199,6 +204,7 @@ export function createContainer() {
   // Jurnal qatorlariga akkaunt nomini ("Madina") qo'shish uchun — akkaunt
   // ko'p bo'lganda qaysi birida muammo borligini id bo'yicha topib
   // bo'lmaydi.
+  const xaridXizmati = new XaridXizmati(purchases, courses, events, audit, clock);
   const accountLabels = new AccountLabels(telegramAccounts);
   const assigner = new AccountAssigner(clients, telegramAccounts, audit, conversations);
   const resolver = new ClientTelegramResolver(clients, telegramAccounts, telegram, clock, assigner);
@@ -426,7 +432,7 @@ export function createContainer() {
       clients, contracts, contractSyncRepo, contractPayments, conversations, messages, promises, campaigns,
       telegramAccounts, users, roles, apiTokens, importBatches, settingsRepo, audit, stats,
       agentRules, lessons, clientProfiles, appLog, paymentChecks, agentUsage, phoneBlocks, holidays,
-      recontactList, recontactTopics, llmModels, bulkJobs, nomalumSuhbatlar,
+      recontactList, recontactTopics, llmModels, bulkJobs, nomalumSuhbatlar, courses, purchases,
     },
     services: {
       telegram, resolver, dispatcher, agent, scheduler, promiseWatcher, silenceWatcher, accountLabels,
@@ -436,7 +442,7 @@ export function createContainer() {
       paymentCheckService, missedSync, bulkRecontact, xulosaBoti, llmKaliti,
       bulkJobStore, bulkJobResumer,
       nomalumAgent, shartnomaBoglovchi, javobYonaltiruvchi,
-      qamrovTekshiruvchi,
+      qamrovTekshiruvchi, xaridXizmati,
     },
     useCases: {
       login, importDebtors, importPhones, startConversation,

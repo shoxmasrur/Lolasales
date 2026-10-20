@@ -11,8 +11,10 @@ import {
 } from '@/lib/socket';
 import { useCan } from '@/store/auth';
 import type {
-  AloqaHolati, ClientWithDebt, ContractStatusOption, Conversation, Page, TelegramLookupStatus,
+  AloqaHolati, ClientSource, ClientWithDebt, ContractStatusOption, Conversation, Course, Page,
+  TelegramLookupStatus, XaridBosqichi,
 } from '@/lib/types';
+import { BOSQICH_CLASS, BOSQICH_YORLIGI, MANBA_YORLIGI, XARID_BOSQICHLARI } from '@/lib/xarid';
 import { MultiSelect, type MultiSelectOption } from '@/components/MultiSelect';
 import {
   CONTRACT_STATUS_CLASS,
@@ -93,6 +95,11 @@ export default function ClientsPage() {
   // ketmadi?" degan savolga shu filtr orqali javob topadi.
   const [contractStatus, setContractStatus] = useState<string[]>([]);
   const [aloqa, setAloqa] = useState<'' | AloqaHolati>('');
+  // Kurs sotuvi: xarid bosqichi, mijoz manbasi va kurs bo'yicha filtrlar.
+  const [stage, setStage] = useState<'' | XaridBosqichi>('');
+  const [source, setSource] = useState<'' | ClientSource>('');
+  const [courseId, setCourseId] = useState('');
+  const canSeeCourses = useCan('courses.view');
   /**
    * Faqat kechikkan to'lovi borlar.
    *
@@ -140,10 +147,13 @@ export default function ClientsPage() {
       telegramStatus: tgStatus.length ? tgStatus : undefined,
       virtualStatus: contractStatus.length ? contractStatus : undefined,
       aloqa: aloqa || undefined,
+      stage: stage || undefined,
+      source: source || undefined,
+      courseId: courseId || undefined,
       hasPhone: onlyNoPhone ? 'false' : undefined,
       hasDebt: onlyWithDebt ? 'true' : undefined,
     }),
-    [search, tab, tgStatus, contractStatus, aloqa, onlyNoPhone, onlyWithDebt],
+    [search, tab, tgStatus, contractStatus, aloqa, stage, source, courseId, onlyNoPhone, onlyWithDebt],
   );
 
   const listQuery = useQuery({
@@ -181,6 +191,17 @@ export default function ClientsPage() {
     for (const h of statusesQuery.data?.items ?? []) m.set(h.key, h.label);
     return m;
   }, [statusesQuery.data]);
+
+  const coursesQuery = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => api.get<{ items: Course[] }>('/courses'),
+    enabled: canSeeCourses,
+    staleTime: 60_000,
+  });
+  const courseName = useMemo(
+    () => new Map((coursesQuery.data?.items ?? []).map((c) => [c.id, c.name])),
+    [coursesQuery.data],
+  );
 
   const countsQuery = useQuery({
     queryKey: ['client-tab-counts'],
@@ -877,6 +898,47 @@ export default function ClientsPage() {
                 }}
               />
             ) : null}
+            <select
+              className="input w-full md:max-w-[170px]"
+              value={stage}
+              onChange={(e) => {
+                setStage(e.target.value as '' | XaridBosqichi);
+                setPage(0);
+              }}
+            >
+              <option value="">Bosqich: hammasi</option>
+              {XARID_BOSQICHLARI.map((b) => (
+                <option key={b} value={b}>{BOSQICH_YORLIGI[b]}</option>
+              ))}
+            </select>
+            <select
+              className="input w-full md:max-w-[150px]"
+              value={source}
+              onChange={(e) => {
+                setSource(e.target.value as '' | ClientSource);
+                setPage(0);
+              }}
+            >
+              <option value="">Manba: hammasi</option>
+              {(Object.keys(MANBA_YORLIGI) as ClientSource[]).map((m) => (
+                <option key={m} value={m}>{MANBA_YORLIGI[m]}</option>
+              ))}
+            </select>
+            {canSeeCourses && (coursesQuery.data?.items.length ?? 0) > 0 ? (
+              <select
+                className="input w-full md:max-w-[200px]"
+                value={courseId}
+                onChange={(e) => {
+                  setCourseId(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="">Kurs: hammasi</option>
+                {(coursesQuery.data?.items ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            ) : null}
             {/* "O'qigani tasdiqlanmagan" ATAYLAB uzun: Telegram "o'qildi"
                 xabarnomasi server uzilgan paytda yoki mijoz "oxirgi
                 kirish" maxfiyligini yopganda umuman kelmaydi. Ya'ni
@@ -1043,6 +1105,14 @@ export default function ClientsPage() {
                             {client.telegramStatus === 'name_mismatch' ? '⚠ ' : ''}
                             {TELEGRAM_STATUS_LABEL[client.telegramStatus] ?? client.telegramStatus}
                           </span>
+                          {client.purchase ? (
+                            <span className={BOSQICH_CLASS[client.purchase.stage]}>
+                              {BOSQICH_YORLIGI[client.purchase.stage]}
+                            </span>
+                          ) : null}
+                          <span className="chip bg-ink-800 text-ink-400">
+                            {MANBA_YORLIGI[client.source] ?? '—'}
+                          </span>
                           {client.accountName ? (
                             <span className="chip bg-ink-800 text-ink-400">{client.accountName}</span>
                           ) : null}
@@ -1083,6 +1153,8 @@ export default function ClientsPage() {
                   >
                     Shartnoma
                   </th>
+                  <th className="px-3 py-2.5 text-left font-medium">Bosqich</th>
+                  <th className="px-3 py-2.5 text-left font-medium">Manba</th>
                   <th className="px-3 py-2.5 text-left font-medium">Akkaunt</th>
                   <th className="px-3 py-2.5 text-right font-medium" title="Долг (мес.) — agent mijozga shu summani aytadi">Oyma-oy kechikish</th>
                   <th className="px-3 py-2.5 text-right font-medium" title="Долг (Общ) — boshlang'ich to'lovdagi kechikish bilan birga">Umumiy kechikish</th>
@@ -1170,6 +1242,25 @@ export default function ClientsPage() {
                           ))}
                         </div>
                       )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {client.purchase ? (
+                        <>
+                          <span className={BOSQICH_CLASS[client.purchase.stage]}>
+                            {BOSQICH_YORLIGI[client.purchase.stage]}
+                          </span>
+                          {client.purchase.courseId && courseName.get(client.purchase.courseId) ? (
+                            <p className="mt-0.5 truncate text-[10px] text-ink-500">
+                              {courseName.get(client.purchase.courseId)}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-ink-600">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-ink-400">
+                      {MANBA_YORLIGI[client.source] ?? '—'}
                     </td>
                     <td className="px-3 py-2.5 text-ink-400">
                       {client.accountName ?? '—'}

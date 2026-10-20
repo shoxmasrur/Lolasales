@@ -1,5 +1,7 @@
 import type { Client, NewClient, TelegramLookupStatus } from '@/domain/entities/Client';
 import type { AloqaHolati } from '@/domain/entities/aloqaHolati';
+import type { ClientSource } from '@/domain/entities/Client';
+import type { XaridBosqichi } from '@/domain/entities/Purchase';
 import type { Page, Pagination } from '@/domain/repositories/types';
 import type { MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 
@@ -48,6 +50,12 @@ export interface ClientQuery extends Pagination {
    * Berilmasa filtr qo'llanmaydi.
    */
   aloqa?: AloqaHolati;
+  /** Mijozning joriy (faol, bo'lmasa oxirgi) xaridi shu bosqichda. */
+  stage?: XaridBosqichi;
+  /** Mijoz manbasi. */
+  source?: ClientSource;
+  /** Mijozning joriy xaridi shu kursga tegishli. */
+  courseId?: string;
   sort?: 'debt' | 'overdue' | 'name' | 'recent';
 }
 

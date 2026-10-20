@@ -35,6 +35,8 @@ export type DomainEvent =
   | { type: 'conversation.messages_read'; conversationId: string }
   | { type: 'conversation.created'; conversationId: string }
   | { type: 'campaign.updated'; campaignId: string }
+  /** Mijoz yoki uning xaridi (bosqich, kurs) o'zgardi — mijozlar ro'yxati uchun. */
+  | { type: 'client.updated'; clientId: string }
   | { type: 'telegram.status'; accountId: string; status: string }
   /**
    * Akkaunt sessiyasi BIZDAN TASHQARI uzildi (Telegram bekor qildi) —

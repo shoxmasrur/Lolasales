@@ -163,6 +163,8 @@ const container = {
     conversations: { findByClientId: async () => null },
     contractPayments: { listSchedule: async () => [], listRecentPayments: async () => [] },
     audit,
+    purchases: { findCurrentByClients: async () => new Map(), findActiveByClient: async () => null, findLatestByClient: async () => null },
+    courses: { list: async () => [] },
     phoneBlocks: {
       report: async (q?: MijozQamrovi) => { qamrovlar.set('phoneBlocks', q); return []; },
       listForClient: async () => [],

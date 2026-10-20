@@ -16,6 +16,7 @@ import TelegramInboxPage from '@/pages/TelegramInboxPage';
 import SettingsPage from '@/pages/SettingsPage';
 import UsersPage from '@/pages/UsersPage';
 import AgentPage from '@/pages/AgentPage';
+import KurslarPage from '@/pages/KurslarPage';
 import { LogsPage } from '@/pages/LogsPage';
 
 export default function App() {
@@ -42,6 +43,10 @@ export default function App() {
         case 'conversation.updated':
           void queryClient.invalidateQueries({ queryKey: ['conversations'] });
           void queryClient.invalidateQueries({ queryKey: ['conversation', event.conversationId] });
+          break;
+        case 'client.updated':
+          void queryClient.invalidateQueries({ queryKey: ['clients'] });
+          void queryClient.invalidateQueries({ queryKey: ['client', event.clientId] });
           break;
         case 'campaign.updated':
           void queryClient.invalidateQueries({ queryKey: ['campaigns'] });
@@ -97,6 +102,7 @@ export default function App() {
         <Route path="/chat" element={guard('conversations.view', <ChatPage />)} />
         <Route path="/chat/:conversationId" element={guard('conversations.view', <ChatPage />)} />
         <Route path="/clients" element={guard('clients.view', <ClientsPage />)} />
+        <Route path="/kurslar" element={guard('courses.view', <KurslarPage />)} />
         <Route path="/campaigns" element={guard('campaigns.view', <CampaignsPage />)} />
         <Route path="/import" element={guard('import.view', <ImportPage />)} />
         <Route path="/telegram" element={guard('telegram.view', <TelegramPage />)} />

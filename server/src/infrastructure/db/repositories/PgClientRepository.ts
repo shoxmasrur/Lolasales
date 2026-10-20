@@ -23,6 +23,7 @@ import { mapClient } from '@/infrastructure/db/mappers';
 import { mijozQatori } from '@/infrastructure/db/repositories/mijozQatori';
 import { mijozTartibi } from '@/infrastructure/db/repositories/mijozTartibi';
 import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
+import { xaridShartlari } from '@/infrastructure/db/xaridSharti';
 import { mijozQamroviSharti } from '@/infrastructure/db/qamrovSharti';
 import { NotFoundError, ValidationError } from '@/shared/errors';
 
@@ -37,7 +38,8 @@ const COLS = `c.id, c.external_id, c.full_name, c.first_name, c.phone, c.extra_p
               c.telegram_status, c.telegram_checked_at,
               c.telegram_account_id, c.account_assigned_at,
               c.do_not_contact, c.notes, c.created_at, c.updated_at,
-              c.deleted_at, c.deleted_by, c.nomalum`;
+              c.deleted_at, c.deleted_by, c.nomalum,
+              c.source, c.source_group, c.source_comment`;
 
 /**
  * O'chirilgan mijoz hech bir oddiy so'rovda ko'rinmaydi — buni bitta joyda
@@ -158,6 +160,8 @@ export class PgClientRepository implements IClientRepository {
     // qo'shilsa, u qavssiz holda BOSHQA filtrlar bilan ham
     // assotsiatsiyalanib, ro'yxatni jimgina kengaytirib yuborardi.
     if (q.aloqa) where.push(`(${aloqaSharti(q.aloqa)})`);
+
+    where.push(...xaridShartlari(q, params));
 
     if (q.hasDebt) where.push(`agg.debt_total > 0`);
     if (q.minDaysOverdue !== undefined) {

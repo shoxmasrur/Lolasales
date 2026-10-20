@@ -12,6 +12,8 @@ import type { Role } from '@/domain/entities/Role';
 import { isPermission } from '@/domain/entities/Permission';
 import type { ImportBatch } from '@/domain/entities/ImportBatch';
 import type { Bayram } from '@/domain/entities/bayram';
+import type { Course, CourseKnowledge } from '@/domain/entities/Course';
+import type { Purchase } from '@/domain/entities/Purchase';
 import type { LlmModel } from '@/domain/entities/LlmModel';
 import { uslubVersiyasi } from '@/domain/entities/UslubVersiyasi';
 import { decrypt } from '@/shared/crypto';
@@ -54,6 +56,9 @@ export function mapClient(r: Row): Client {
     deletedAt: toDate(r.deleted_at),
     deletedBy: r.deleted_by ?? null,
     nomalum: Boolean(r.nomalum),
+    source: r.source ?? 'qolda',
+    sourceGroup: r.source_group ?? null,
+    sourceComment: r.source_comment ?? null,
   };
 }
 
@@ -404,5 +409,53 @@ export function mapBayram(r: Row): Bayram {
     startsOn: r.starts_on,
     endsOn: r.ends_on,
     yillik: Boolean(r.yillik),
+  };
+}
+
+export function mapCourse(r: Row): Course {
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description ?? null,
+    salesStart: String(r.sales_start),
+    salesEnd: String(r.sales_end),
+    price: num(r.price),
+    duration: r.duration ?? null,
+    topics: r.topics ?? [],
+    startsOn: r.starts_on ? String(r.starts_on) : null,
+    groupLink: r.group_link ?? null,
+    isActive: Boolean(r.is_active),
+    installmentAllowed: Boolean(r.installment_allowed),
+    installmentParts: numOrNull(r.installment_parts),
+    installmentFirstMin: numOrNull(r.installment_first_min),
+    linkAfter: r.link_after,
+  };
+}
+
+export function mapCourseKnowledge(r: Row): CourseKnowledge {
+  return {
+    id: r.id,
+    courseId: r.course_id,
+    kind: r.kind,
+    title: r.title,
+    body: r.body,
+    sortOrder: num(r.sort_order),
+    isEnabled: Boolean(r.is_enabled),
+  };
+}
+
+export function mapPurchase(r: Row): Purchase {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    courseId: r.course_id ?? null,
+    stage: r.stage,
+    stageChangedAt: req(r.stage_changed_at),
+    totalAmount: numOrNull(r.total_amount),
+    paidAmount: num(r.paid_amount),
+    installment: Boolean(r.installment),
+    linkSentAt: toDate(r.link_sent_at),
+    remindedStages: r.reminded_stages ?? [],
+    createdAt: req(r.created_at),
   };
 }

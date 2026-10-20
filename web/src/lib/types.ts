@@ -22,6 +22,7 @@ export type Permission =
   | 'clients.delete'
   | 'clients.export'
   | 'contracts.sync'
+  | 'courses.view' | 'courses.edit'
   | 'campaigns.view' | 'campaigns.create' | 'campaigns.control'
   | 'import.view' | 'import.run' | 'import.undo'
   | 'telegram.view' | 'telegram.manage' | 'telegram.inbox'
@@ -136,9 +137,64 @@ export interface Client {
   deletedBy: string | null;
   /** Bazada yo'q, Telegramdan yozgan begona — shartnomasi hali topilmagan. */
   nomalum: boolean;
+  source: ClientSource;
+  sourceGroup: string | null;
+  sourceComment: string | null;
+}
+
+export type ClientSource = 'reklama' | 'guruh' | 'raqam' | 'qolda';
+
+export type XaridBosqichi =
+  | 'yangi' | 'suhbatda' | 'qiziqdi' | 'karta_yuborildi'
+  | 'chek_keldi' | 'qisman_toladi' | 'toladi' | 'rad_etdi';
+
+export interface Purchase {
+  id: string;
+  clientId: string;
+  courseId: string | null;
+  stage: XaridBosqichi;
+  stageChangedAt: string;
+  totalAmount: number | null;
+  paidAmount: number;
+  installment: boolean;
+  linkSentAt: string | null;
+  createdAt: string;
+}
+
+export interface Course {
+  id: string;
+  name: string;
+  description: string | null;
+  /** YYYY-MM-DD, ikkalasi ham kiradi. */
+  salesStart: string;
+  salesEnd: string;
+  price: number;
+  duration: string | null;
+  topics: string[];
+  startsOn: string | null;
+  groupLink: string | null;
+  isActive: boolean;
+  installmentAllowed: boolean;
+  installmentParts: number | null;
+  installmentFirstMin: number | null;
+  linkAfter: 'birinchi_qism' | 'toliq';
+}
+
+export type KnowledgeKind = 'dastur' | 'savol_javob' | 'etiroz' | 'boshqa';
+
+export interface CourseKnowledge {
+  id: string;
+  courseId: string;
+  kind: KnowledgeKind;
+  title: string;
+  body: string;
+  sortOrder: number;
+  isEnabled: boolean;
 }
 
 export interface ClientWithDebt extends Client {
+  /** Joriy xarid: faol, bo'lmasa oxirgisi. */
+  purchase?: Purchase | null;
   /** Oyma-oy to'lovdagi kechikish (Долг мес.) — agent mijozga shuni aytadi. */
   debtMonthly: number;
   /** Umumiy kechikkan to'lov (Долг общ) — faqat xodim ko'radi. */

@@ -112,6 +112,7 @@ export type ServerEvent =
   | { type: 'conversation.messages_read'; conversationId: string }
   | { type: 'conversation.created'; conversationId: string }
   | { type: 'campaign.updated'; campaignId: string }
+  | { type: 'client.updated'; clientId: string }
   | { type: 'telegram.status'; accountId: string; status: string }
   | { type: 'telegram.qr'; accountId: string; url: string; expiresAt: string }
   | {

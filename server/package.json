@@ -203,6 +203,7 @@
     "test:conversation-list-route": "tsx src/presentation/http/routes/conversationListRoute.spec.ts",
     "test:stt-taqqoslash": "tsx src/application/services/sttTaqqoslash.spec.ts",
     "test:start-takror-himoyasi": "tsx src/application/usecases/messaging/startTakrorHimoyasi.spec.ts",
+    "test:xarid-sharti": "tsx src/infrastructure/db/xaridSharti.spec.ts",
     "test:client-cols": "tsx src/infrastructure/db/repositories/clientCols.spec.ts",
     "test:client-list-query": "tsx src/presentation/http/routes/clientListQuery.spec.ts",
     "test:api-kalit": "tsx src/presentation/http/middleware/apiKalit.spec.ts",

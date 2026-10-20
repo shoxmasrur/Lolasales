@@ -28,6 +28,10 @@ export const PERMISSIONS = [
   'clients.export',
   'contracts.sync',
 
+  // Kurslar
+  'courses.view',
+  'courses.edit',
+
   // Kampaniyalar
   'campaigns.view',
   'campaigns.create',
@@ -144,6 +148,18 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         key: 'contracts.sync',
         label: 'Shartnomani yangilash',
         hint: 'Shartnomalar bazasidan to\'lov ma\'lumotini qayta so\'rash',
+      },
+    ],
+  },
+  {
+    section: 'courses',
+    label: 'Kurslar',
+    items: [
+      { key: 'courses.view', label: 'Ko\'rish', hint: 'Kurslar va ularning ma\'lumotlar bazasi yozuvlari' },
+      {
+        key: 'courses.edit',
+        label: 'Tahrirlash',
+        hint: 'Kurs yaratish, narx va sotuv davrini o\'zgartirish, ma\'lumot yozuvlari. Agent shu ma\'lumotdan javob beradi',
       },
     ],
   },

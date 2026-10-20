@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from '@/presentation/http/middleware/er
 import { authRoutes } from '@/presentation/http/routes/authRoutes';
 import { clientRoutes } from '@/presentation/http/routes/clientRoutes';
 import { conversationRoutes } from '@/presentation/http/routes/conversationRoutes';
+import { courseRoutes } from '@/presentation/http/routes/courseRoutes';
 import { campaignRoutes } from '@/presentation/http/routes/campaignRoutes';
 import { importRoutes } from '@/presentation/http/routes/importRoutes';
 import { mediaRoutes } from '@/presentation/http/routes/mediaRoutes';
@@ -43,6 +44,7 @@ export function createApp(container: Container): Express {
   // Bo'limga kirish huquqi — mount darajasida. Ichkaridagi amallar
   // (yozish, o'chirish) o'z ruxsatlarini alohida tekshiradi.
   api.use('/clients', requirePermission('clients.view'), clientRoutes(container));
+  api.use('/courses', courseRoutes(container));
   api.use('/conversations', requirePermission('conversations.view'), conversationRoutes(container));
   api.use('/media', requirePermission('conversations.view'), mediaRoutes(container));
   api.use('/campaigns', requirePermission('campaigns.view'), campaignRoutes(container));

@@ -54,6 +54,7 @@ jobs:
           npm run test:boglash-qarori --workspace=server
           # `mapClient` o'qiydigan har ustun `COLS` da bor — `nomalum` tanlanmasa himoya o'chadi. Statik.
           npm run test:client-cols --workspace=server
+          npm run test:xarid-sharti --workspace=server
           # Obyekt cheklovi: qamrov yadrosi (admin/bo'sh — hammasi; trim, takrorsiz,
           # tartib; kesh kaliti) va SQL sharti (cheklanmaganda `TRUE`, params tegilmaydi).
           npm run test:mijoz-qamrovi --workspace=server
