@@ -202,6 +202,8 @@ jobs:
           npm run test:tuzatilgan-belgisi --workspace=server
           # `AgentRunner.apply()` sotuv qadamlari: kurs, bosqich, karta (takror himoyasi, xato → menejer).
           npm run test:agent-sotuv-navbati --workspace=server
+          # Karta raqami va yopiq havola: tarixda belgi, model javobida — yuborilmaydi.
+          npm run test:maxfiy-qiymat --workspace=server
           # Ketayotgan navbatni uzish va bloklagan mijozga eslatma yozmaslik.
           npm run test:agent-abort --workspace=server
           npm run test:blocked-reminder --workspace=server

@@ -106,11 +106,13 @@ export class XaridXizmati {
    * Agent "bo'lib to'lash" tanlanganini bildirdi. Faqat karta yuborilishidan
    * oldingi bosqichlarda va faqat `true` ga o'zgartiriladi: model har
    * navbatda `installment: false` qaytaradi, uni yozsak mijozning oldingi
-   * tanlovi o'chib ketardi.
+   * tanlovi o'chib ketardi. Faol xarid yo'q bo'lsa — hech narsa qilinmaydi.
    */
   async bolibTolash(clientId: string): Promise<boolean> {
-    const xarid = await this.faolXarid(clientId);
-    if (xarid.installment || !KURS_ALMASHADI.includes(xarid.stage)) return false;
+    // Faol xarid bo'lmasa yangisi OCHILMAYDI: "bo'lib to'lash" kurs tanlangandan
+    // keyin ma'noli, bo'sh xarid esa ro'yxatda soxta "Yangi" bo'lib qolardi.
+    const xarid = await this.purchases.findActiveByClient(clientId);
+    if (!xarid || xarid.installment || !KURS_ALMASHADI.includes(xarid.stage)) return false;
     await this.purchases.setInstallment(xarid.id, true);
     this.events.publish({ type: 'client.updated', clientId });
     return true;

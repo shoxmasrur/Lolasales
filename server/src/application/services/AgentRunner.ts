@@ -46,6 +46,7 @@ import type { AgentEngineFactory, TanlanganDvigatel } from '@/application/servic
 import type { AccountLabels } from '@/application/services/AccountLabels';
 import { hisoblaNarx } from '@/domain/services/llmNarxi';
 import { agentKartaYuborsinmi } from '@/domain/services/karta';
+import { MAXFIY_SABAB, maxfiyQiymatBormi, tarixMatni } from '@/domain/services/maxfiyQiymat';
 import { personaNameOf } from '@/domain/entities/TelegramAccount';
 import { mavzudanTashqari, TASHQARI_JAVOBI } from '@/domain/services/mavzudanTashqari';
 import {
@@ -106,6 +107,12 @@ const USAGE_MODE: Record<TurnMode, AgentUsageMode> = {
 interface ApplyOptions {
   /** `false` — qo'lda tasdiqlash rejimi: javob qoralama bo'lib qoladi, karta ketmaydi. */
   readonly autoSend: boolean;
+  /**
+   * Shu navbatda `sendCard` qo'llanadimi. Faqat mijoz bilan jonli suhbatda
+   * (`reply`) va operator topshirig'ida — birinchi murojaat, eslatma va chek
+   * natijasi xabarlarida karta ketmaydi.
+   */
+  readonly kartaRuxsat: boolean;
   /** Birinchi murojaatgina kunlik kvotani sarflaydi. */
   readonly coldOutreach: boolean;
   /** Shu navbatda HAQIQATAN ishlatilgan dvigatel — `llmTamgasi` shundan yozadi. */
@@ -354,7 +361,7 @@ export class AgentRunner {
       const conversation = await this.requireConversation(conversationId);
       const { output, context, ishlatilgan, fallback } = await this.modelNavbati(conversation, 'first', signal, {});
       // Yagona joy, xabar NOTANISH odamga ketadi — kunlik kvota shunga.
-      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: true, ishlatilgan, fallback });
+      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: true, kartaRuxsat: false, ishlatilgan, fallback });
     });
   }
 
@@ -430,7 +437,7 @@ export class AgentRunner {
       }
 
       const result = await this.apply(conversation, context, output, {
-        autoSend: runtime.agentAutoReply, coldOutreach: false, ishlatilgan, fallback,
+        autoSend: runtime.agentAutoReply, coldOutreach: false, kartaRuxsat: true, ishlatilgan, fallback,
       });
       if (receiptReview === 'new' && openCheck) await this.chekQabulQilindi(conversation.id, openCheck, result);
       return result;
@@ -471,7 +478,7 @@ export class AgentRunner {
         nudgeStage: stage,
       });
       return this.apply(conversation, context, output, {
-        autoSend: runtime.agentAutoReply, coldOutreach: false, ishlatilgan, fallback,
+        autoSend: runtime.agentAutoReply, coldOutreach: false, kartaRuxsat: false, ishlatilgan, fallback,
       });
     });
   }
@@ -510,7 +517,7 @@ export class AgentRunner {
       });
 
       const result = await this.apply(conversation, context, output, {
-        autoSend: true, coldOutreach: false, ishlatilgan, fallback,
+        autoSend: true, coldOutreach: false, kartaRuxsat: true, ishlatilgan, fallback,
       });
       // Chekka hali javob berilmagan edi — topshiriq qoidasi agentga chekni
       // olganini aytishni buyurdi. Belgi qo'yiladi, suhbat operatorga qayta chiqarilmaydi.
@@ -541,7 +548,7 @@ export class AgentRunner {
         history,
         receiptConfirmed: confirmed,
       });
-      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: false, ishlatilgan, fallback });
+      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: false, kartaRuxsat: false, ishlatilgan, fallback });
     });
   }
 
@@ -558,7 +565,7 @@ export class AgentRunner {
         history,
         receiptRejected: { reason },
       });
-      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: false, ishlatilgan, fallback });
+      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: false, kartaRuxsat: false, ishlatilgan, fallback });
     });
   }
 
@@ -597,7 +604,8 @@ export class AgentRunner {
           : m.direction === 'note'
             ? ('operator' as const)
             : ('agent' as const),
-      text: readableBody(m),
+      // Tizimning karta/havola xabari modelga xom holda ko'rsatilmaydi (`maxfiyQiymat.ts`).
+      text: tarixMatni(m.meta as Record<string, unknown> | undefined, readableBody(m)),
       at: m.createdAt,
       // O'chirish tahrirdan USTUN: o'chirilgan xabardan mijozda hech narsa qolmagan.
       holat: m.revokedAt ? ('ochirilgan' as const) : m.editedAt ? ('tuzatilgan' as const) : undefined,
@@ -626,8 +634,15 @@ export class AgentRunner {
     let sent = false;
     const style = await this.uslubi(conversation);
 
+    // 0. Chiqish himoyasi: model karta raqami yoki yopiq havolani o'zi yozgan
+    // bo'lsa javob HECH QAYERGA ketmaydi (qoralama ham emas), karta ham yo'q —
+    // suhbat menejerga o'tadi.
+    const maxfiy = maxfiyQiymatBormi(output.reply) || maxfiyQiymatBormi(output.replySecond);
+    if (maxfiy) log.warn({ conversationId: conversation.id }, MAXFIY_SABAB);
+    const kartaSorovi = output.sendCard && opts.kartaRuxsat && !output.escalate && !maxfiy;
+
     // 1. Javob.
-    if (output.reply) {
+    if (output.reply && !maxfiy) {
       // `ishlatilgan` HAR DOIM keladi (`navbat` orqali); standart qiymat faqat tur xavfsizligi uchun.
       const dvigatel = opts.ishlatilgan ?? this.engines.standart();
       const fallback = opts.fallback ?? false;
@@ -673,7 +688,11 @@ export class AgentRunner {
           author: 'agent',
           body: output.reply,
           status: 'draft',
-          meta: llmTamgasi(uslubTamgasi({ note: output.internalNote }, style), dvigatel, fallback),
+          meta: {
+            ...llmTamgasi(uslubTamgasi({ note: output.internalNote }, style), dvigatel, fallback),
+            // Operator qoralamani tasdiqlaganda karta ham kerakligini ko'rsin.
+            ...(kartaSorovi ? { sendCard: true } : {}),
+          },
         });
         this.events.publish({ type: 'message.created', conversationId: conversation.id, messageId: draft.id });
       }
@@ -704,14 +723,19 @@ export class AgentRunner {
     const stage = output.stage;
     if (stage) await xaridQadam('bosqich', () => this.xarid.bosqich(clientId, stage, 'agent'));
 
-    // 5. Karta — faqat javob haqiqatan yuboriladigan rejimda, eskalatsiyasiz
-    // va takror himoyasidan o'tsa (`agentKartaYuborsinmi`).
+    // 5. Karta — faqat `reply`/`operator` navbatida, eskalatsiyasiz, maxfiy
+    // qiymatsiz va takror himoyasidan o'tsa (`agentKartaYuborsinmi`).
+    // Qoralama rejimida karta o'zi ketmaydi — menejerga topshiriladi.
     let cardSent = false;
     let kartaXatosi: string | null = null;
-    if (output.sendCard && opts.autoSend && !output.escalate) {
+    if (kartaSorovi) {
       const joriy = await this.xarid.joriyXarid(clientId).catch(() => null);
       if (!agentKartaYuborsinmi(joriy?.stage ?? null)) {
         log.info({ conversationId: conversation.id, stage: joriy?.stage }, 'Karta qayta yuborilmadi (takror himoyasi)');
+      } else if (!opts.autoSend) {
+        // Qo'lda tasdiqlash rejimi: javob qoralama, karta o'zi KETMAYDI —
+        // aks holda operator "mana karta" ni tasdiqlaydi, karta esa kelmaydi.
+        kartaXatosi = "Mijoz to'lashga rozi — kartani yuboring";
       } else {
         try {
           // Karta xabari ham dispatcher orqali ketadi: kill switch, oyna va
@@ -729,8 +753,8 @@ export class AgentRunner {
     await this.captureMemory(conversation, output);
 
     // 6. Eskalatsiya (va karta xatosi) — suhbat menejerga o'tadi.
-    const escalated = Boolean(output.escalate) || kartaXatosi !== null;
-    const humanReason = output.escalate?.reason ?? kartaXatosi;
+    const escalated = Boolean(output.escalate) || kartaXatosi !== null || maxfiy;
+    const humanReason = maxfiy ? MAXFIY_SABAB : (output.escalate?.reason ?? kartaXatosi);
 
     // `conversations.state` endi agentga tegishli emas (14-vazifada o'chiriladi).
     // Faqat "new" → "contacted": suhbatlar ro'yxati va ommaviy ishlar birinchi
@@ -755,7 +779,7 @@ export class AgentRunner {
       });
     }
 
-    return { sent, reply: output.reply, escalated, cardSent };
+    return { sent, reply: maxfiy ? null : output.reply, escalated, cardSent };
   }
 
   /**

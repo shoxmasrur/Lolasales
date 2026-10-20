@@ -22,6 +22,8 @@ import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentChec
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { AgentTurnInput, AgentTurnOutput, IAgentEngine } from '@/domain/services/IAgentEngine';
+import { buildUserPrompt } from '@/infrastructure/ai/prompt/userPrompt';
+import { HAVOLA_BELGISI, KARTA_BELGISI, MAXFIY_SABAB } from '@/domain/services/maxfiyQiymat';
 import type { IClock, IEventBus } from '@/domain/services/support';
 
 /**
@@ -74,15 +76,27 @@ interface Sozlama {
   agentAutoReply?: boolean;
   xaridBosqichi?: XaridBosqichi | null;
   kartaXato?: Error;
+  /** Suhbat tarixi (`recentByConversation`). */
+  tarix?: Array<Record<string, unknown>>;
 }
 
 function build(s: Sozlama) {
   const qadamlar: string[] = [];
   const patchlar: ConversationPatch[] = [];
   const kirishlar: AgentTurnInput[] = [];
+  const qoralamalar: Array<{ meta?: Record<string, unknown> }> = [];
+  const yuborilgan: string[] = [];
 
   const dvigatel = {
     respond: async (input: AgentTurnInput) => {
+      kirishlar.push(input);
+      return { ...JAVOB, ...s.javob };
+    },
+    composeNudge: async (input: AgentTurnInput) => {
+      kirishlar.push(input);
+      return { ...JAVOB, ...s.javob };
+    },
+    composeFirstContact: async (input: AgentTurnInput) => {
       kirishlar.push(input);
       return { ...JAVOB, ...s.javob };
     },
@@ -122,8 +136,20 @@ function build(s: Sozlama) {
       findById: async () => SUHBAT,
       update: async (_id: string, p: ConversationPatch) => { patchlar.push(p); return SUHBAT; },
     } as unknown as IConversationRepository,
-    { recentByConversation: async () => [], create: async () => { qadamlar.push('qoralama'); return { id: 'x1' }; } } as unknown as IMessageRepository,
-    { send: async () => void qadamlar.push('javob') } as unknown as MessageDispatcher,
+    {
+      recentByConversation: async () => s.tarix ?? [],
+      create: async (m: { meta?: Record<string, unknown> }) => {
+        qadamlar.push('qoralama');
+        qoralamalar.push(m);
+        return { id: 'x1' };
+      },
+    } as unknown as IMessageRepository,
+    {
+      send: async ({ body }: { body: string }) => {
+        qadamlar.push('javob');
+        yuborilgan.push(body);
+      },
+    } as unknown as MessageDispatcher,
     { get: async () => ({ agentAutoReply: s.agentAutoReply ?? true, killSwitch: false, personaName: 'Lola', kompaniyaNomi: 'SMM Akademiya' }) } as unknown as RuntimeSettings,
     { record: async () => undefined } as unknown as IAuditRepository,
     { publish: () => undefined } as unknown as IEventBus,
@@ -139,7 +165,7 @@ function build(s: Sozlama) {
     xarid,
     karta,
   );
-  return { r, qadamlar, patchlar, kirishlar };
+  return { r, qadamlar, patchlar, kirishlar, qoralamalar, yuborilgan };
 }
 
 // ─── 1. To'liq qadam: kurs → bo'lib to'lash → bosqich → karta ────────────
@@ -178,12 +204,28 @@ function build(s: Sozlama) {
   check('chek_keldi — karta ketmadi', !m.qadamlar.includes('karta'));
 }
 
-// ─── 4. Qo'lda tasdiqlash rejimi — qoralama, karta yo'q ──────────────────
+// ─── 4. Qo'lda tasdiqlash rejimi — qoralama, karta o'zi ketmaydi, menejerga ─
 {
   const m = build({ javob: { sendCard: true }, agentAutoReply: false });
   const out = await m.r.reply('cv1', 'to\'layman');
   check('qoralama saqlandi', m.qadamlar.includes('qoralama') && !m.qadamlar.includes('javob'), JSON.stringify(m.qadamlar));
   check('qoralama rejimida karta ketmadi', !m.qadamlar.includes('karta') && out.cardSent === false);
+  check('qoralama metasida sendCard', m.qoralamalar[0]?.meta?.sendCard === true, JSON.stringify(m.qoralamalar[0]?.meta));
+  check(
+    'qoralama + sendCard → menejerga "kartani yuboring"',
+    m.patchlar.some((p) => p.needsHuman === true && p.humanReason === 'Mijoz to\'lashga rozi — kartani yuboring'),
+    JSON.stringify(m.patchlar),
+  );
+}
+{
+  const m = build({ javob: { sendCard: true }, agentAutoReply: false, xaridBosqichi: 'karta_yuborildi' });
+  await m.r.reply('cv1', 'to\'layman');
+  check('qoralama + karta allaqachon yuborilgan — menejer chaqirilmaydi', !m.patchlar.some((p) => p.needsHuman), JSON.stringify(m.patchlar));
+}
+{
+  const m = build({ javob: {}, agentAutoReply: false });
+  await m.r.reply('cv1', 'salom');
+  check('qoralama sendCard=false — metada belgi yo\'q', m.qoralamalar[0]?.meta?.sendCard === undefined);
 }
 
 // ─── 5. Karta xatosi navbatni yiqitmaydi — menejerga o'tadi ──────────────
@@ -218,6 +260,54 @@ function build(s: Sozlama) {
   check('oldin sotib olingan kurs nomi', k?.context.boughtCourses[0] === 'Eski kurs', JSON.stringify(k?.context.boughtCourses));
   check('manba va komment', k?.context.source === 'guruh' && k.context.sourceComment === 'narxi qancha?');
   check('kompaniya nomi sozlamadan', k?.knowledge.companyName === 'SMM Akademiya');
+}
+
+// ─── 8. Karta faqat jonli suhbatda: eslatma va birinchi xabarda yo'q ─────
+{
+  const m = build({ javob: { sendCard: true } });
+  await m.r.nudge('cv1', 'qiziqdi');
+  check('nudge — karta ketmadi', !m.qadamlar.includes('karta'), JSON.stringify(m.qadamlar));
+}
+{
+  const m = build({ javob: { sendCard: true } });
+  await m.r.firstContact('cv1');
+  check('birinchi murojaat — karta ketmadi', !m.qadamlar.includes('karta'), JSON.stringify(m.qadamlar));
+}
+
+// ─── 9. Tarixdagi karta/havola xabari modelga ko'rsatilmaydi ─────────────
+{
+  const tarix = [
+    { direction: 'in', body: 'karta tashlang', createdAt: NOW, meta: {} },
+    {
+      direction: 'out', createdAt: NOW, meta: { kind: 'karta' },
+      body: "To'lov uchun karta:\n8600 1234 5678 9012\nEgasi: ALIYEV ALI\nBank: Kapitalbank\nSumma: 1 500 000 so'm",
+    },
+    { direction: 'out', createdAt: NOW, meta: { kind: 'havola' }, body: 'Yopiq guruhga havola: https://t.me/+abcDEF' },
+  ];
+  const m = build({ javob: {}, tarix });
+  await m.r.reply('cv1', 'rahmat');
+  const k = m.kirishlar[0]!;
+  const prompt = buildUserPrompt(k, 'reply', NOW);
+  check('tarixda karta belgisi', k.history[1]?.text === KARTA_BELGISI, JSON.stringify(k.history[1]));
+  check('tarixda havola belgisi', k.history[2]?.text === HAVOLA_BELGISI, JSON.stringify(k.history[2]));
+  check('promptda karta raqami yo\'q', !/\d{4} \d{4} \d{4} \d{4}/.test(prompt));
+  check('promptda karta egasi yo\'q', !prompt.includes('ALIYEV ALI'));
+  check('promptda havola yo\'q', !prompt.includes('t.me/+abcDEF'));
+  check('mijoz xabari o\'zgarmadi', k.history[0]?.text === 'karta tashlang');
+}
+
+// ─── 10. Model javobida karta raqami/havola — yuborilmaydi, menejerga ────
+{
+  const m = build({ javob: { reply: 'Karta: 8600123456789012', sendCard: true } });
+  const out = await m.r.reply('cv1', 'karta');
+  check('karta raqamli javob yuborilmadi', m.yuborilgan.length === 0 && out.sent === false, JSON.stringify(m.yuborilgan));
+  check('bunda tizim kartasi ham ketmadi', !m.qadamlar.includes('karta'));
+  check('menejerga sabab bilan', m.patchlar.some((p) => p.needsHuman === true && p.humanReason === MAXFIY_SABAB) && out.escalated);
+}
+{
+  const m = build({ javob: { reply: 'Mana', replySecond: 'Guruh: https://t.me/joinchat/XYZ' }, agentAutoReply: false });
+  const out = await m.r.reply('cv1', 'havola?');
+  check('havolali ikkinchi qism — qoralama ham saqlanmadi', !m.qadamlar.includes('qoralama') && out.escalated, JSON.stringify(m.qadamlar));
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : '\nHammasi o\'tdi');
