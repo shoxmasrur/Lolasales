@@ -710,8 +710,9 @@ export function clientRoutes(container: Container): Router {
 
   /** Xarid bosqichini qo'lda o'zgartirish (menejer) — har qanday o'tish ruxsat. */
   router.patch('/:id/stage', requirePermission('clients.edit'), async (req, res) => {
-    const id = String(req.params.id);
+    const id = z.string().uuid().parse(req.params.id);
     const { stage } = parseBody(stageSchema, req);
+    if (!(await clients.findById(id))) throw new NotFoundError('Mijoz', id);
     const purchase = await container.services.xaridXizmati.bosqich(id, stage, 'menejer', currentUser(req).id);
     // `null` — bosqich allaqachon shu; xarid o'zgarishsiz qaytariladi.
     res.json({ purchase: purchase ?? (await purchases.findActiveByClient(id)) });

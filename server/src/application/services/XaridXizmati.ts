@@ -8,7 +8,7 @@ import type { ICourseRepository } from '@/domain/repositories/ICourseRepository'
 import type { IPurchaseRepository } from '@/domain/repositories/IPurchaseRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IClock, IEventBus } from '@/domain/services/support';
-import { NotFoundError } from '@/shared/errors';
+import { AppError, NotFoundError } from '@/shared/errors';
 
 /** Kurs faqat karta yuborilgunga qadar almashtiriladi. */
 const KURS_ALMASHADI: readonly XaridBosqichi[] = ['yangi', 'suhbatda', 'qiziqdi'];
@@ -44,11 +44,27 @@ export class XaridXizmati {
     actor: BosqichAktori,
     by?: string,
   ): Promise<Purchase | null> {
-    const hozirgi = await this.faolXarid(clientId);
+    // Menejer istalgan vaqtda joriy xaridni o'zgartiradi (tugallangan bo'lsa ham);
+    // yangi xarid faqat mijozda umuman yo'q bo'lsa ochiladi.
+    const hozirgi =
+      actor === 'menejer'
+        ? ((await this.purchases.findActiveByClient(clientId)) ??
+          (await this.purchases.findLatestByClient(clientId)) ??
+          (await this.faolXarid(clientId)))
+        : await this.faolXarid(clientId);
     const yangi = bosqichOtishi(hozirgi.stage, requested, actor);
     if (!yangi) return null;
 
-    const updated = await this.purchases.setStage(hozirgi.id, yangi);
+    let updated: Purchase;
+    try {
+      updated = await this.purchases.setStage(hozirgi.id, yangi);
+    } catch (err) {
+      // Bitta faol xarid indeksi: tugallangan xaridni qaytarishda boshqasi faol bo'lib qolgan.
+      if ((err as { code?: string }).code === '23505') {
+        throw new AppError('Mijozda boshqa faol xarid bor — avval uni yakunlang', 409, 'ACTIVE_PURCHASE_EXISTS');
+      }
+      throw err;
+    }
     await this.audit.record({
       actor: by ?? actor,
       action: 'purchase.stage',

@@ -142,12 +142,20 @@ export function courseRoutes(container: Container): Router {
   router.patch('/knowledge/:kid', edit, async (req, res) => {
     const { kid } = parseParams(kidParams, req);
     const patch = parseBody(knowledgeUpdateSchema, req);
-    res.json({ item: await courses.updateKnowledge(kid, patch) });
+    const item = await courses.updateKnowledge(kid, patch);
+    await audit.record({
+      actor: currentUser(req).id, action: 'course.knowledge_updated', entity: 'course', entityId: item.courseId,
+      payload: { knowledgeId: kid, fields: Object.keys(patch) },
+    });
+    res.json({ item });
   });
 
   router.delete('/knowledge/:kid', edit, async (req, res) => {
     const { kid } = parseParams(kidParams, req);
     await courses.removeKnowledge(kid);
+    await audit.record({
+      actor: currentUser(req).id, action: 'course.knowledge_deleted', entity: 'course_knowledge', entityId: kid,
+    });
     res.json({ ok: true });
   });
 

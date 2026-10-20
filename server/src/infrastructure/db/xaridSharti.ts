@@ -30,7 +30,7 @@ export function xaridShartlari(q: Pick<ClientQuery, 'stage' | 'source' | 'course
         SELECT DISTINCT ON (p.client_id) p.stage, p.course_id
           FROM purchases p
          WHERE p.client_id = c.id
-         ORDER BY p.client_id, (p.stage NOT IN ('toladi', 'rad_etdi')) DESC, p.created_at DESC
+         ORDER BY p.client_id, (p.stage NOT IN ('toladi', 'rad_etdi')) DESC, p.created_at DESC, p.id
       ) cp WHERE ${ichki.join(' AND ')})`);
   }
   return where;
