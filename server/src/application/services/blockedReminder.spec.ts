@@ -35,6 +35,7 @@ function build(status: TelegramLookupStatus): AgentRunner {
         needsHuman: false,
         state: 'contacted',
       }) as unknown as Conversation,
+    markContactedIfNew: async () => undefined,
   } as unknown as IConversationRepository;
 
   const clients = {

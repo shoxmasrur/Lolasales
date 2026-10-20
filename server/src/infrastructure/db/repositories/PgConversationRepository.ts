@@ -232,6 +232,13 @@ export class PgConversationRepository implements IConversationRepository {
     );
   }
 
+  async markContactedIfNew(id: string): Promise<void> {
+    await query(
+      `UPDATE conversations SET state = 'contacted' WHERE id = $1 AND state = 'new' AND deleted_at IS NULL`,
+      [id],
+    );
+  }
+
   async touchOutbound(id: string, at: Date): Promise<void> {
     await query(
       `UPDATE conversations SET last_message_at = $2, last_outbound_at = $2 WHERE id = $1`,

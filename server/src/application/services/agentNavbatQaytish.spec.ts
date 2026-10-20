@@ -88,7 +88,7 @@ function build(engines: AgentEngineFactory): {
   const r = new AgentRunner(
     engines,
     { findById: async () => ({ id: 'c1', fullName: 'Aziz Karimov', firstName: 'Aziz', telegramStatus: 'found' }) } as unknown as IClientRepository,
-    { findById: async () => SUHBAT, update: async () => SUHBAT } as unknown as IConversationRepository,
+    { findById: async () => SUHBAT, update: async () => SUHBAT, markContactedIfNew: async () => undefined } as unknown as IConversationRepository,
     { recentByConversation: async () => [], create: async () => ({ id: 'x1' }) } as unknown as IMessageRepository,
     {
       send: async ({ body, meta }: { body: string; meta?: Record<string, unknown> }) =>

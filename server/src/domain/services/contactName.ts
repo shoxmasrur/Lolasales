@@ -19,7 +19,8 @@ export function contactName(
   knownFirstName?: string | null,
 ): ContactName {
   return {
-    first: addressForm(fullName, knownFirstName) ?? givenName(fullName, knownFirstName) ?? '',
+    // Telegram bo'sh `first_name` ni rad etadi — hech narsa chiqmasa "Mijoz".
+    first: (addressForm(fullName, knownFirstName) ?? givenName(fullName, knownFirstName) ?? '').trim() || 'Mijoz',
     last: '',
   };
 }

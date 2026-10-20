@@ -76,6 +76,7 @@ export function ReceiptConfirmButton({
     void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
     void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
     void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    void queryClient.invalidateQueries({ queryKey: ['clients'] });
   };
   const tasdiq = useMutation({
     mutationFn: (summa: number) =>

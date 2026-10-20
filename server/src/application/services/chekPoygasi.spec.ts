@@ -149,6 +149,7 @@ function build(opts: {
         patches.push(patch);
         return SUHBAT;
       },
+      markContactedIfNew: async () => undefined,
     } as unknown as IConversationRepository,
     { recentByConversation: async () => [TOPSHIRIQ], create: async () => ({ id: 'x1' }) } as unknown as IMessageRepository,
     { send: async (p: { body: string }) => void yuborilgan.push(p.body) } as unknown as MessageDispatcher,

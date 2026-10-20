@@ -271,7 +271,7 @@ export function createContainer() {
   const editMessage = new EditMessageUseCase(conversations, messages, dispatcher, audit, clock);
   const deleteMessage = new DeleteMessageUseCase(conversations, messages, dispatcher, audit, clock);
   const retryAgentTurn = new RetryAgentTurnUseCase(
-    conversations, messages, clients, agent, replyDebouncer, audit, events, clock,
+    conversations, messages, agent, replyDebouncer, audit, events, clock,
   );
   const instructAgent = new InstructAgentUseCase(
     conversations, messages, clients, agent, replyDebouncer, settings, audit, events, clock,

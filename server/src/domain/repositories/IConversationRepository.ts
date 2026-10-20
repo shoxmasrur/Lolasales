@@ -98,6 +98,8 @@ export interface IConversationRepository {
   create(data: { clientId: string; telegramAccountId?: string | null }): Promise<Conversation>;
   update(id: string, patch: ConversationPatch): Promise<Conversation>;
   touchInbound(id: string, at: Date): Promise<void>;
+  /** `state = 'new'` bo'lsagina `contacted` qiladi (bazadagi holat bo'yicha, shartli). */
+  markContactedIfNew(id: string): Promise<void>;
   touchOutbound(id: string, at: Date): Promise<void>;
   /**
    * Eslatma nomzodlari: faol xarid bosqichi `qiziqdi`/`karta_yuborildi`, oxirgi xabar

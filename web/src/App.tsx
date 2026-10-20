@@ -48,6 +48,8 @@ export default function App() {
         case 'client.updated':
           void queryClient.invalidateQueries({ queryKey: ['clients'] });
           void queryClient.invalidateQueries({ queryKey: ['client', event.clientId] });
+          // Suhbat paneli xaridni `['conversation', id]` so'rovidan oladi.
+          void queryClient.invalidateQueries({ queryKey: ['conversation'] });
           break;
         case 'campaign.updated':
           void queryClient.invalidateQueries({ queryKey: ['campaigns'] });

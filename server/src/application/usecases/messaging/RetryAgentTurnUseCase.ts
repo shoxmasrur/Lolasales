@@ -5,7 +5,6 @@ import { isTerminal } from '@/domain/entities/Conversation';
 import type { Message } from '@/domain/entities/Message';
 import { readableBody } from '@/domain/entities/Message';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
-import type { IClientRepository } from '@/domain/repositories/IClientRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IClock, IEventBus } from '@/domain/services/support';
@@ -36,7 +35,6 @@ export class RetryAgentTurnUseCase {
   constructor(
     private readonly conversations: IConversationRepository,
     private readonly messages: IMessageRepository,
-    private readonly clients: IClientRepository,
     private readonly agent: AgentRunner,
     private readonly replies: ReplyDebouncer,
     private readonly audit: IAuditRepository,

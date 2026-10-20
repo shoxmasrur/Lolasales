@@ -83,6 +83,7 @@ interface Sozlama {
 function build(s: Sozlama) {
   const qadamlar: string[] = [];
   const patchlar: ConversationPatch[] = [];
+  const contactedlar: string[] = [];
   const kirishlar: AgentTurnInput[] = [];
   const qoralamalar: Array<{ meta?: Record<string, unknown> }> = [];
   const yuborilgan: string[] = [];
@@ -135,6 +136,7 @@ function build(s: Sozlama) {
     {
       findById: async () => SUHBAT,
       update: async (_id: string, p: ConversationPatch) => { patchlar.push(p); return SUHBAT; },
+      markContactedIfNew: async (id: string) => { contactedlar.push(id); },
     } as unknown as IConversationRepository,
     {
       recentByConversation: async () => s.tarix ?? [],
@@ -165,7 +167,7 @@ function build(s: Sozlama) {
     xarid,
     karta,
   );
-  return { r, qadamlar, patchlar, kirishlar, qoralamalar, yuborilgan };
+  return { r, qadamlar, patchlar, contactedlar, kirishlar, qoralamalar, yuborilgan };
 }
 
 // ─── 1. To'liq qadam: kurs → bo'lib to'lash → bosqich → karta ────────────
@@ -179,7 +181,9 @@ function build(s: Sozlama) {
   );
   check('cardSent', out.cardSent === true && out.sent === true, JSON.stringify(out));
   check('eskalatsiya yo\'q', out.escalated === false && !m.patchlar.some((p) => p.needsHuman));
-  check('birinchi javob — new → contacted', m.patchlar.some((p) => p.state === 'contacted'), JSON.stringify(m.patchlar));
+  // Shartli UPDATE orqali (bazadagi `new` bo'yicha) — xotiradagi holat bilan `active` ustidan yozilmaydi.
+  check('birinchi javob — new → contacted (shartli)', m.contactedlar.length === 1 && m.contactedlar[0] === 'cv1', JSON.stringify(m.contactedlar));
+  check('holat patch bilan yozilmaydi', !m.patchlar.some((p) => p.state !== undefined), JSON.stringify(m.patchlar));
 }
 
 // ─── 2. Sotuvda yo'q kurs tashlanadi; false qiymatlar hech narsa qilmaydi ─

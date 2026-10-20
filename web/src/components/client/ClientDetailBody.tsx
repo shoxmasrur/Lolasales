@@ -475,6 +475,8 @@ export function PurchaseStageCard({ client, purchase, canEdit }: { client: Clien
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['clients'] });
       void queryClient.invalidateQueries({ queryKey: ['client', client.id] });
+      // Suhbatlar sahifasidagi mijoz paneli shu kartani `['conversation', id]` dan chizadi.
+      void queryClient.invalidateQueries({ queryKey: ['conversation'] });
     },
   });
   const stage: XaridBosqichi = purchase?.stage ?? 'yangi';

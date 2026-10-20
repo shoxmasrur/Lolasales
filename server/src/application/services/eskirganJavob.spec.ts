@@ -182,6 +182,7 @@ function build(): {
       update: async (_id: string, patch: unknown) => {
         kuzatuv.yangilanishlar.push(patch);
       },
+      markContactedIfNew: async () => undefined,
     } as unknown as IConversationRepository,
     {
       recentByConversation: async () => [],

@@ -31,7 +31,8 @@ eq('jins noaniq — murojaatsiz', contactName('Kim Sergey'), 'Kim', '');
 eq('aniq ism ustun', contactName('Aliyev Aziz Rustamovich', 'Aziz'), 'Aziz aka', '');
 
 // ── 6. Ism umuman bo'sh bo'lsa yiqilmaydi ───────────────────────────────
-eq("bo'sh ism", contactName(''), '', '');
+eq("bo'sh ism — 'Mijoz'", contactName(''), 'Mijoz', '');
+eq("faqat bo'shliq — 'Mijoz'", contactName('   '), 'Mijoz', '');
 
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");
 process.exitCode = failed ? 1 : 0;

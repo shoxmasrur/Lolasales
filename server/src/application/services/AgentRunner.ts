@@ -732,11 +732,13 @@ export class AgentRunner {
     const escalated = Boolean(output.escalate) || kartaXatosi !== null || maxfiy;
     const humanReason = maxfiy ? MAXFIY_SABAB : (output.escalate?.reason ?? kartaXatosi);
 
-    // `conversations.state` endi agentga tegishli emas (14-vazifada o'chiriladi).
     // Faqat "new" → "contacted": suhbatlar ro'yxati va ommaviy ishlar birinchi
-    // xabar ketgan suhbatni shu belgi bilan ajratadi.
+    // xabar ketgan suhbatni shu belgi bilan ajratadi. Shartli UPDATE (bazadagi
+    // holat bo'yicha): xotiradagi nusxa eskirgan bo'lishi mumkin — shu orada
+    // mijoz javob berib, `touchInbound` holatni `active` qilgan bo'lsa, u
+    // ustidan yozilmaydi.
+    if (sent) await this.conversations.markContactedIfNew(conversation.id);
     await this.conversations.update(conversation.id, {
-      ...(sent && conversation.state === 'new' ? { state: 'contacted' as const } : {}),
       ...(escalated ? { needsHuman: true, humanReason } : {}),
       ...(output.sessionId ? { agentSessionId: output.sessionId } : {}),
       ...(output.internalNote ? { summary: output.internalNote } : {}),

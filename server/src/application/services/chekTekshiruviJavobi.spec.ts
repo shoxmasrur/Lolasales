@@ -122,6 +122,7 @@ function build(opts: { openCheck: PaymentCheck | null; output?: AgentTurnOutput;
         patches.push(patch);
         return SUHBAT;
       },
+      markContactedIfNew: async () => undefined,
     } as unknown as IConversationRepository,
     { recentByConversation: async () => [], create: async () => ({ id: 'x1' }) } as unknown as IMessageRepository,
     { send: async () => undefined } as unknown as MessageDispatcher,

@@ -4,7 +4,6 @@ import type { AgentRunner, AgentTurnResult } from '@/application/services/AgentR
 import type { Conversation, HumanKind } from '@/domain/entities/Conversation';
 import type { Message } from '@/domain/entities/Message';
 import type { ConversationPatch, IConversationRepository } from '@/domain/repositories/IConversationRepository';
-import type { IClientRepository } from '@/domain/repositories/IClientRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IClock, IEventBus } from '@/domain/services/support';
@@ -101,17 +100,13 @@ function build(options: {
     },
   } as unknown as AgentRunner;
 
-  const clients = {
-    findById: async () => ({ id: 'c1' }),
-  } as unknown as IClientRepository;
-
   const replies = new ReplyDebouncer(agent, 0, async () => undefined);
   const audit = { record: async () => undefined } as unknown as IAuditRepository;
   const events = { publish: () => undefined, subscribe: () => () => undefined } as unknown as IEventBus;
   const clock = { now: () => new Date('2026-08-12T09:00:00Z'), todayIso: () => '2026-08-12' } as IClock;
 
   return {
-    useCase: new RetryAgentTurnUseCase(conversations, messages, clients, agent, replies, audit, events, clock),
+    useCase: new RetryAgentTurnUseCase(conversations, messages, agent, replies, audit, events, clock),
     patches,
     replyCalls,
     firstContactCalls,

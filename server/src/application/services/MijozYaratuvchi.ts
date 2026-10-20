@@ -5,6 +5,7 @@ import type { IEventBus } from '@/domain/services/support';
 import type { XaridXizmati } from '@/application/services/XaridXizmati';
 import { normalizePhone } from '@/shared/phone';
 import { uniqueBuzildimi } from '@/shared/pgErrors';
+import { ValidationError } from '@/shared/errors';
 import { childLogger } from '@/shared/logger';
 
 const log = childLogger('mijoz-yaratuvchi');
@@ -110,11 +111,39 @@ export class MijozYaratuvchi {
     courseId: string | null;
   }): Promise<{ client: Client; created: boolean }> {
     const phone = normalizePhone(i.phone) ?? i.phone;
+    // Ikki marta bosilgan "Qo'shish": bir telefon uchun bir vaqtda bitta yaratish —
+    // ikkinchi so'rov birinchisining natijasini (mavjud mijoz sifatida) oladi.
+    const ketayotgan = this.qoldaKetayotgan.get(phone);
+    if (ketayotgan) return { client: (await ketayotgan).client, created: false };
+    const ish = this.qoldanIchki(i.fullName, phone, i.courseId);
+    this.qoldaKetayotgan.set(phone, ish);
+    try {
+      return await ish;
+    } finally {
+      this.qoldaKetayotgan.delete(phone);
+    }
+  }
+
+  private readonly qoldaKetayotgan = new Map<string, Promise<{ client: Client; created: boolean }>>();
+
+  private async qoldanIchki(
+    fullName: string,
+    phone: string,
+    courseId: string | null,
+  ): Promise<{ client: Client; created: boolean }> {
     const mavjud = await this.clients.findByPhone(phone);
     if (mavjud) return { client: mavjud, created: false };
-
-    const client = await this.clients.create({ fullName: i.fullName.trim() || phone, phone, source: 'qolda' });
-    await this.yangiMijoz(client, 'qolda', i.courseId);
+    let client: Client;
+    try {
+      client = await this.clients.create({ fullName: fullName.trim() || phone, phone, source: 'qolda' });
+    } catch (err) {
+      if (!uniqueBuzildimi(err)) throw err;
+      // Poyga: boshqa jarayon shu raqamli mijozni ulgurib yaratdi.
+      const endi = await this.clients.findByPhone(phone);
+      if (endi) return { client: endi, created: false };
+      throw new ValidationError('Bu raqamli mijoz allaqachon qo\'shilmoqda — ro\'yxatni yangilang');
+    }
+    await this.yangiMijoz(client, 'qolda', courseId);
     return { client, created: true };
   }
 

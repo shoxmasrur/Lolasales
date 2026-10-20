@@ -271,7 +271,7 @@ export function userRoutes(container: Container): Router {
         fullName: patch.fullName,
         role: updated.role.key,
         isActive: patch.isActive,
-          passwordChanged: Boolean(patch.password),
+        passwordChanged: Boolean(patch.password),
       },
     });
 

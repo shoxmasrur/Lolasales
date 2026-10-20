@@ -113,5 +113,28 @@ const kiruvchi = (o: Partial<IncomingMessage> = {}): IncomingMessage => ({
     const c = await r.y.raqamdan({ fullName: 'X', phone: '+998909998877', courseId: null, batchId: 'b3' });
     check('raqam: reklama mijozi telefon bo\'yicha topiladi, manba reklama qoladi', [c.created, c.client.source], [false, 'reklama']);
   }
+  {
+    // Qo'lda qo'shish: ikki marta bosilgan "Qo'shish" — bitta mijoz, ikkinchisi mavjud deb qaytadi.
+    const { y, rows, xarid } = qurish();
+    const [a1, a2] = await Promise.all([
+      y.qoldan({ fullName: 'Vali', phone: '+998907776655', courseId: null }),
+      y.qoldan({ fullName: 'Vali', phone: '+998907776655', courseId: null }),
+    ]);
+    check('qo\'lda: bir vaqtdagi ikki so\'rov — bitta yaratildi', [rows.length, a1.created, a2.created, a2.client.id], [1, true, false, a1.client.id]);
+    check('qo\'lda: manba qolda, xarid ochildi', [a1.client.source, xarid], ['qolda', [a1.client.id]]);
+    const b = await y.qoldan({ fullName: 'Boshqa', phone: '+998907776655', courseId: null });
+    check('qo\'lda: keyingi takror — created=false', [b.created, rows.length], [false, 1]);
+  }
+  {
+    // Unique buzilishi (boshqa jarayon ulgurdi) — 500 emas, mavjud mijoz qaytadi.
+    const { y, rows } = qurish();
+    const realCreate = (y as unknown as { clients: { create: (d: NewClient) => Promise<Client> } }).clients.create;
+    (y as unknown as { clients: { create: (d: NewClient) => Promise<Client> } }).clients.create = async (d) => {
+      await realCreate(d);
+      throw Object.assign(new Error('duplicate key'), { code: '23505' });
+    };
+    const r = await y.qoldan({ fullName: 'Gani', phone: '+998901010101', courseId: null });
+    check('qo\'lda: unique poyga — mavjud qaytadi', [r.created, r.client.id, rows.length], [false, 'c1', 1]);
+  }
   process.exitCode = failed ? 1 : 0;
 })();

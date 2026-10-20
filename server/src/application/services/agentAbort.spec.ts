@@ -197,6 +197,7 @@ function build(): { runner: AgentRunner; kuzatuv: Kuzatuv; rejim: Rejim } {
     {
       findById: async () => SUHBAT,
       update: async () => undefined,
+      markContactedIfNew: async () => undefined,
     } as unknown as IConversationRepository,
     {
       recentByConversation: async () => [],
