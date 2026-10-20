@@ -1,6 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import express from 'express';
-import type { ReceiptConfirmOutcome, ReceiptRejectOutcome, SendLinkOutcome } from '@/application/services/PaymentCheckService';
+import type { ReceiptConfirmOutcome, ReceiptDismissOutcome, ReceiptRejectOutcome, SendLinkOutcome } from '@/application/services/PaymentCheckService';
+import type { KartaNatijasi } from '@/application/services/KartaYuboruvchi';
 import type { Container } from '@/composition/container';
 import type { Permission } from '@/domain/entities/Permission';
 import type { PaymentCheck } from '@/domain/entities/PaymentCheck';
@@ -45,12 +46,18 @@ let radNatija: ReceiptRejectOutcome = { kind: 'rejected' };
 let havolaNatija: SendLinkOutcome = { kind: 'sent' };
 const havolalar: string[] = [];
 let ochiqTekshiruv: Partial<PaymentCheck> | null = null;
+const chekEmaslar: Array<{ id: string; actor: string }> = [];
+let chekEmasNatija: ReceiptDismissOutcome = { kind: 'dismissed', restoredStage: 'karta_yuborildi' };
+const kartalar: Array<{ id: string; clientId: string }> = [];
+let kartaNatija: KartaNatijasi | Error = { sent: true };
+let suhbatQoshimcha: Record<string, unknown> = {};
+let joriyXarid: Record<string, unknown> | null = null;
 
 const container = {
   clock: { now: () => NOW },
   repositories: {
     conversations: {
-      findById: async (id: string) => ({ id, clientId: 'c1' }),
+      findById: async (id: string) => (id === 'yoq' ? null : { id, clientId: 'c1', ...suhbatQoshimcha }),
       update: async (id: string) => ({ id, clientId: 'c1' }),
     },
     messages: {},
@@ -61,7 +68,7 @@ const container = {
     purchases: {
       findById: async (id: string) =>
         id === 'p1' ? { id: 'p1', courseId: 'k1', totalAmount: 1_500_000, paidAmount: 500_000, installment: true } : null,
-      findActiveByClient: async () => null,
+      findActiveByClient: async () => joriyXarid,
       findLatestByClient: async () => null,
     },
     courses: { findById: async () => ({ id: 'k1', price: 1_500_000, installmentFirstMin: 500_000 }) },
@@ -69,6 +76,13 @@ const container = {
   events: { publish: () => undefined },
   services: {
     agent: { abort: () => undefined },
+    kartaYuboruvchi: {
+      yubor: async (id: string, clientId: string) => {
+        kartalar.push({ id, clientId });
+        if (kartaNatija instanceof Error) throw kartaNatija;
+        return kartaNatija;
+      },
+    },
     javobYonaltiruvchi: { abort: () => 0 },
     paymentCheckService: {
       havolaKutyaptimi: async () => true,
@@ -80,6 +94,10 @@ const container = {
       confirmReceipt: async (id: string, actor: string, amount: number) => {
         chaqiruvlar.push({ id, actor, amount });
         return natija;
+      },
+      dismissReceipt: async (id: string, actor: string) => {
+        chekEmaslar.push({ id, actor });
+        return chekEmasNatija;
       },
       rejectReceipt: async (id: string, actor: string, reason: string) => {
         radlar.push({ id, actor, reason });
@@ -180,6 +198,37 @@ try {
   havolaNatija = { kind: 'already_sent' };
   const hv2 = await so('POST', '/cv1/send-link');
   eq('havola: allaqachon — 200, natija tanada', [hv2.status, hv2.json], [200, { kind: 'already_sent' }]);
+
+  // ── Chek emas ──
+  eq('chek emas: huquqsiz — 403', (await so('POST', '/cv1/receipt-dismiss', false)).status, 403);
+  eq('chek emas: servis chaqirilmadi', chekEmaslar.length, 0);
+  const ce = await so('POST', '/cv1/receipt-dismiss');
+  eq('chek emas: 200 va natija', [ce.status, ce.json], [200, { kind: 'dismissed', restoredStage: 'karta_yuborildi' }]);
+  eq('chek emas: operator emaili servisga', chekEmaslar[0], { id: 'cv1', actor: 'operator@lolasales.uz' });
+  chekEmasNatija = { kind: 'no_review' };
+  eq('chek emas: tekshiruv yo\'q — 409', (await so('POST', '/cv1/receipt-dismiss')).status, 409);
+
+  // ── Kartani yuborish ──
+  eq('karta: huquqsiz — 403', (await so('POST', '/cv1/send-card', false)).status, 403);
+  eq('karta: servis chaqirilmadi', kartalar.length, 0);
+  const k1 = await so('POST', '/cv1/send-card');
+  eq('karta: 200 sent', [k1.status, k1.json], [200, { kind: 'sent' }]);
+  eq('karta: suhbat va mijoz servisga', kartalar[0], { id: 'cv1', clientId: 'c1' });
+  kartaNatija = { sent: false, reason: 'kurs_yoq' };
+  const k2 = await so('POST', '/cv1/send-card');
+  eq('karta: kurs yo\'q — 200, sabab tanada', [k2.status, k2.json], [200, { kind: 'not_sent', reason: 'kurs_yoq' }]);
+  kartaNatija = new Error('Kill switch yoqilgan');
+  const k3 = await so('POST', '/cv1/send-card');
+  eq('karta: yuborishda xato — 200 failed', [k3.status, k3.json?.kind], [200, 'failed']);
+  eq('karta: suhbat yo\'q — 404', (await so('POST', '/yoq/send-card')).status, 404);
+
+  eq('GET: cardPending — oddiy holatda false', (await so('GET', '/cv1', false)).json?.cardPending, false);
+  suhbatQoshimcha = { needsHuman: true, humanReason: "Mijoz to'lashga rozi — kartani yuboring" };
+  eq('GET: cardPending — "kartani yuboring" sababi', (await so('GET', '/cv1', false)).json?.cardPending, true);
+  suhbatQoshimcha = {};
+  joriyXarid = { id: 'p1', stage: 'qiziqdi' };
+  eq('GET: cardPending — qiziqdi bosqichi', (await so('GET', '/cv1', false)).json?.cardPending, true);
+  joriyXarid = null;
 
   eq('check-payment endi yo\'q — 404', (await so('POST', '/cv1/check-payment')).status, 404);
 

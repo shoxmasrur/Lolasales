@@ -101,10 +101,13 @@ export default function DashboardPage() {
                   <div className="mt-2 h-1.5 overflow-hidden rounded bg-ink-800">
                     <div
                       className={`h-full ${v.stage === 'rad_etdi' ? 'bg-red-400' : 'bg-brand-500'}`}
-                      style={{ width: `${Math.round(v.ulush * 100)}%` }}
+                      // Rad etilganlar asosga kirmaydi — ularning ulushi 100% dan oshishi mumkin.
+                      style={{ width: `${Math.min(100, Math.round(v.ulush * 100))}%` }}
                     />
                   </div>
-                  <div className="mt-1 text-[11px] text-ink-500">{Math.round(v.ulush * 100)}%</div>
+                  <div className="mt-1 text-[11px] text-ink-500">
+                    {v.stage === 'rad_etdi' ? 'asosga kirmaydi' : `${Math.min(100, Math.round(v.ulush * 100))}%`}
+                  </div>
                 </div>
               ))}
             </div>

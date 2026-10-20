@@ -91,7 +91,7 @@ const main = async (): Promise<void> => {
       { peer: peer('11'), fullName: 'I11', text: 'menga xabar bering' },
       { peer: peer('12'), fullName: 'I12', text: '+' },
     ], 'admin@x.uz');
-    check('natija', r, { created: 1, existing: 1, campaignId: 'k1' });
+    check('natija', r, { created: 1, existing: 1, campaignId: 'k1', campaignSkipped: false });
     check('guruhdan: akkaunt va manba', (iz.guruhdan[0] as any), {
       accountId: 'a1', peer: peer('11'), fullName: 'I11', sourceGroup: 'Lola kanal', sourceComment: 'menga xabar bering',
     });
@@ -106,6 +106,13 @@ const main = async (): Promise<void> => {
     const r = await y.mijozQil('a1', 'Lola kanal', [{ peer: peer('11'), fullName: 'I11', text: '+' }], 'admin@x.uz');
     check('yangi yo\'q — kampaniya yo\'q', [r.campaignId, iz.campaigns.length], [null, 0]);
     check('yangi yo\'q — audit baribir', iz.audit.length, 1);
+  }
+  {
+    // `campaigns.create` huquqi yo'q — mijozlar qo'shiladi, kampaniya yo'q.
+    const { y, iz } = qurish({ mavjud: [] });
+    const r = await y.mijozQil('a1', 'Lola kanal', [{ peer: peer('21'), fullName: 'I21', text: '+' }], 'op@x.uz', 'u1', false);
+    check('huquqsiz — mijoz yaratildi, kampaniya yo\'q', r, { created: 1, existing: 0, campaignId: null, campaignSkipped: true });
+    check('huquqsiz — CreateCampaign chaqirilmadi', iz.campaigns.length, 0);
   }
 
   console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");

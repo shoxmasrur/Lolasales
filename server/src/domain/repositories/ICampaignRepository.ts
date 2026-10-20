@@ -40,6 +40,11 @@ export interface ICampaignRepository {
       incrementAttempts?: boolean;
     },
   ): Promise<CampaignTarget>;
+  /**
+   * Nishonni `pending` ga qaytaradi va `until` gacha bandlanmaydigan qiladi
+   * (urinish sanalmaydi): akkaunt vaqtincha band — kvota yoki flood-wait.
+   */
+  deferTarget(id: string, until: Date, reason: string): Promise<void>;
   stats(campaignId: string): Promise<CampaignStats>;
   countSentToday(campaignId: string, todayIso: string): Promise<number>;
 }

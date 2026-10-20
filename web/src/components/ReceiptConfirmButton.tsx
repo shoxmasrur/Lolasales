@@ -11,7 +11,8 @@ type ReceiptConfirmOutcome =
   | { kind: 'needs_human'; reason: 'yakunlangan_xarid' | 'summa_yoq'; stage: string | null }
   | { kind: 'no_review' };
 type ReceiptRejectOutcome = { kind: 'rejected' } | { kind: 'no_review' };
-type Natija = ReceiptConfirmOutcome | ReceiptRejectOutcome;
+type ReceiptDismissOutcome = { kind: 'dismissed'; restoredStage: string | null } | { kind: 'no_review' };
+type Natija = ReceiptConfirmOutcome | ReceiptRejectOutcome | ReceiptDismissOutcome;
 
 /** `GET /conversations/:id` dagi ochiq chek tekshiruvi. */
 export interface ReceiptReview {
@@ -22,7 +23,15 @@ export interface ReceiptReview {
   expectedAmount: number | null;
 }
 
-const BOSQICH: Record<string, string> = { qisman_toladi: "Qisman to'ladi", toladi: "To'ladi", chek_keldi: 'Chek keldi' };
+const BOSQICH: Record<string, string> = {
+  yangi: 'Yangi',
+  suhbatda: 'Suhbatda',
+  qiziqdi: 'Qiziqdi',
+  karta_yuborildi: 'Karta yuborildi',
+  qisman_toladi: "Qisman to'ladi",
+  toladi: "To'ladi",
+  chek_keldi: 'Chek keldi',
+};
 
 function natijaMatni(n: Natija): string {
   switch (n.kind) {
@@ -36,6 +45,10 @@ function natijaMatni(n: Natija): string {
         : 'Chek yakunlangan xaridga keldi — summa xaridga qo\'shilmadi, qo\'lda tekshiring';
     case 'rejected':
       return 'Rad etildi — agent mijozdan qayta chek so\'raydi';
+    case 'dismissed':
+      return n.restoredStage
+        ? `Chek emas deb belgilandi — bosqich "${BOSQICH[n.restoredStage] ?? n.restoredStage}" ga qaytdi`
+        : 'Chek emas deb belgilandi';
     case 'no_review':
       return 'Tekshiruv allaqachon yopilgan';
   }
@@ -89,8 +102,13 @@ export function ReceiptConfirmButton({
     onSuccess: yangila,
   });
 
-  const outcome: Natija | undefined = tasdiq.data ?? rad.data;
-  const pending = tasdiq.isPending || rad.isPending;
+  const chekEmas = useMutation({
+    mutationFn: () => yuborish<ReceiptDismissOutcome>(`/conversations/${conversationId}/receipt-dismiss`, {}),
+    onSuccess: yangila,
+  });
+
+  const outcome: Natija | undefined = tasdiq.data ?? rad.data ?? chekEmas.data;
+  const pending = tasdiq.isPending || rad.isPending || chekEmas.isPending;
   // Bosilgach tekshiruv yopiladi va `receiptReview` null bo'ladi — natija
   // baribir ko'rinib tursin, aks holda menejer nima bo'lganini bilmaydi.
   if (!canConfirm || (!receiptReview && !outcome)) return null;
@@ -115,7 +133,7 @@ export function ReceiptConfirmButton({
             />
           </label>
           {summaToGri ? <p className="text-[11px] text-ink-500">{som(summa)}</p> : null}
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               type="button"
               onClick={() => {
@@ -139,6 +157,18 @@ export function ReceiptConfirmButton({
             >
               {rad.isPending ? 'Yuborilyapti…' : 'Rad etish'}
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm("Bu to'lov cheki emasmi? Tekshiruv yopiladi, mijozga hech narsa yozilmaydi.")) {
+                  chekEmas.mutate();
+                }
+              }}
+              disabled={pending}
+              className="btn-ghost !py-1.5 text-xs"
+            >
+              {chekEmas.isPending ? 'Yopilyapti…' : 'Chek emas'}
+            </button>
           </div>
         </div>
       ) : null}
@@ -146,7 +176,7 @@ export function ReceiptConfirmButton({
       {outcome ? (
         <p
           className={`mt-1.5 text-[11px] leading-relaxed ${
-            outcome.kind === 'confirmed' || outcome.kind === 'rejected'
+            outcome.kind === 'confirmed' || outcome.kind === 'rejected' || outcome.kind === 'dismissed'
               ? 'text-emerald-300'
               : outcome.kind === 'not_sent' || outcome.kind === 'needs_human'
                 ? 'text-amber-300'
@@ -157,7 +187,7 @@ export function ReceiptConfirmButton({
         </p>
       ) : null}
 
-      {tasdiq.isError || rad.isError ? (
+      {tasdiq.isError || rad.isError || chekEmas.isError ? (
         <p className="mt-1.5 text-[11px] text-red-300">Saqlab bo'lmadi, qaytadan urinib ko'ring.</p>
       ) : null}
     </div>
@@ -202,6 +232,65 @@ export function SendLinkButton({ conversationId, visible }: { conversationId: st
         </button>
       ) : null}
       {yubor.data ? <p className="mt-1.5 text-[11px] text-ink-400">{HAVOLA_NATIJASI[yubor.data.kind]}</p> : null}
+      {yubor.isError ? <p className="mt-1.5 text-[11px] text-red-300">Yuborib bo'lmadi, qaytadan urinib ko'ring.</p> : null}
+    </div>
+  );
+}
+
+type SendCardOutcome =
+  | { kind: 'sent' }
+  | { kind: 'not_sent'; reason: 'kurs_yoq' | 'karta_yoq' | 'bolib_tolash_yoq' }
+  | { kind: 'failed'; reason: string };
+
+const KARTA_SABABI: Record<string, string> = {
+  kurs_yoq: "Mijozning faol xaridida kurs yo'q — avval kursni belgilang",
+  karta_yoq: "Sozlamalarda faol karta yo'q",
+  bolib_tolash_yoq: "Bu kursda bo'lib to'lash yo'q",
+};
+
+function kartaNatijasi(n: SendCardOutcome): string {
+  if (n.kind === 'sent') return 'Karta yuborildi';
+  if (n.kind === 'not_sent') return KARTA_SABABI[n.reason] ?? n.reason;
+  return `Yuborib bo'lmadi: ${n.reason}`;
+}
+
+/**
+ * "Kartani yuborish" — agent "mana karta" degan, lekin karta ketmagan
+ * (qo'lda tasdiqlash rejimi, takror himoyasi, kurs aniqlanmagan) yoki mijoz
+ * qiziqib turibdi. Karta raqamini tizim Sozlamalardagi aniq qiymatdan yuboradi.
+ */
+export function SendCardButton({ conversationId, visible }: { conversationId: string; visible: boolean }) {
+  const canConfirm = useCan('receipts.confirm');
+  const queryClient = useQueryClient();
+  const yubor = useMutation({
+    mutationFn: () => api.post<SendCardOutcome>(`/conversations/${conversationId}/send-card`),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      void queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      void queryClient.invalidateQueries({ queryKey: ['clients'] });
+    },
+  });
+  if (!canConfirm || (!visible && !yubor.data)) return null;
+  return (
+    <div className="mb-3">
+      {visible ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm("To'lov kartasini mijozga yuborasizmi?")) yubor.mutate();
+          }}
+          disabled={yubor.isPending}
+          className="btn-ghost w-full !py-1.5 text-xs"
+        >
+          {yubor.isPending ? 'Yuborilyapti…' : 'Kartani yuborish'}
+        </button>
+      ) : null}
+      {yubor.data ? (
+        <p className={`mt-1.5 text-[11px] ${yubor.data.kind === 'sent' ? 'text-emerald-300' : 'text-amber-300'}`}>
+          {kartaNatijasi(yubor.data)}
+        </p>
+      ) : null}
       {yubor.isError ? <p className="mt-1.5 text-[11px] text-red-300">Yuborib bo'lmadi, qaytadan urinib ko'ring.</p> : null}
     </div>
   );

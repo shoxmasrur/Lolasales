@@ -256,8 +256,6 @@ export function createContainer() {
     // Notanish yozuvchi — reklama leadi.
     mijozYaratuvchi,
     telegramAccounts,
-    // Chek kelganda faol xarid `chek_keldi` bosqichiga o'tadi.
-    xaridXizmati,
   );
   // Ommaviy suhbat boshlash — kampaniya rejalashtiruvchisi bilan bir xil
   // himoya ostida (ish oynasi, tasodifiy pauza, spam cheklovida to'xtash).

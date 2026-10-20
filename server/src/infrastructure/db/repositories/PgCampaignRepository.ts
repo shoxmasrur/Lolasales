@@ -122,6 +122,7 @@ export class PgCampaignRepository implements ICampaignRepository {
         WHERE t.id IN (
           SELECT id FROM campaign_targets
            WHERE campaign_id = $1 AND state = 'pending' AND deleted_at IS NULL
+             AND (scheduled_at IS NULL OR scheduled_at <= now())
            ORDER BY created_at ASC
            FOR UPDATE SKIP LOCKED
            LIMIT $2
@@ -174,6 +175,14 @@ export class PgCampaignRepository implements ICampaignRepository {
     );
     if (!rows[0]) throw new NotFoundError('Kampaniya nishoni', id);
     return mapCampaignTarget(rows[0]);
+  }
+
+  async deferTarget(id: string, until: Date, reason: string): Promise<void> {
+    await query(
+      `UPDATE campaign_targets SET state = 'pending', scheduled_at = $2, last_error = $3
+        WHERE id = $1 AND deleted_at IS NULL`,
+      [id, until, reason],
+    );
   }
 
   async stats(campaignId: string): Promise<CampaignStats> {

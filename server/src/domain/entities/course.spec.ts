@@ -1,4 +1,4 @@
-import { sotuvdagiKurslar, keyingiKurs, type Course } from '@/domain/entities/Course';
+import { bolibTolashXatosi, sotuvdagiKurslar, keyingiKurs, type Course } from '@/domain/entities/Course';
 
 /** Qo'lda: npm run test:course --workspace=server */
 let failed = 0;
@@ -24,5 +24,12 @@ check("keyingi yo'q", keyingiKurs(C, '2027-01-02'), null);
 check('keyingi: bugun boshlansa emas', keyingiKurs(C, '2026-11-01')?.id, 'dek');
 check('keyingi: faol emas hisobga olinmaydi', keyingiKurs([k('off', '2026-11-01', '2026-11-30', false)], '2026-10-20'), null);
 check('bir xil salesStart: id bo\'yicha', sotuvdagiKurslar([k('b', '2026-11-01', '2026-11-30'), k('a', '2026-11-01', '2026-11-30')], '2026-11-02').map((c) => c.id), ['a', 'b']);
+// Bo'lib to'lash shartlari (yakuniy sharh, 12-topilma).
+check('bo\'lib to\'lash yo\'q — xato yo\'q', bolibTolashXatosi(BASE), null);
+check('to\'g\'ri bo\'lib to\'lash', bolibTolashXatosi({ ...BASE, installmentAllowed: true, installmentParts: 3, installmentFirstMin: 500_000 }), null);
+check('birinchi qism = narx — mumkin', bolibTolashXatosi({ ...BASE, installmentAllowed: true, installmentParts: 2, installmentFirstMin: 1_500_000 }), null);
+check('birinchi qism > narx — xato', bolibTolashXatosi({ ...BASE, installmentAllowed: true, installmentParts: 3, installmentFirstMin: 1_600_000 }), "Birinchi qism kurs narxidan katta bo'lmasin");
+check('1 qism — xato', bolibTolashXatosi({ ...BASE, installmentAllowed: true, installmentParts: 1, installmentFirstMin: null }), "Bo'lib to'lashda qismlar soni kamida 2 bo'lsin");
+check('qismlar soni yo\'q — xato', bolibTolashXatosi({ ...BASE, installmentAllowed: true, installmentParts: null, installmentFirstMin: null }), "Bo'lib to'lashda qismlar soni kamida 2 bo'lsin");
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");
 process.exitCode = failed ? 1 : 0;

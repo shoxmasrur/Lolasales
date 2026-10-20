@@ -8,6 +8,7 @@ import { config } from '@/shared/config';
 import { canReply } from '@/domain/entities/TelegramAccount';
 import { chekTekshiruviFaolmi, type PaymentCheck } from '@/domain/entities/PaymentCheck';
 import { kutilganChekSummasi } from '@/domain/services/karta';
+import { KARTA_KUTILADI_SABABLARI } from '@/application/services/KartaYuboruvchi';
 import { NotFoundError, ValidationError } from '@/shared/errors';
 import { CONVERSATION_STATES, type ConversationState } from '@/domain/entities/Conversation';
 
@@ -169,6 +170,50 @@ export function conversationRoutes(container: Container): Router {
   });
 
   /**
+   * "Chek emas" — rasm/fayl to'lov cheki emas. Tekshiruv yopiladi, chek
+   * eskalatsiyasi yechiladi, bosqich chekdan oldingisiga qaytadi; mijozga
+   * hech narsa yozilmaydi.
+   */
+  router.post('/:id/receipt-dismiss', requirePermission('receipts.confirm'), async (req, res) => {
+    const user = currentUser(req);
+    const outcome = await container.services.paymentCheckService.dismissReceipt(String(req.params.id), user.email);
+    if (outcome.kind === 'no_review') {
+      res.status(409).json(outcome);
+      return;
+    }
+    res.json(outcome);
+  });
+
+  /**
+   * "Kartani yuborish" — agent "mana karta" degan, lekin karta tizimdan
+   * ketmagan (qo'lda tasdiqlash rejimi, takror himoyasi, kurs yo'q) yoki
+   * mijoz qiziqib turibdi. Kartani tizim Sozlamalardagi aniq qiymatdan
+   * yuboradi; yuborib bo'lmasa sabab tanada (`kurs_yoq`/`karta_yoq`/…).
+   * Yuborish oynasi tekshirilmaydi — bu menejer amali.
+   */
+  router.post('/:id/send-card', requirePermission('receipts.confirm'), async (req, res) => {
+    const id = String(req.params.id);
+    const conversation = await conversations.findById(id);
+    if (!conversation) throw new NotFoundError('Suhbat', id);
+    let javob: { kind: 'sent' } | { kind: 'not_sent'; reason: string } | { kind: 'failed'; reason: string };
+    try {
+      const natija = await container.services.kartaYuboruvchi.yubor(id, conversation.clientId);
+      javob = natija.sent ? { kind: 'sent' } : { kind: 'not_sent', reason: natija.reason };
+    } catch (err) {
+      // Kill switch, akkaunt limiti yoki Telegram xatosi — tugma qayta bosilishi mumkin.
+      javob = { kind: 'failed', reason: err instanceof Error ? err.message : 'noma\'lum xato' };
+    }
+    await container.repositories.audit.record({
+      actor: currentUser(req).email,
+      action: 'card.manual_send',
+      entity: 'conversation',
+      entityId: id,
+      payload: javob,
+    });
+    res.json(javob);
+  });
+
+  /**
    * "Havolani yuborish" — avtomatik yuborish yiqilgan bo'lsa. Kurs qoidasi
    * va "bir marta" belgisi servisda qaytadan tekshiriladi.
    */
@@ -222,6 +267,10 @@ export function conversationRoutes(container: Container): Router {
             }
           : null,
       linkPending,
+      // "Kartani yuborish" tugmasi: suhbat karta kutib menejerda yoki mijoz qiziqib turibdi.
+      cardPending:
+        (conversation.needsHuman && !!conversation.humanReason && KARTA_KUTILADI_SABABLARI.includes(conversation.humanReason)) ||
+        purchase?.stage === 'qiziqdi',
     });
   });
 

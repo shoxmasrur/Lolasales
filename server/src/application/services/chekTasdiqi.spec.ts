@@ -109,7 +109,7 @@ function build(opts: {
     const c: Mutable<PaymentCheck> = {
       id: `pc${n}`, conversationId: 'cv1', clientId: 'c1', purchaseId: 'p1', messageId: `m${n}`,
       kind: 'receipt_review', status: 'reviewing', receiptSource: 'tolov', sinceIso: '2026-10-20',
-      acknowledgedAt: null, confirmedBy: null, confirmedAt: null, confirmedAmount: null, rejectedReason: null, createdAt,
+      acknowledgedAt: null, confirmedBy: null, confirmedAt: null, confirmedAmount: null, rejectedReason: null, prevStage: null, createdAt,
     };
     checks.push(c);
     return c;

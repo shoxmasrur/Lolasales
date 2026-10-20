@@ -48,3 +48,17 @@ export function sotuvdagiKurslar(courses: Course[], todayIso: string): Course[] 
 export function keyingiKurs(courses: Course[], todayIso: string): Course | null {
   return courses.filter((c) => c.isActive && c.salesStart > todayIso).sort(tartib)[0] ?? null;
 }
+
+/**
+ * Bo'lib to'lash maydonlari izchilmi; xato bo'lsa foydalanuvchiga matn,
+ * aks holda `null`. Bazadagi CHECK (008-migratsiya) bilan bir xil qoida.
+ */
+export function bolibTolashXatosi(c: Pick<Course, 'price' | 'installmentAllowed' | 'installmentParts' | 'installmentFirstMin'>): string | null {
+  if (c.installmentFirstMin !== null && c.installmentFirstMin > c.price) {
+    return "Birinchi qism kurs narxidan katta bo'lmasin";
+  }
+  if (c.installmentAllowed && (c.installmentParts === null || c.installmentParts < 2)) {
+    return "Bo'lib to'lashda qismlar soni kamida 2 bo'lsin";
+  }
+  return null;
+}

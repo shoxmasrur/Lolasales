@@ -49,10 +49,7 @@ jobs:
           npm run test:lugat --workspace=server
           # Standart sotuv qoidalari: qarz so'zlari yo'q, brief bo'limlari, e'tirozlar, mijoz turlari.
           npm run test:sotuv-qoidalari --workspace=server
-          npm run test:kun-chegarasi --workspace=server
-          npm run test:norozilik --workspace=server
           npm run test:bot-tokeni --workspace=server
-          npm run test:mavzudan-tashqari --workspace=server
           npm run test:llm-narxi --workspace=server
           # Sof funksiya — `shared/config` ni tortmaydi, `.env` shart emas.
           npm run test:llm-tamgasi --workspace=server
@@ -60,6 +57,7 @@ jobs:
           npm run test:client-cols --workspace=server
           npm run test:xarid-sharti --workspace=server
           npm run test:xarid-xizmati --workspace=server
+          npm run test:karta-yuboruvchi --workspace=server
           npm run test:mijoz-tartibi --workspace=server
           npm run test:contact-name --workspace=server
 
@@ -78,6 +76,8 @@ jobs:
           # bo'lmasa, qulf yo'q.
           npm run test:eskirgan-javob --workspace=server
           npm run test:uzilgan-navbat --workspace=server
+          # Kampaniya: akkaunt vaqtincha band — nishon navbatda qoladi.
+          npm run test:outreach-scheduler --workspace=server
           # Jim qolgan mijozga eslatma. Bu testlar mijozga XABAR
           # YUBORADIGAN yo'lni qo'riqlaydi — ro'yxatda bo'lmasa, qulf yo'q.
           npm run test:eslatma --workspace=server

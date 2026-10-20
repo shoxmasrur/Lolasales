@@ -1,6 +1,6 @@
 import type { NewReceiptReview, PaymentCheck } from '@/domain/entities/PaymentCheck';
 import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentCheckRepository';
-import type { Purchase } from '@/domain/entities/Purchase';
+import type { Purchase, XaridBosqichi } from '@/domain/entities/Purchase';
 import { query, withTransaction } from '@/infrastructure/db/pool';
 import { mapPaymentCheck, mapPurchase } from '@/infrastructure/db/mappers';
 
@@ -99,6 +99,23 @@ export class PgPaymentCheckRepository implements IPaymentCheckRepository {
       [id, actor, reason, at],
     );
     return (rowCount ?? 0) > 0;
+  }
+
+  async cancelById(id: string): Promise<boolean> {
+    const { rowCount } = await query(
+      `UPDATE payment_checks SET status = 'cancelled', updated_at = now()
+        WHERE id = $1 AND ${OCHIQ}`,
+      [id],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  async setPrevStage(id: string, stage: XaridBosqichi): Promise<void> {
+    await query(
+      `UPDATE payment_checks SET prev_stage = COALESCE(prev_stage, $2), updated_at = now()
+        WHERE id = $1 AND ${OCHIQ}`,
+      [id, stage],
+    );
   }
 
   async cancel(conversationId: string): Promise<void> {

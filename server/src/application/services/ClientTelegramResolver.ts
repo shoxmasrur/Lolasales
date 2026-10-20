@@ -61,8 +61,12 @@ export type ResolveOutcome =
    * qo'shing" emas).
    */
   | { kind: 'not_assigned' }
-  /** Mijozning akkaunti bor, lekin hozir yubora olmaydi (limit, flood, spam). */
-  | { kind: 'account_unavailable'; reason: string };
+  /**
+   * Mijozning akkaunti bor, lekin hozir yubora olmaydi (limit, flood, spam).
+   * `temporary` — kunlik kvota yoki flood-wait: keyinroq o'zi o'tadi,
+   * kampaniya nishoni qayta urinish uchun navbatda qoladi.
+   */
+  | { kind: 'account_unavailable'; reason: string; temporary: boolean };
 
 export interface ResolveOptions {
   /**
@@ -148,7 +152,7 @@ export class ClientTelegramResolver {
     if (!accountId) return { kind: 'no_account' };
 
     const availability = await this.checkAccount(accountId, purpose);
-    if (!availability.ok) return { kind: 'account_unavailable', reason: availability.reason };
+    if (!availability.ok) return { kind: 'account_unavailable', reason: availability.reason, temporary: availability.temporary };
     const account = accountId;
     const tgAccount = availability.account;
 
@@ -214,6 +218,7 @@ export class ClientTelegramResolver {
       return {
         kind: 'account_unavailable',
         reason: `"${tgAccount.label}" kunlik qidiruv chegarasini to'ldirgan`,
+        temporary: true,
       };
     }
 
@@ -364,24 +369,24 @@ export class ClientTelegramResolver {
   private async checkAccount(
     accountId: string,
     purpose: 'outreach' | 'lookup',
-  ): Promise<{ ok: true; account: TelegramAccount } | { ok: false; reason: string }> {
+  ): Promise<{ ok: true; account: TelegramAccount } | { ok: false; reason: string; temporary: boolean }> {
     const account = await this.accounts.findById(accountId);
-    if (!account) return { ok: false, reason: 'Biriktirilgan akkaunt topilmadi' };
+    if (!account) return { ok: false, reason: 'Biriktirilgan akkaunt topilmadi', temporary: false };
 
-    if (!account.isEnabled) return { ok: false, reason: `"${account.label}" o'chirilgan` };
+    if (!account.isEnabled) return { ok: false, reason: `"${account.label}" o'chirilgan`, temporary: false };
     if (account.status !== 'connected') {
-      return { ok: false, reason: `"${account.label}" ulanmagan (${account.status})` };
+      return { ok: false, reason: `"${account.label}" ulanmagan (${account.status})`, temporary: false };
     }
     if (account.spamStatus === 'banned') {
-      return { ok: false, reason: `"${account.label}" bloklangan — mijozlarni qayta taqsimlang` };
+      return { ok: false, reason: `"${account.label}" bloklangan — mijozlarni qayta taqsimlang`, temporary: false };
     }
     if (account.spamStatus === 'limited') {
-      return { ok: false, reason: `"${account.label}" spam filtrida (cheklangan)` };
+      return { ok: false, reason: `"${account.label}" spam filtrida (cheklangan)`, temporary: false };
     }
 
     const now = this.clock.now();
     if (account.floodWaitUntil && account.floodWaitUntil.getTime() > now.getTime()) {
-      return { ok: false, reason: `"${account.label}" flood-wait holatida` };
+      return { ok: false, reason: `"${account.label}" flood-wait holatida`, temporary: true };
     }
     // Suhbat boshlash oldidan xabar kvotasi ham tekshiriladi: kvota
     // tugagan bo'lsa qidirishning ma'nosi yo'q.
@@ -390,7 +395,7 @@ export class ClientTelegramResolver {
     // qaytishdan oldin: xabar kvotasi tugagan bo'lsa, peer allaqachon
     // ma'lum bo'lsa ham suhbat boshlanmaydi, ya'ni bu foydali erta chiqish.
     if (purpose === 'outreach' && !canSend(account, now, this.clock.todayIso())) {
-      return { ok: false, reason: `"${account.label}" kunlik limitini to'ldirgan` };
+      return { ok: false, reason: `"${account.label}" kunlik limitini to'ldirgan`, temporary: true };
     }
 
     return { ok: true, account };

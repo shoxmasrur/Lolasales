@@ -36,6 +36,12 @@ export function yakunlanganmi(stage: XaridBosqichi): boolean {
 
 const AGENT_OLDINGA: readonly XaridBosqichi[] = ['yangi', 'suhbatda', 'qiziqdi'];
 const TIZIM_QOYADI: readonly XaridBosqichi[] = ['karta_yuborildi', 'chek_keldi', 'qisman_toladi', 'toladi'];
+/**
+ * Agent `rad_etdi` ni faqat pul hali kelmagan bosqichlardan qo'yadi:
+ * `chek_keldi` (chek tekshiruvda) va `qisman_toladi` (pul to'langan) da
+ * mijozning "kerak emas"i — menejer masalasi.
+ */
+const AGENT_RAD_ETADI: readonly XaridBosqichi[] = ['yangi', 'suhbatda', 'qiziqdi', 'karta_yuborildi'];
 
 /** Bosqich o'tishi ruxsat etilsa yangi bosqich, aks holda null. */
 export function bosqichOtishi(current: XaridBosqichi, requested: XaridBosqichi, actor: BosqichAktori): XaridBosqichi | null {
@@ -43,7 +49,7 @@ export function bosqichOtishi(current: XaridBosqichi, requested: XaridBosqichi, 
   if (actor === 'menejer') return requested;
   if (yakunlanganmi(current)) return null;
   if (actor === 'tizim') return TIZIM_QOYADI.includes(requested) ? requested : null;
-  if (requested === 'rad_etdi') return requested;
+  if (requested === 'rad_etdi') return AGENT_RAD_ETADI.includes(current) ? requested : null;
   const i = AGENT_OLDINGA.indexOf(current);
   const j = AGENT_OLDINGA.indexOf(requested);
   return i >= 0 && j > i ? requested : null;

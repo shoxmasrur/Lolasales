@@ -32,6 +32,8 @@ interface LeadNatija {
   created: number;
   existing: number;
   campaignId: string | null;
+  /** Yangi mijozlar bor, lekin foydalanuvchida `campaigns.create` yo'q. */
+  campaignSkipped?: boolean;
 }
 
 /**
@@ -361,6 +363,10 @@ export default function GuruhlarPage() {
             <Link to="/campaigns" className="mt-1 inline-block text-xs text-emerald-300 underline">
               Kampaniyani ochish
             </Link>
+          ) : toast.campaignSkipped ? (
+            <p className="mt-1 text-xs text-amber-300">
+              Kampaniya yaratilmadi: kampaniya yaratish huquqingiz yo'q. Mijozlarga yozish uchun administratorga murojaat qiling.
+            </p>
           ) : (
             <p className="mt-1 text-xs text-ink-500">Yangi mijoz yo'q — kampaniya yaratilmadi.</p>
           )}

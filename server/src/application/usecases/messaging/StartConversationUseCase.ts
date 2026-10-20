@@ -17,7 +17,13 @@ const log = childLogger('start-conversation');
 
 export type StartConversationResult =
   | { status: 'started'; conversation: Conversation; reply: string | null }
-  | { status: 'skipped'; reason: string; conversation: Conversation | null };
+  | {
+      status: 'skipped';
+      reason: string;
+      conversation: Conversation | null;
+      /** Akkaunt vaqtincha band (kvota, flood-wait) — keyinroq qayta urinish mumkin. */
+      retryLater?: boolean;
+    };
 
 export interface StartConversationOptions {
   /**
@@ -137,7 +143,12 @@ export class StartConversationUseCase {
         resolved.kind === 'account_unavailable'
           ? resolved.reason
           : (RESOLVE_REASONS[resolved.kind] ?? 'Telegram profili aniqlanmadi');
-      return { status: 'skipped', reason, conversation: existing };
+      return {
+        status: 'skipped',
+        reason,
+        conversation: existing,
+        ...(resolved.kind === 'account_unavailable' && resolved.temporary ? { retryLater: true } : {}),
+      };
     }
 
     // Mos kelmaslik AYNAN shu qidiruvda topilgan bo'lsa, yuqoridagi

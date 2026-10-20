@@ -38,7 +38,7 @@ import type { IClock, IEventBus } from '@/domain/services/support';
 import type { MessageDispatcher } from '@/application/services/MessageDispatcher';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 import type { XaridXizmati } from '@/application/services/XaridXizmati';
-import type { KartaYuboruvchi } from '@/application/services/KartaYuboruvchi';
+import { KARTANI_YUBORING, SABAB_MATNI as KARTA_SABABLARI, type KartaYuboruvchi } from '@/application/services/KartaYuboruvchi';
 import type { StyleVersion } from '@/domain/entities/UslubVersiyasi';
 import { uslubTamgasi } from '@/application/services/uslubTamgasi';
 import { llmTamgasi } from '@/application/services/llmTamgasi';
@@ -48,7 +48,6 @@ import { hisoblaNarx } from '@/domain/services/llmNarxi';
 import { agentKartaYuborsinmi } from '@/domain/services/karta';
 import { MAXFIY_SABAB, maxfiyQiymatBormi, tarixMatni } from '@/domain/services/maxfiyQiymat';
 import { personaNameOf } from '@/domain/entities/TelegramAccount';
-import { mavzudanTashqari, TASHQARI_JAVOBI } from '@/domain/services/mavzudanTashqari';
 import {
   AbortedError,
   NotFoundError,
@@ -80,6 +79,8 @@ const YUBORILMADI: AgentTurnResult = { sent: false, reply: null, escalated: fals
 
 /** Modeldan keyingi qo'llash parametrlari. */
 interface ApplyOptions {
+  /** Navbat turi: chek natijasi va eslatma navbatlarida xarid maydonlari e'tiborsiz. */
+  readonly mode: TurnMode;
   /** `false` — qo'lda tasdiqlash rejimi: javob qoralama bo'lib qoladi, karta ketmaydi. */
   readonly autoSend: boolean;
   /**
@@ -336,7 +337,7 @@ export class AgentRunner {
       const conversation = await this.requireConversation(conversationId);
       const { output, context, ishlatilgan, fallback } = await this.modelNavbati(conversation, 'first', signal, {});
       // Yagona joy, xabar NOTANISH odamga ketadi — kunlik kvota shunga.
-      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: true, kartaRuxsat: false, ishlatilgan, fallback });
+      return this.apply(conversation, context, output, { mode: 'first', autoSend: true, coldOutreach: true, kartaRuxsat: false, ishlatilgan, fallback });
     });
   }
 
@@ -351,31 +352,6 @@ export class AgentRunner {
       }
 
       const runtime = await this.settings.get();
-
-      // Sotuvga aloqasi yo'q topshiriq (masala, kod, tarjima) — modelni
-      // umuman chaqirmaymiz. Qo'lda tasdiqlash rejimida va global
-      // to'xtatishda qo'riqchi ISHLAMAYDI — u yerda javobni operator hal qiladi.
-      const tashqari = runtime.agentAutoReply && !runtime.killSwitch
-        ? mavzudanTashqari(incoming)
-        : { tashqarimi: false as const, sabab: undefined };
-      if (tashqari.tashqarimi) {
-        const oxirgilar = await this.messages.recentByConversation(conversationId, 4);
-        const oxirgiChiquvchi = [...oxirgilar].reverse().find((m) => m.direction === 'out');
-        if (oxirgiChiquvchi?.meta?.guard === 'mavzudan_tashqari') {
-          log.info({ conversationId, sabab: tashqari.sabab }, 'Mavzudan tashqari — takroran javob berilmadi');
-          return YUBORILMADI;
-        }
-
-        await this.dispatcher.send({
-          conversation,
-          body: TASHQARI_JAVOBI,
-          author: 'agent',
-          simulateTyping: true,
-          meta: { guard: 'mavzudan_tashqari', sabab: tashqari.sabab },
-        });
-        log.info({ conversationId, sabab: tashqari.sabab }, 'Mavzudan tashqari topshiriq — model chaqirilmadi');
-        return { sent: true, reply: TASHQARI_JAVOBI, escalated: false, cardSent: false };
-      }
 
       const history = await this.messages.recentByConversation(conversationId, HISTORY_LIMIT);
       const openCheck = await this.paymentChecks.findOpenByConversation(conversationId);
@@ -412,7 +388,7 @@ export class AgentRunner {
       }
 
       const result = await this.apply(conversation, context, output, {
-        autoSend: runtime.agentAutoReply, coldOutreach: false, kartaRuxsat: true, ishlatilgan, fallback,
+        mode: 'reply', autoSend: runtime.agentAutoReply, coldOutreach: false, kartaRuxsat: true, ishlatilgan, fallback,
       });
       if (receiptReview === 'new' && openCheck) await this.chekQabulQilindi(conversation.id, openCheck, result);
       return result;
@@ -454,7 +430,7 @@ export class AgentRunner {
         nudgeStage: stage,
       });
       return this.apply(conversation, context, output, {
-        autoSend: runtime.agentAutoReply, coldOutreach: true, kartaRuxsat: false, ishlatilgan, fallback,
+        mode: 'nudge', autoSend: runtime.agentAutoReply, coldOutreach: true, kartaRuxsat: false, ishlatilgan, fallback,
       });
     });
   }
@@ -493,7 +469,7 @@ export class AgentRunner {
       });
 
       const result = await this.apply(conversation, context, output, {
-        autoSend: true, coldOutreach: false, kartaRuxsat: true, ishlatilgan, fallback,
+        mode: 'operator', autoSend: true, coldOutreach: false, kartaRuxsat: true, ishlatilgan, fallback,
       });
       // Chekka hali javob berilmagan edi — topshiriq qoidasi agentga chekni
       // olganini aytishni buyurdi. Belgi qo'yiladi, suhbat operatorga qayta chiqarilmaydi.
@@ -524,7 +500,7 @@ export class AgentRunner {
         history,
         receiptConfirmed: confirmed,
       });
-      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: false, kartaRuxsat: false, ishlatilgan, fallback });
+      return this.apply(conversation, context, output, { mode: 'receipt_confirmed', autoSend: true, coldOutreach: false, kartaRuxsat: false, ishlatilgan, fallback });
     });
   }
 
@@ -541,7 +517,7 @@ export class AgentRunner {
         history,
         receiptRejected: { reason },
       });
-      return this.apply(conversation, context, output, { autoSend: true, coldOutreach: false, kartaRuxsat: false, ishlatilgan, fallback });
+      return this.apply(conversation, context, output, { mode: 'receipt_rejected', autoSend: true, coldOutreach: false, kartaRuxsat: false, ishlatilgan, fallback });
     });
   }
 
@@ -684,39 +660,57 @@ export class AgentRunner {
       }
     };
 
+    // 2–4. Xarid maydonlari faqat suhbat navbatlarida (birinchi murojaat,
+    // javob, operator topshirig'i). Chek natijasi (rahmat / qayta chek) va
+    // eslatmada model kontekstdagi kursni yoki bosqichni shunchaki
+    // takrorlaydi — ular xaridga tegmaydi (aks holda to'langan kurs uchun
+    // yangi "Yangi" xarid ochilardi).
+    const xaridNavbati = opts.mode === 'first' || opts.mode === 'reply' || opts.mode === 'operator';
+
     // 2. Kurs — faqat sotuvdagi kurs. Model boshqa id yozsa (eski kurs, o'ylab topilgan) tashlanadi.
-    const courseId = output.courseId;
+    // Faol xarid yo'q bo'lsa yangisi faqat YANGI kurs uchun ochiladi (`XaridXizmati.agentKursi`).
+    const courseId = xaridNavbati ? output.courseId : null;
     if (courseId && context.coursesOnSale.some((k) => k.course.id === courseId)) {
-      await xaridQadam('kurs', () => this.xarid.kursBelgila(clientId, courseId));
+      await xaridQadam('kurs', () => this.xarid.agentKursi(clientId, courseId));
     } else if (courseId) {
       log.info({ conversationId: conversation.id, courseId }, 'Agent sotuvda yo\'q kursni ko\'rsatdi — e\'tiborsiz');
     }
 
     // 3. Bo'lib to'lash — faqat `true` qo'llanadi (izoh `XaridXizmati.bolibTolash` da).
-    if (output.installment) await xaridQadam('bolib_tolash', () => this.xarid.bolibTolash(clientId));
+    if (xaridNavbati && output.installment) await xaridQadam('bolib_tolash', () => this.xarid.bolibTolash(clientId));
 
-    // 4. Bosqich — ruxsat etilgan o'tishni `bosqichOtishi` hal qiladi.
-    const stage = output.stage;
+    // 4. Bosqich — ruxsat etilgan o'tishni `bosqichOtishi` hal qiladi; faol
+    // xarid yo'q bo'lsa — hech narsa (`XaridXizmati.bosqich`, aktor `agent`).
+    const stage = xaridNavbati ? output.stage : null;
     if (stage) await xaridQadam('bosqich', () => this.xarid.bosqich(clientId, stage, 'agent'));
 
     // 5. Karta — faqat `reply`/`operator` navbatida, eskalatsiyasiz, maxfiy
-    // qiymatsiz va takror himoyasidan o'tsa (`agentKartaYuborsinmi`).
-    // Qoralama rejimida karta o'zi ketmaydi — menejerga topshiriladi.
+    // qiymatsiz va takror himoyasidan o'tsa (`agentKartaYuborsinmi`). Faqat
+    // FAOL xarid hisobga olinadi: yakunlangan xarid "karta allaqachon
+    // ketgan" degani emas. Qoralama rejimida karta o'zi ketmaydi — menejerga.
     let cardSent = false;
     let kartaXatosi: string | null = null;
     if (kartaSorovi) {
-      const joriy = await this.xarid.joriyXarid(clientId).catch(() => null);
-      if (!agentKartaYuborsinmi(joriy?.stage ?? null)) {
-        log.info({ conversationId: conversation.id, stage: joriy?.stage }, 'Karta qayta yuborilmadi (takror himoyasi)');
+      const faol = await this.xarid.faol(clientId).catch(() => null);
+      if (!faol) {
+        // Faol xarid yo'q va shu navbatda yangi kurs ko'rsatilmadi —
+        // kartani qaysi kurs uchun yuborishni menejer hal qiladi.
+        kartaXatosi = KARTA_SABABLARI.kurs_yoq;
+      } else if (!agentKartaYuborsinmi(faol.stage)) {
+        log.info({ conversationId: conversation.id, stage: faol.stage }, 'Karta qayta yuborilmadi (takror himoyasi)');
+        // Mijoz "mana karta" ni oldi, karta esa ketmadi — menejer ko'rsin.
+        if (sent) kartaXatosi = KARTANI_YUBORING;
       } else if (!opts.autoSend) {
         // Qo'lda tasdiqlash rejimi: javob qoralama, karta o'zi KETMAYDI —
         // aks holda operator "mana karta" ni tasdiqlaydi, karta esa kelmaydi.
-        kartaXatosi = "Mijoz to'lashga rozi — kartani yuboring";
+        kartaXatosi = KARTANI_YUBORING;
       } else {
         try {
-          // Karta xabari ham dispatcher orqali ketadi: kill switch, oyna va
-          // limitlar unga ham amal qiladi. `sent: false` bo'lsa `KartaYuboruvchi`
-          // suhbatni o'zi menejerga o'tkazgan.
+          // Karta xabari dispatcher orqali ketadi: kill switch va akkaunt
+          // limitlari unga ham amal qiladi. Yuborish OYNASI tekshirilmaydi —
+          // karta mijozning jonli javobiga javob (havola kabi: menejer
+          // amaliga javob). `sent: false` bo'lsa `KartaYuboruvchi` suhbatni
+          // o'zi menejerga o'tkazgan.
           cardSent = (await this.karta.yubor(conversation.id, clientId)).sent;
         } catch (err) {
           log.warn({ conversationId: conversation.id, err }, 'Karta yuborilmadi');

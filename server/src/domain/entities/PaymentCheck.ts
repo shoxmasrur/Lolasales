@@ -6,6 +6,8 @@
  * (`purchaseId`) bog'lanadi. Debitordagi `crm_watch` (CRM'dan to'lov
  * qidirish) sotuv agentida yo'q (005-migratsiya).
  */
+import type { XaridBosqichi } from '@/domain/entities/Purchase';
+
 export type PaymentCheckKind = 'receipt_review';
 
 /**
@@ -26,7 +28,7 @@ export type PaymentCheckStatus =
   | 'confirmed_by_operator'
   /** Menejer sababini yozib rad etdi. */
   | 'rejected'
-  /** Suhbat yopildi yoki yangi chek eskisining o'rnini egalladi. */
+  /** Suhbat yopildi, menejer "Chek emas" dedi yoki yangi chek eskisining o'rnini egalladi. */
   | 'cancelled';
 
 export interface PaymentCheck {
@@ -50,6 +52,11 @@ export interface PaymentCheck {
   readonly confirmedAmount: number | null;
   /** Rad etish sababi. */
   readonly rejectedReason: string | null;
+  /**
+   * Chek bosqichni `chek_keldi` ga surishdan OLDINGI bosqich. "Chek emas"
+   * bosilsa xarid shunga qaytadi; `null` — chek bosqichga tegmagan.
+   */
+  readonly prevStage: XaridBosqichi | null;
   readonly createdAt: Date;
 }
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Container } from '@/composition/container';
-import type { NewCourse } from '@/domain/entities/Course';
+import { bolibTolashXatosi, type NewCourse } from '@/domain/entities/Course';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
 import { parseBody, parseParams } from '@/presentation/http/middleware/validate';
 import { AppError, NotFoundError } from '@/shared/errors';
@@ -41,6 +41,12 @@ function davrniTekshir(start: string, end: string): void {
 }
 const updateSchema = z.object(courseFields).partial();
 
+/** Bo'lib to'lash shartlari (birlashgan qiymatlarda) buzilsa 422. */
+function bolibTolashniTekshir(c: Parameters<typeof bolibTolashXatosi>[0]): void {
+  const xato = bolibTolashXatosi(c);
+  if (xato) throw new AppError(xato, 422, 'INVALID_INSTALLMENT');
+}
+
 const knowledgeFields = {
   kind: z.enum(['dastur', 'savol_javob', 'etiroz', 'boshqa']),
   title: z.string().trim().min(1, 'Sarlavha majburiy').max(300),
@@ -74,6 +80,12 @@ export function courseRoutes(container: Container): Router {
   router.post('/', edit, async (req, res) => {
     const d = parseBody(createSchema, req);
     davrniTekshir(d.salesStart, d.salesEnd);
+    bolibTolashniTekshir({
+      price: d.price,
+      installmentAllowed: d.installmentAllowed ?? false,
+      installmentParts: d.installmentParts ?? null,
+      installmentFirstMin: d.installmentFirstMin ?? null,
+    });
     const course = await courses.create({
       name: d.name,
       description: d.description ?? null,
@@ -102,6 +114,12 @@ export function courseRoutes(container: Container): Router {
     const start = patch.salesStart ?? joriy.salesStart;
     const end = patch.salesEnd ?? joriy.salesEnd;
     davrniTekshir(start, end);
+    bolibTolashniTekshir({
+      price: patch.price ?? joriy.price,
+      installmentAllowed: patch.installmentAllowed ?? joriy.installmentAllowed,
+      installmentParts: patch.installmentParts !== undefined ? patch.installmentParts : joriy.installmentParts,
+      installmentFirstMin: patch.installmentFirstMin !== undefined ? patch.installmentFirstMin : joriy.installmentFirstMin,
+    });
     const course = await courses.update(id, patch);
     await audit.record({
       actor: currentUser(req).id, action: 'course.updated', entity: 'course', entityId: id,

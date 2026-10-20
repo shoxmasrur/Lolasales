@@ -5,10 +5,11 @@ import type { KartaYuboruvchi } from '@/application/services/KartaYuboruvchi';
 import type { MessageDispatcher } from '@/application/services/MessageDispatcher';
 import type { PromptComposer } from '@/application/services/PromptComposer';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
-import type { XaridXizmati } from '@/application/services/XaridXizmati';
+import { XaridXizmati } from '@/application/services/XaridXizmati';
 import type { Conversation } from '@/domain/entities/Conversation';
 import type { Course } from '@/domain/entities/Course';
-import type { XaridBosqichi } from '@/domain/entities/Purchase';
+import type { Purchase, XaridBosqichi } from '@/domain/entities/Purchase';
+import type { IPurchaseRepository } from '@/domain/repositories/IPurchaseRepository';
 import type {
   IClientProfileRepository,
   ILessonRepository,
@@ -78,6 +79,8 @@ interface Sozlama {
   kartaXato?: Error;
   /** Suhbat tarixi (`recentByConversation`). */
   tarix?: Array<Record<string, unknown>>;
+  /** Haqiqiy `XaridXizmati` (xotiradagi xaridlar bilan) — soxtasi o'rniga. */
+  xarid?: XaridXizmati;
 }
 
 function build(s: Sozlama) {
@@ -101,21 +104,30 @@ function build(s: Sozlama) {
       kirishlar.push(input);
       return { ...JAVOB, ...s.javob };
     },
+    composeReceiptConfirmed: async (input: AgentTurnInput) => {
+      kirishlar.push(input);
+      return { ...JAVOB, ...s.javob };
+    },
+    composeReceiptRejected: async (input: AgentTurnInput) => {
+      kirishlar.push(input);
+      return { ...JAVOB, ...s.javob };
+    },
   } as unknown as IAgentEngine;
   const tanlangan: TanlanganDvigatel = { engine: dvigatel, provider: 'claude', model: 'sinov', llmModel: null };
   const engines = { forAccount: async () => tanlangan, standart: () => tanlangan } as unknown as AgentEngineFactory;
 
   const bosqich = s.xaridBosqichi === undefined ? 'qiziqdi' : s.xaridBosqichi;
-  const xarid = {
-    joriyXarid: async () =>
-      bosqich
-        ? { id: 'p1', clientId: 'c1', courseId: KURS.id, stage: bosqich, totalAmount: 1_500_000, paidAmount: 0, installment: false }
-        : null,
+  const joriy = bosqich
+    ? { id: 'p1', clientId: 'c1', courseId: KURS.id, stage: bosqich, totalAmount: 1_500_000, paidAmount: 0, installment: false }
+    : null;
+  const xarid = s.xarid ?? ({
+    joriyXarid: async () => joriy,
+    faol: async () => (joriy && joriy.stage !== 'toladi' && joriy.stage !== 'rad_etdi' ? joriy : null),
     tolanganKurslar: async () => [ESKI.id],
-    kursBelgila: async (_c: string, id: string) => void qadamlar.push(`kurs:${id}`),
+    agentKursi: async (_c: string, id: string) => void qadamlar.push(`kurs:${id}`),
     bolibTolash: async () => { qadamlar.push('bolib'); return true; },
     bosqich: async (_c: string, st: string, aktor: string) => void qadamlar.push(`bosqich:${st}:${aktor}`),
-  } as unknown as XaridXizmati;
+  } as unknown as XaridXizmati);
 
   const karta = {
     yubor: async () => {
@@ -201,6 +213,12 @@ function build(s: Sozlama) {
   const m = build({ javob: { sendCard: true }, xaridBosqichi: 'karta_yuborildi' });
   const out = await m.r.reply('cv1', 'kartani yana tashlang');
   check('karta_yuborildi — ikkinchi karta ketmadi', !m.qadamlar.includes('karta') && out.cardSent === false, JSON.stringify(m.qadamlar));
+  // Javob ("mana karta") ketdi, karta esa yo'q — menejer ko'rishi shart.
+  check(
+    'karta_yuborildi + javob ketdi — menejerga "kartani yuboring"',
+    out.escalated && m.patchlar.some((p) => p.needsHuman === true && p.humanReason === 'Mijoz to\'lashga rozi — kartani yuboring'),
+    JSON.stringify(m.patchlar),
+  );
 }
 {
   const m = build({ javob: { sendCard: true }, xaridBosqichi: 'chek_keldi' });
@@ -312,6 +330,112 @@ function build(s: Sozlama) {
   const m = build({ javob: { reply: 'Mana', replySecond: 'Guruh: https://t.me/joinchat/XYZ' }, agentAutoReply: false });
   const out = await m.r.reply('cv1', 'havola?');
   check('havolali ikkinchi qism — qoralama ham saqlanmadi', !m.qadamlar.includes('qoralama') && out.escalated, JSON.stringify(m.qadamlar));
+}
+
+// ─── 11. Yakuniy sharh: tugagan xariddan keyin fantom xarid yo'q ─────────
+/** Xotiradagi xaridlar ombori — haqiqiy `XaridXizmati` uchun. */
+function xaridOmbori(boshlang: Array<Partial<Purchase> & { id: string }>) {
+  let n = 0;
+  const rows: Purchase[] = boshlang.map((p) => ({
+    clientId: 'c1', courseId: null, stage: 'yangi', stageChangedAt: NOW, totalAmount: null, paidAmount: 0,
+    installment: false, linkSentAt: null, remindedStages: [], createdAt: NOW, ...p,
+  }));
+  const faolmi = (r: Purchase): boolean => r.stage !== 'toladi' && r.stage !== 'rad_etdi';
+  const repo = {
+    findActiveByClient: async (c: string) => rows.find((r) => r.clientId === c && faolmi(r)) ?? null,
+    findLatestByClient: async (c: string) => [...rows].reverse().find((r) => r.clientId === c) ?? null,
+    listPaidCourseIds: async (c: string) =>
+      rows.filter((r) => r.clientId === c && r.stage === 'toladi' && r.courseId).map((r) => r.courseId as string),
+    create: async (d: { clientId: string; courseId: string | null; totalAmount: number | null }) => {
+      const r: Purchase = {
+        id: `n${++n}`, clientId: d.clientId, courseId: d.courseId, stage: 'yangi', stageChangedAt: NOW,
+        totalAmount: d.totalAmount, paidAmount: 0, installment: false, linkSentAt: null, remindedStages: [], createdAt: NOW,
+      };
+      rows.push(r);
+      return r;
+    },
+    setStage: async (id: string, stage: XaridBosqichi) => Object.assign(rows.find((r) => r.id === id)!, { stage }),
+    setCourse: async (id: string, courseId: string, totalAmount: number) =>
+      Object.assign(rows.find((r) => r.id === id)!, { courseId, totalAmount }),
+    setInstallment: async (id: string, v: boolean) => Object.assign(rows.find((r) => r.id === id)!, { installment: v }),
+  } as unknown as IPurchaseRepository;
+  const xarid = new XaridXizmati(
+    repo,
+    { findById: async (id: string) => [KURS, ESKI].find((k) => k.id === id) ?? null } as unknown as ICourseRepository,
+    { publish: () => undefined } as unknown as IEventBus,
+    { record: async () => undefined } as unknown as IAuditRepository,
+    { now: () => NOW } as unknown as IClock,
+  );
+  return { rows, xarid };
+}
+const KURS2: Course = { ...KURS, id: 'kurs-nov-2', name: 'Target noldan' };
+
+{
+  // Rahmat navbati: model to'langan kursni va `qiziqdi` ni qaytardi.
+  const o = xaridOmbori([{ id: 'p1', stage: 'toladi', courseId: KURS.id, totalAmount: 1_500_000, paidAmount: 1_500_000 }]);
+  const m = build({ javob: { courseId: KURS.id, stage: 'qiziqdi', installment: true }, xarid: o.xarid });
+  await m.r.receiptConfirmedThanks('cv1', { paidAmount: 1_500_000, totalAmount: 1_500_000, remaining: 0, linkWillBeSent: true });
+  check('receipt_confirmed: courseId/stage/installment e\'tiborsiz — yangi xarid yo\'q', o.rows.length === 1, JSON.stringify(o.rows));
+  check('receipt_confirmed: to\'langan xarid o\'zgarmadi', o.rows[0]?.stage === 'toladi' && !o.rows[0]?.installment);
+}
+{
+  const o = xaridOmbori([{ id: 'p1', stage: 'karta_yuborildi', courseId: KURS.id, totalAmount: 1_500_000 }]);
+  const m = build({ javob: { courseId: KURS2.id, stage: 'rad_etdi' }, xarid: o.xarid });
+  await m.r.receiptRejected('cv1', 'chek xira');
+  check('receipt_rejected: stage/courseId e\'tiborsiz', o.rows[0]?.stage === 'karta_yuborildi' && o.rows[0]?.courseId === KURS.id, JSON.stringify(o.rows));
+}
+{
+  const o = xaridOmbori([{ id: 'p1', stage: 'qiziqdi', courseId: KURS.id, totalAmount: 1_500_000 }]);
+  const m = build({ javob: { stage: 'rad_etdi', courseId: KURS2.id }, xarid: o.xarid });
+  await m.r.nudge('cv1', 'qiziqdi');
+  check('nudge: stage/courseId e\'tiborsiz', o.rows[0]?.stage === 'qiziqdi' && o.rows[0]?.courseId === KURS.id, JSON.stringify(o.rows));
+}
+{
+  // Javob navbati, to'lovdan keyin: model shu kursni takrorlab `suhbatda` qaytardi.
+  const o = xaridOmbori([{ id: 'p1', stage: 'toladi', courseId: KURS.id, totalAmount: 1_500_000, paidAmount: 1_500_000 }]);
+  const m = build({ javob: { courseId: KURS.id, stage: 'suhbatda' }, xarid: o.xarid });
+  await m.r.reply('cv1', 'rahmat, darslar qachon boshlanadi?');
+  check('reply: to\'langan kurs + stage — fantom xarid ochilmadi', o.rows.length === 1, JSON.stringify(o.rows.map((r) => [r.id, r.stage, r.courseId])));
+}
+{
+  const o = xaridOmbori([{ id: 'p1', stage: 'rad_etdi', courseId: KURS.id }]);
+  const m = build({ javob: { stage: 'qiziqdi' }, xarid: o.xarid });
+  await m.r.reply('cv1', 'hmm');
+  check('reply: faol xarid yo\'q, faqat stage — no-op', o.rows.length === 1 && o.rows[0]?.stage === 'rad_etdi');
+}
+{
+  // Sotuvdagi YANGI kurs — yangi xarid ochiladi, bosqich unga yoziladi.
+  const o = xaridOmbori([{ id: 'p1', stage: 'toladi', courseId: ESKI.id, totalAmount: 1_500_000, paidAmount: 1_500_000 }]);
+  const m = build({ javob: { courseId: KURS.id, stage: 'qiziqdi' }, xarid: o.xarid });
+  await m.r.reply('cv1', 'yangi SMM kursi haqida aytib bering');
+  const yangi = o.rows[1];
+  check('reply: yangi sotuvdagi kurs — yangi xarid', o.rows.length === 2 && yangi?.courseId === KURS.id && yangi.stage === 'qiziqdi', JSON.stringify(o.rows.map((r) => [r.id, r.stage, r.courseId])));
+}
+
+// ─── 12. Karta: faol xarid yo'q (qaytgan mijoz) ──────────────────────────
+{
+  const o = xaridOmbori([{ id: 'p1', stage: 'toladi', courseId: KURS.id, totalAmount: 1_500_000, paidAmount: 1_500_000 }]);
+  const m = build({ javob: { sendCard: true }, xarid: o.xarid });
+  const out = await m.r.reply('cv1', 'yana olaman, karta tashlang');
+  check('faol xarid yo\'q, kurs yo\'q — karta ketmadi', !m.qadamlar.includes('karta') && !out.cardSent, JSON.stringify(m.qadamlar));
+  check(
+    'faol xarid yo\'q — menejerga kurs_yoq sababi',
+    out.escalated && m.patchlar.some((p) => p.needsHuman === true && p.humanReason === "Karta yuborib bo'lmadi: mijozning kursi aniqlanmagan"),
+    JSON.stringify(m.patchlar),
+  );
+  check('faol xarid yo\'q — xarid ochilmadi', o.rows.length === 1);
+}
+{
+  const o = xaridOmbori([{ id: 'p1', stage: 'toladi', courseId: ESKI.id, totalAmount: 1_500_000, paidAmount: 1_500_000 }]);
+  const m = build({ javob: { sendCard: true, courseId: KURS.id }, xarid: o.xarid });
+  const out = await m.r.reply('cv1', 'yangi kursni olaman, karta tashlang');
+  check('yangi kurs shu navbatda — xarid ochildi va karta ketdi', o.rows.length === 2 && m.qadamlar.includes('karta') && out.cardSent, JSON.stringify(m.qadamlar));
+  check('yangi kurs — eskalatsiya yo\'q', !out.escalated);
+}
+{
+  const m = build({ javob: { sendCard: true }, xaridBosqichi: 'chek_keldi' });
+  const out = await m.r.reply('cv1', 'karta?');
+  check('chek_keldi + javob ketdi — menejerga', out.escalated && m.patchlar.some((p) => p.humanReason === 'Mijoz to\'lashga rozi — kartani yuboring'));
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : '\nHammasi o\'tdi');

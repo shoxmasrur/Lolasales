@@ -1,5 +1,5 @@
 import type { NewReceiptReview, PaymentCheck } from '@/domain/entities/PaymentCheck';
-import type { Purchase } from '@/domain/entities/Purchase';
+import type { Purchase, XaridBosqichi } from '@/domain/entities/Purchase';
 
 export interface IPaymentCheckRepository {
   /**
@@ -34,4 +34,8 @@ export interface IPaymentCheckRepository {
   reject(id: string, actor: string, reason: string, at: Date): Promise<boolean>;
   /** Ochiq tekshiruvni `cancelled` qiladi. */
   cancel(conversationId: string): Promise<void>;
+  /** Bitta ochiq tekshiruvni `cancelled` qiladi ("Chek emas"). `false` — allaqachon yopilgan. */
+  cancelById(id: string): Promise<boolean>;
+  /** Chek surishdan oldingi bosqichni yozadi — faqat birinchisi saqlanadi (keyingi rasmlar ustidan yozmaydi). */
+  setPrevStage(id: string, stage: XaridBosqichi): Promise<void>;
 }

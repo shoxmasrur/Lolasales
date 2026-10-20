@@ -38,6 +38,8 @@ function qurish(boshlang: Array<Partial<Purchase> & { id: string }> = [], setSta
       r.stage = stage;
       return r;
     },
+    listPaidCourseIds: async (c: string) =>
+      rows.filter((r) => r.clientId === c && r.stage === 'toladi' && r.courseId).map((r) => r.courseId as string),
     setCourse: async (id: string, courseId: string, totalAmount: number) => {
       const r = rows.find((x) => x.id === id)!;
       r.courseId = courseId;
@@ -46,7 +48,8 @@ function qurish(boshlang: Array<Partial<Purchase> & { id: string }> = [], setSta
     },
   };
   const kurs = { id: 'k1', price: 1000 } as Course;
-  const courses = { findById: async (id: string) => (id === 'k1' ? kurs : null) };
+  const kurs2 = { id: 'k2', price: 2000 } as Course;
+  const courses = { findById: async (id: string) => (id === 'k1' ? kurs : id === 'k2' ? kurs2 : null) };
   const events: unknown[] = [];
   const audits: Array<Record<string, unknown>> = [];
   const xizmat = new XaridXizmati(
@@ -90,6 +93,47 @@ function qurish(boshlang: Array<Partial<Purchase> & { id: string }> = [], setSta
     rows[0]!.courseId = null;
     const b = await xizmat.kursBelgila('c1', 'k1');
     check('kursBelgila: karta yuborilgach o\'zgarmaydi', b.courseId, null);
+  }
+  // ── Fantom xarid himoyasi (yakuniy sharh, 1-topilma) ──
+  {
+    const { xizmat, rows } = qurish([{ id: 'p1', stage: 'toladi', courseId: 'k1' }]);
+    const r = await xizmat.bosqich('c1', 'qiziqdi', 'agent');
+    check('agent: faol xarid yo\'q — bosqich no-op, xarid ochilmadi', [r, rows.length], [null, 1]);
+    const t = await xizmat.bosqich('c1', 'suhbatda', 'agent');
+    check('agent: suhbatda ham no-op', [t, rows.length], [null, 1]);
+  }
+  {
+    const { xizmat, rows } = qurish([{ id: 'p1', stage: 'suhbatda' }]);
+    const r = await xizmat.bosqich('c1', 'qiziqdi', 'agent');
+    check('agent: faol xaridda oldinga', [r?.id, r?.stage, rows.length], ['p1', 'qiziqdi', 1]);
+  }
+  {
+    const { xizmat, rows } = qurish([{ id: 'p1', stage: 'toladi', courseId: 'k1' }]);
+    const r = await xizmat.agentKursi('c1', 'k1');
+    check('agentKursi: to\'langan kursning o\'zi — xarid ochilmadi', [r, rows.length], [null, 1]);
+  }
+  {
+    const { xizmat, rows } = qurish([{ id: 'p1', stage: 'rad_etdi', courseId: 'k1' }]);
+    const r = await xizmat.agentKursi('c1', 'k1');
+    check('agentKursi: rad etilgan xarid kursi — ochilmadi', [r, rows.length], [null, 1]);
+  }
+  {
+    const { xizmat, rows } = qurish([
+      { id: 'p0', stage: 'toladi', courseId: 'k2' },
+      { id: 'p1', stage: 'rad_etdi', courseId: 'k1' },
+    ]);
+    const r = await xizmat.agentKursi('c1', 'k2');
+    check('agentKursi: oldin to\'langan (boughtCourses) kurs — ochilmadi', [r, rows.length], [null, 2]);
+  }
+  {
+    const { xizmat, rows } = qurish([{ id: 'p1', stage: 'toladi', courseId: 'k1' }]);
+    const r = await xizmat.agentKursi('c1', 'k2');
+    check('agentKursi: yangi kurs — yangi xarid shu kurs bilan', [r?.id, r?.courseId, r?.totalAmount, rows.length], ['n1', 'k2', 2000, 2]);
+  }
+  {
+    const { xizmat, rows } = qurish([{ id: 'p1', stage: 'suhbatda', courseId: 'k1' }]);
+    const r = await xizmat.agentKursi('c1', 'k2');
+    check('agentKursi: faol xaridda kurs almashadi', [r?.id, r?.courseId, rows.length], ['p1', 'k2', 1]);
   }
   console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");
   process.exitCode = failed ? 1 : 0;

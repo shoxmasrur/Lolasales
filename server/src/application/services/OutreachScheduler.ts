@@ -16,6 +16,8 @@ import { childLogger } from '@/shared/logger';
 const log = childLogger('scheduler');
 const IDLE_TICK_MS = 30_000;
 const MAX_ATTEMPTS = 3;
+/** Akkaunt vaqtincha band (kvota, flood) — nishon shuncha vaqtdan keyin qayta olinadi. */
+const QAYTA_URINISH_MS = 15 * 60_000;
 
 /**
  * Kampaniya navbatini sekin tempda qayta ishlaydi.
@@ -124,6 +126,15 @@ export class OutreachScheduler {
       try {
         const result = await this.startConversation.execute(target.clientId);
 
+        if (result.status === 'skipped' && result.retryLater) {
+          // Akkaunt vaqtincha band (kunlik kvota, flood-wait) — nishon
+          // tashlanmaydi: `pending` qoladi va keyinroq qayta olinadi.
+          await this.campaigns.deferTarget(target.id, new Date(this.clock.now().getTime() + QAYTA_URINISH_MS), result.reason);
+          log.info({ campaign: campaign.name, targetId: target.id, reason: result.reason }, 'Akkaunt vaqtincha band — nishon keyinga qoldirildi');
+          this.events.publish({ type: 'campaign.updated', campaignId: campaign.id });
+          return IDLE_TICK_MS;
+        }
+
         if (result.status === 'started') {
           await this.campaigns.updateTarget(target.id, {
             state: 'sent',
@@ -143,6 +154,13 @@ export class OutreachScheduler {
         this.events.publish({ type: 'campaign.updated', campaignId: campaign.id });
         this.events.publish({ type: 'stats.invalidate' });
       } catch (err) {
+        if (err instanceof TelegramError && err.telegramCode === 'FLOOD_WAIT') {
+          // Flood — akkaunt vaqtincha band, nishonning aybi emas: urinish sanalmaydi.
+          const kutish = Math.max((err.retryAfterSec ?? 60) * 1000, IDLE_TICK_MS);
+          await this.campaigns.deferTarget(target.id, new Date(this.clock.now().getTime() + kutish), err.message);
+          log.warn({ campaign: campaign.name, targetId: target.id, kutish }, 'FLOOD_WAIT — nishon keyinga qoldirildi');
+          return kutish;
+        }
         await this.handleTargetError(campaign, target.id, target.attempts, err);
         if (err instanceof TelegramError && (err.telegramCode === 'PEER_FLOOD' || err.telegramCode === 'BANNED')) {
           // Spam filtri — kampaniyani darhol to'xtatamiz, aks holda akkaunt yo'qoladi.
@@ -157,9 +175,6 @@ export class OutreachScheduler {
           this.events.publish({ type: 'campaign.updated', campaignId: campaign.id });
           log.error({ campaign: campaign.name }, 'Kampaniya avtomatik pauza qilindi (spam filtri)');
           return IDLE_TICK_MS;
-        }
-        if (err instanceof TelegramError && err.telegramCode === 'FLOOD_WAIT') {
-          return Math.max((err.retryAfterSec ?? 60) * 1000, IDLE_TICK_MS);
         }
       }
 

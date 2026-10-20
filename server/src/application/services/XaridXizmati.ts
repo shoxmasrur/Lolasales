@@ -46,12 +46,21 @@ export class XaridXizmati {
   ): Promise<Purchase | null> {
     // Menejer istalgan vaqtda joriy xaridni o'zgartiradi (tugallangan bo'lsa ham);
     // yangi xarid faqat mijozda umuman yo'q bo'lsa ochiladi.
-    const hozirgi =
-      actor === 'menejer'
-        ? ((await this.purchases.findActiveByClient(clientId)) ??
-          (await this.purchases.findLatestByClient(clientId)) ??
-          (await this.faolXarid(clientId)))
-        : await this.faolXarid(clientId);
+    // Agent esa faqat FAOL xaridni suradi: yakunlangan xariddan keyin model
+    // `suhbatda`/`qiziqdi` qaytarsa ham yangi ("fantom") xarid ochilmaydi.
+    let hozirgi: Purchase;
+    if (actor === 'menejer') {
+      hozirgi =
+        (await this.purchases.findActiveByClient(clientId)) ??
+        (await this.purchases.findLatestByClient(clientId)) ??
+        (await this.faolXarid(clientId));
+    } else if (actor === 'agent') {
+      const faol = await this.purchases.findActiveByClient(clientId);
+      if (!faol) return null;
+      hozirgi = faol;
+    } else {
+      hozirgi = await this.faolXarid(clientId);
+    }
     const yangi = bosqichOtishi(hozirgi.stage, requested, actor);
     if (!yangi) return null;
 
@@ -98,6 +107,28 @@ export class XaridXizmati {
     const updated = await this.purchases.setCourse(xarid.id, course.id, course.price);
     this.events.publish({ type: 'client.updated', clientId });
     return updated;
+  }
+
+  /**
+   * Agent ko'rsatgan kurs (sotuvdagi ekanini chaqiruvchi tekshiradi).
+   *
+   *   • faol xarid bor — `kursBelgila` (karta yuborilgunga qadar almashadi);
+   *   • faol xarid yo'q (oxirgisi `toladi`/`rad_etdi`) — yangi xarid faqat
+   *     kurs YANGI bo'lsa ochiladi: oxirgi (yakunlangan) xaridning kursi ham,
+   *     mijoz allaqachon to'lagan kurslar ham emas. Aks holda `null`: model
+   *     rahmat yoki kontekstdagi kursni takrorlagan, xarid ochilmaydi.
+   */
+  async agentKursi(clientId: string, courseId: string): Promise<Purchase | null> {
+    if (await this.purchases.findActiveByClient(clientId)) return this.kursBelgila(clientId, courseId);
+    const oxirgi = await this.purchases.findLatestByClient(clientId);
+    if (oxirgi?.courseId === courseId) return null;
+    if ((await this.purchases.listPaidCourseIds(clientId)).includes(courseId)) return null;
+    return this.kursBelgila(clientId, courseId);
+  }
+
+  /** Faqat faol xarid; hech narsa OCHMAYDI. */
+  async faol(clientId: string): Promise<Purchase | null> {
+    return this.purchases.findActiveByClient(clientId);
   }
 
   /**

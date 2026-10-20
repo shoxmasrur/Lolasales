@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { Container } from '@/composition/container';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
+import { can } from '@/domain/entities/User';
 import { parseBody, parseQuery } from '@/presentation/http/middleware/validate';
 
 /**
@@ -73,7 +74,9 @@ export function commentRoutes(container: Container): Router {
   router.post('/to-leads', requirePermission('comments.import'), async (req, res) => {
     const user = currentUser(req);
     const b = parseBody(leadsSchema, req);
-    res.json(await yiguvchi.mijozQil(b.accountId, b.channelTitle, b.items, user.email, user.id));
+    // Kampaniya (mijozlarga birinchi xabar) — alohida huquq: `comments.import`
+    // bor, `campaigns.create` yo'q foydalanuvchi faqat mijoz qo'sha oladi.
+    res.json(await yiguvchi.mijozQil(b.accountId, b.channelTitle, b.items, user.email, user.id, can(user, 'campaigns.create')));
   });
 
   return router;

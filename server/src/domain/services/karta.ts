@@ -57,8 +57,8 @@ export function kartaXabari(card: PaymentCard, amount: number | null): string {
  * (`qisman_toladi`) ketadi. `karta_yuborildi` — karta chatda allaqachon
  * turibdi; `chek_keldi` — chek tekshiruvda; `toladi`/`rad_etdi` — xarid
  * yopiq. Bu bosqichlarda model `sendCard` ni takrorlasa ham ikkinchi
- * karta ketmaydi. Xarid umuman yo'q (`null`) bo'lsa — ruxsat:
- * `KartaYuboruvchi` o'zi xarid ochadi yoki kurs yo'qligini menejerga beradi.
+ * karta ketmaydi. `stage` — FAOL xaridning bosqichi; faol xarid yo'q
+ * bo'lsa `AgentRunner` bu yerga kelmaydi (kurs yo'q — menejerga).
  */
 export function agentKartaYuborsinmi(stage: XaridBosqichi | null): boolean {
   return stage === null || stage === 'yangi' || stage === 'suhbatda' || stage === 'qiziqdi' || stage === 'qisman_toladi';

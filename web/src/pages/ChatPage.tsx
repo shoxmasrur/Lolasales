@@ -19,7 +19,7 @@ import { BOSQICH_CLASS, BOSQICH_YORLIGI } from '@/lib/xarid';
 import { PurchaseStageCard } from '@/components/client/ClientDetailBody';
 import { Avatar, EmptyState, ErrorNote, Spinner, Toggle } from '@/components/ui';
 import MessageBubble from '@/components/MessageBubble';
-import { ReceiptConfirmButton, SendLinkButton, type ReceiptReview } from '@/components/ReceiptConfirmButton';
+import { ReceiptConfirmButton, SendCardButton, SendLinkButton, type ReceiptReview } from '@/components/ReceiptConfirmButton';
 import { Sheet } from '@/components/Sheet';
 import { useIsDesktopWide, useIsMobile } from '@/lib/useBreakpoint';
 
@@ -40,6 +40,8 @@ interface ConversationDetail {
   receiptReview: ReceiptReview | null;
   /** Kurs qoidasi bajarilgan, guruh havolasi bor, lekin hali yuborilmagan. */
   linkPending: boolean;
+  /** Karta kutib menejerda (agent "mana karta" degan) yoki xarid "Qiziqdi" bosqichida. */
+  cardPending: boolean;
 }
 
 /** `POST /conversations/:id/agent-retry` javobi. */
@@ -962,6 +964,12 @@ function ClientPanelBody({ detail }: { detail: ConversationDetail }) {
           detail.linkPending ||
           (detail.conversation.needsHuman && detail.conversation.humanReason === "Guruh havolasini yuborib bo'lmadi")
         }
+      />
+
+      <SendCardButton
+        key={`karta-${detail.conversation.id}`}
+        conversationId={detail.conversation.id}
+        visible={detail.cardPending}
       />
 
       {client ? (

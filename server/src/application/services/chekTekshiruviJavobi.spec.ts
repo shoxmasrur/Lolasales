@@ -86,6 +86,7 @@ const chek = (over: Partial<PaymentCheck> = {}): PaymentCheck => ({
   confirmedAt: null,
   confirmedAmount: null,
   rejectedReason: null,
+  prevStage: null,
   createdAt: NOW,
   ...over,
 });
@@ -144,7 +145,7 @@ function build(opts: { openCheck: PaymentCheck | null; output?: AgentTurnOutput;
     } as unknown as IPaymentCheckRepository,
     { record: async () => undefined } as unknown as IAgentUsageRepository,
     { list: async () => [], listKnowledge: async () => [] } as unknown as ICourseRepository,
-    { joriyXarid: async () => null, tolanganKurslar: async () => [], kursBelgila: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
+    { joriyXarid: async () => null, faol: async () => null, tolanganKurslar: async () => [], agentKursi: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
     { yubor: async () => ({ sent: false }) } as unknown as KartaYuboruvchi,
   );
 

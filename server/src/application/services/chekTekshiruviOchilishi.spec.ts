@@ -26,6 +26,7 @@ import type { IMediaStorage } from '@/domain/services/IMediaStorage';
 import type { ISpeechToText } from '@/domain/services/ISpeechToText';
 import type { IncomingMedia, IncomingMessage } from '@/domain/services/ITelegramGateway';
 import type { IClock, IEventBus } from '@/domain/services/support';
+import type { XaridBosqichi } from '@/domain/entities/Purchase';
 
 /**
  * Qo'lda ishga tushiriladi: npm run test:chek-ochilishi --workspace=server
@@ -175,6 +176,18 @@ class XotiraTekshiruvlar {
     if (q) q.receiptSource = 'tolov';
   }
 
+  async cancelById(id: string): Promise<boolean> {
+    const q = this.qatorlar.find((x) => x.id === id && this.ochiqmi(x));
+    if (!q) return false;
+    q.status = 'cancelled';
+    return true;
+  }
+
+  async setPrevStage(id: string, stage: XaridBosqichi): Promise<void> {
+    const q = this.qatorlar.find((x) => x.id === id && this.ochiqmi(x));
+    if (q && !q.prevStage) q.prevStage = stage;
+  }
+
   async cancel(conversationId: string): Promise<void> {
     for (const q of this.qatorlar) {
       if (q.conversationId === conversationId && this.ochiqmi(q)) q.status = 'cancelled';
@@ -198,6 +211,7 @@ class XotiraTekshiruvlar {
       confirmedAt: null,
       confirmedAmount: null,
       rejectedReason: null,
+      prevStage: null,
       createdAt: NOW,
       ...over,
     };
@@ -234,6 +248,8 @@ function muhit(opts: {
   tekshiruvlar?: XotiraTekshiruvlar;
   killSwitch?: boolean;
   suhbat?: Partial<Conversation>;
+  /** Faol xarid bosqichi (`null` — faol xarid yo'q). */
+  xaridBosqichi?: XaridBosqichi | null;
 }) {
   const suhbat = {
     id: 'cv1',
@@ -249,12 +265,17 @@ function muhit(opts: {
   const navbat: string[] = [];
   const tekshiruvlar = opts.tekshiruvlar ?? new XotiraTekshiruvlar();
   const bosqichlar: string[] = [];
+  const xaridQator: { id: string; stage: XaridBosqichi } | null =
+    opts.xaridBosqichi === null ? null : { id: 'p1', stage: opts.xaridBosqichi ?? 'karta_yuborildi' };
   const xarid = {
-    faolXaridBosqichi: async (clientId: string, stage: string, actor: string) => {
+    faolXaridBosqichi: async (clientId: string, stage: XaridBosqichi, actor: string) => {
       bosqichlar.push(`${clientId}:${stage}:${actor}`);
-      return null;
+      if (!xaridQator || xaridQator.stage === stage) return null;
+      xaridQator.stage = stage;
+      return xaridQator;
     },
   } as unknown as XaridXizmati;
+  const audits: Array<{ action: string; payload?: Record<string, unknown> }> = [];
 
   const conversations = {
     findByPeer: async () => suhbat,
@@ -272,14 +293,18 @@ function muhit(opts: {
     tekshiruvlar as unknown as IPaymentCheckRepository,
     conversations,
     {
-      findActiveByClient: async () => ({ id: 'p1', stage: 'karta_yuborildi' }),
+      findActiveByClient: async () => (xaridQator ? { ...xaridQator } : null),
       findLatestByClient: async () => null,
+      setStage: async (_id: string, stage: XaridBosqichi) => {
+        if (xaridQator) xaridQator.stage = stage;
+        return xaridQator;
+      },
     } as unknown as IPurchaseRepository,
     { findById: async () => null },
     xarid,
     {} as unknown as AgentRunner,
     { send: async () => { throw new Error('kutilmagan'); } },
-    { record: async () => undefined } as unknown as IAuditRepository,
+    { record: async (a: { action: string; payload?: Record<string, unknown> }) => void audits.push(a) } as unknown as IAuditRepository,
     events,
     { now: () => NOW, todayIso: () => '2026-09-17' } as unknown as IClock,
     { get: async () => ({ killSwitch: false }) } as unknown as RuntimeSettings,
@@ -297,10 +322,9 @@ function muhit(opts: {
     null,
     null,
     null,
-    xarid,
   );
 
-  return { useCase, service, patches, navbat, tekshiruvlar, bosqichlar };
+  return { useCase, service, patches, navbat, tekshiruvlar, bosqichlar, xaridQator, audits, suhbat };
 }
 
 const xabar: IncomingMessage = {
@@ -332,6 +356,7 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
   check('tolov: xabar va kun yoziladi', q?.messageId === 'm1' && q.sinceIso === '2026-09-17', JSON.stringify(q));
   check('tolov: faol xaridga bog\'landi', q?.purchaseId === 'p1', JSON.stringify(q));
   check('tolov: bosqich chek_keldi (tizim)', JSON.stringify(m.bosqichlar) === JSON.stringify(['c1:chek_keldi:tizim']), JSON.stringify(m.bosqichlar));
+  check('tolov: oldingi bosqich tekshiruvga yozildi', q?.prevStage === 'karta_yuborildi', String(q?.prevStage));
   check('tolov: agent navbati ketdi', m.navbat.length === 1, JSON.stringify(m.navbat));
   check('tolov: eskalatsiya javobdan oldin qo\'yilmaydi', !m.patches.some((p) => p.needsHuman), JSON.stringify(m.patches));
 }
@@ -343,6 +368,8 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
   const q = m.tekshiruvlar.qatorlar[0];
   check('aniqlanmagan: receipt_review ochildi', q?.receiptSource === 'aniqlanmagan', JSON.stringify(q));
   check('aniqlanmagan: agent navbati YO\'Q', m.navbat.length === 0, JSON.stringify(m.navbat));
+  check('aniqlanmagan: bosqich chek_keldi ga O\'TMADI', m.bosqichlar.length === 0 && m.xaridQator?.stage === 'karta_yuborildi', JSON.stringify(m.bosqichlar));
+  check('aniqlanmagan: oldingi bosqich yozilmadi', q?.prevStage === null);
   check(
     'aniqlanmagan: darhol needs_human (chek_tekshiruvi)',
     chekEskalatsiyasi(m.patches, RECEIPT_REVIEW_REASON.aniqlanmagan),
@@ -370,6 +397,7 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
   const m = muhit({ processed: ishlangan('tolov'), tekshiruvlar: t, suhbat: { needsHuman: true, humanKind: 'chek_tekshiruvi' } });
   await m.useCase.execute(xabar);
   check('aniqlanmagan → tolov ga ko\'tarildi', eski.receiptSource === 'tolov', String(eski.receiptSource));
+  check('ko\'tarilgach bosqich chek_keldi', m.xaridQator?.stage === 'chek_keldi' && eski.prevStage === 'karta_yuborildi', JSON.stringify([m.xaridQator, eski.prevStage]));
   check('yangi yozuv ochilmadi', t.qatorlar.length === 1, String(t.qatorlar.length));
 
   // Teskarisi: tolov ustiga aniqlanmagan — pastga tushirilmaydi.
@@ -451,6 +479,43 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
   check('ovoz: chek tekshiruvi ochilmadi', m.tekshiruvlar.qatorlar.length === 0);
   check('ovoz: navbat yo\'q', m.navbat.length === 0);
   check('ovoz: operatorga sabab bilan', m.patches.some((p) => p.needsHuman === true && p.humanKind === undefined));
+}
+
+// ─── "Chek emas" (yakuniy sharh, 4-topilma) ──────────────────────────────
+{
+  // tolov chek bosqichni qiziqdi → chek_keldi surgan; menejer "Chek emas" dedi.
+  const m = muhit({ processed: ishlangan('tolov'), xaridBosqichi: 'qiziqdi' });
+  await m.useCase.execute(xabar);
+  check('chek emas: oldin chek_keldi', m.xaridQator?.stage === 'chek_keldi');
+  Object.assign(m.suhbat, { needsHuman: true, humanKind: 'chek_tekshiruvi', humanReason: RECEIPT_REVIEW_REASON.tolov });
+  const out = await m.service.dismissReceipt('cv1', 'menejer@x.uz');
+  check('chek emas: dismissed + qaytgan bosqich', JSON.stringify(out) === JSON.stringify({ kind: 'dismissed', restoredStage: 'qiziqdi' }), JSON.stringify(out));
+  check('chek emas: xarid qiziqdi ga qaytdi', m.xaridQator?.stage === 'qiziqdi', String(m.xaridQator?.stage));
+  check('chek emas: tekshiruv cancelled', m.tekshiruvlar.qatorlar[0]?.status === 'cancelled');
+  check('chek emas: needsHuman yechildi', m.patches.some((p) => p.needsHuman === false && p.humanKind === null), JSON.stringify(m.patches));
+  check('chek emas: audit', m.audits.some((a) => a.action === 'receipt_review.dismissed'));
+  check('chek emas: mijozga xabar yo\'q (navbat bitta — chekniki)', m.navbat.length === 1);
+  const yana = await m.service.dismissReceipt('cv1', 'menejer@x.uz');
+  check('chek emas: ikkinchi bosish — no_review', yana.kind === 'no_review');
+}
+{
+  // aniqlanmagan — bosqichga tegilmagan, qaytarish ham yo'q.
+  const m = muhit({ processed: ishlangan('aniqlanmagan'), xaridBosqichi: 'qiziqdi' });
+  await m.useCase.execute(xabar);
+  Object.assign(m.suhbat, { needsHuman: true, humanKind: 'chek_tekshiruvi' });
+  const out = await m.service.dismissReceipt('cv1', 'menejer@x.uz');
+  check('aniqlanmagan + chek emas: restoredStage null', out.kind === 'dismissed' && out.restoredStage === null, JSON.stringify(out));
+  check('aniqlanmagan + chek emas: bosqich qiziqdi', m.xaridQator?.stage === 'qiziqdi');
+  check('aniqlanmagan + chek emas: needsHuman yechildi', m.patches.some((p) => p.needsHuman === false));
+}
+{
+  // Shu orada menejer bosqichni qo'lda o'zgartirgan — qaytarilmaydi.
+  const m = muhit({ processed: ishlangan('tolov'), xaridBosqichi: 'qiziqdi' });
+  await m.useCase.execute(xabar);
+  m.xaridQator!.stage = 'qisman_toladi';
+  const out = await m.service.dismissReceipt('cv1', 'menejer@x.uz');
+  check('qo\'lda o\'zgargan bosqich — tegilmadi', out.kind === 'dismissed' && out.restoredStage === null && m.xaridQator?.stage === 'qisman_toladi', JSON.stringify(out));
+  check('chek uchun bo\'lmagan eskalatsiya yechilmadi', !m.patches.some((p) => p.needsHuman === false));
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : '\nHammasi o\'tdi');

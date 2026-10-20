@@ -31,6 +31,7 @@ import type { AccountGate } from '@/infrastructure/telegram/AccountGate';
 import { mediaFromMessage } from '@/infrastructure/telegram/mediaFromMessage';
 import { parseSpamBotReply } from '@/infrastructure/telegram/spamBotReply';
 import { pickUserById } from '@/infrastructure/telegram/peerSelection';
+import { kiruvchigaQabul, peerKindOf } from '@/infrastructure/telegram/kiruvchiFiltr';
 import {
   errorHaystack,
   isMessageNotModified,
@@ -58,7 +59,6 @@ const SPAM_BOT = '@SpamBot';
 const SPAM_POLL_ATTEMPTS = 6;
 const SPAM_POLL_DELAY_MS = 1200;
 import { childLogger } from '@/shared/logger';
-import { kiruvchigaQabul } from './kiruvchiFiltr';
 import { izohMuallifi, type IzohFromId, type IzohUser } from '@/infrastructure/telegram/izohMuallifi';
 
 const log = childLogger('telegram');
@@ -1658,10 +1658,13 @@ export class MtprotoTelegramGateway implements ITelegramGateway {
       try {
         const sender = message.sender instanceof Api.User ? message.sender : null;
         const peer = message.peerId;
+        const kind = peerKindOf(peer);
+        // Noma'lum peer turi — jonli ko'rinishga ham chiqarilmaydi.
+        if (!kind) return;
         const payload: RawTelegramMessage = {
           telegramAccountId: accountId,
           peerId: String(peerIdOf(peer)),
-          kind: peerKindOf(peer),
+          kind,
           messageId: Number(message.id),
           text: message.message ?? '',
           out: Boolean(message.out),
@@ -1887,12 +1890,6 @@ function izohFromId(peer: Api.TypePeer | undefined): IzohFromId {
   if (peer instanceof Api.PeerChannel) return { kind: 'channel', id: String(peer.channelId) };
   if (peer instanceof Api.PeerChat) return { kind: 'channel', id: String(peer.chatId) };
   return { kind: 'none', id: '' };
-}
-
-function peerKindOf(peer: Api.TypePeer): TelegramPeerKind {
-  if (peer instanceof Api.PeerChat) return 'group';
-  if (peer instanceof Api.PeerChannel) return 'channel';
-  return 'user';
 }
 
 /**

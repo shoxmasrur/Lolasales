@@ -275,6 +275,7 @@ export function mapPaymentCheck(r: Row): PaymentCheck {
     confirmedAt: toDate(r.confirmed_at),
     confirmedAmount: r.confirmed_amount === null || r.confirmed_amount === undefined ? null : num(r.confirmed_amount),
     rejectedReason: r.rejected_reason ?? null,
+    prevStage: r.prev_stage ?? null,
     createdAt: req(r.created_at),
   };
 }

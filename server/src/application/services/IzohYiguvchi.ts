@@ -122,7 +122,13 @@ export class IzohYiguvchi {
     items: IzohQatori[],
     by: string,
     userId: string | null = null,
-  ): Promise<{ created: number; existing: number; campaignId: string | null }> {
+    /**
+     * Foydalanuvchida `campaigns.create` bormi. Yo'q bo'lsa mijozlar baribir
+     * qo'shiladi, lekin kampaniya (birinchi xabar yuborish) YARATILMAYDI —
+     * `campaignSkipped: true`, UI buni aytadi.
+     */
+    kampaniyaRuxsat = true,
+  ): Promise<{ created: number; existing: number; campaignId: string | null; campaignSkipped: boolean }> {
     const yangilar: string[] = [];
     let existing = 0;
 
@@ -146,7 +152,8 @@ export class IzohYiguvchi {
     }
 
     let campaignId: string | null = null;
-    if (yangilar.length) {
+    const campaignSkipped = yangilar.length > 0 && !kampaniyaRuxsat;
+    if (yangilar.length && kampaniyaRuxsat) {
       const { campaign } = await this.campaigns.execute({
         name: `Kanal: ${channelTitle} — ${this.clock.todayIso()}`,
         filters: { clientIds: yangilar, limit: yangilar.length },
@@ -162,10 +169,10 @@ export class IzohYiguvchi {
       action: 'comments.imported',
       entity: 'telegram_account',
       entityId: accountId,
-      payload: { channelTitle, created: yangilar.length, existing, campaignId },
+      payload: { channelTitle, created: yangilar.length, existing, campaignId, campaignSkipped },
     });
 
-    return { created: yangilar.length, existing, campaignId };
+    return { created: yangilar.length, existing, campaignId, campaignSkipped };
   }
 
   /** Kanalning access_hash'i akkaunt dialoglaridan olinadi (bitta so'rov). */

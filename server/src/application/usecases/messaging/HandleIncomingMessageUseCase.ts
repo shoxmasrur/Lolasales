@@ -9,7 +9,6 @@ import type { IncomingMessage } from '@/domain/services/ITelegramGateway';
 import { canAgentReply } from '@/domain/entities/Conversation';
 import { RECEIPT_REVIEW_REASON } from '@/domain/entities/PaymentCheck';
 import type { PaymentCheckService } from '@/application/services/PaymentCheckService';
-import type { XaridXizmati } from '@/application/services/XaridXizmati';
 import type { SttTaqqoslash } from '@/application/services/SttTaqqoslash';
 import type { MijozYaratuvchi } from '@/application/services/MijozYaratuvchi';
 import type { IEventBus } from '@/domain/services/support';
@@ -84,8 +83,6 @@ export class HandleIncomingMessageUseCase {
     private readonly mijozYaratuvchi: Pick<MijozYaratuvchi, 'reklamadan'> | null = null,
     /** O'z Telegram akkauntlarimiz — ular bir-biriga yozsa lead ochilmaydi. */
     private readonly akkauntlar: Pick<ITelegramAccountRepository, 'list'> | null = null,
-    /** Chek kelganda FAOL xarid bosqichi `chek_keldi` bo'ladi (yangi xarid ochilmaydi); `null` — sinovlarda. */
-    private readonly xarid: Pick<XaridXizmati, 'faolXaridBosqichi'> | null = null,
   ) {}
 
   async execute(incoming: IncomingMessage): Promise<IncomingOutcome> {
@@ -207,9 +204,10 @@ export class HandleIncomingMessageUseCase {
           { conversationId: conversation.id, checkId: check.id, receiptSource: check.receiptSource, kind: processed.media.kind },
           'To\'lov cheki tekshirishga olindi',
         );
+        // Faqat `tolov` bosqichni `chek_keldi` ga suradi (`PaymentCheckService.chekKeldi`).
         // Bosqich xatosi chekni operatordan chetda qoldirmasin — faqat jurnal.
         try {
-          await this.xarid?.faolXaridBosqichi(client.id, 'chek_keldi', 'tizim');
+          await this.paymentChecks.chekKeldi(check);
         } catch (err) {
           log.warn({ conversationId: conversation.id, err }, 'Xarid bosqichi chek_keldi ga o\'tmadi');
         }

@@ -1,5 +1,6 @@
 import {
   chekTekshiruviFaolmi,
+  RECEIPT_REVIEW_REASON,
   type PaymentCheck,
   type ReceiptSource,
 } from '@/domain/entities/PaymentCheck';
@@ -54,6 +55,9 @@ export type ReceiptConfirmOutcome =
   | { kind: 'no_review' };
 
 export type ReceiptRejectOutcome = { kind: 'rejected' } | { kind: 'no_review' };
+
+/** "Chek emas" tugmasining natijasi. `restoredStage` — xarid qaytgan bosqich (o'zgarmagan bo'lsa `null`). */
+export type ReceiptDismissOutcome = { kind: 'dismissed'; restoredStage: XaridBosqichi | null } | { kind: 'no_review' };
 
 /** "Havolani yuborish" tugmasining natijasi. */
 export type SendLinkOutcome =
@@ -136,6 +140,67 @@ export class PaymentCheckService {
     });
     log.info({ conversationId, checkId: check.id, purchaseId: purchase?.id ?? null, receiptSource }, 'Chek tekshiruvi ochildi');
     return check;
+  }
+
+  /**
+   * Chek tekshiruvi ochilgandan keyin xarid bosqichi. Faqat `tolov` (vision
+   * uni to'lov cheki deb tanigan) bosqichni `chek_keldi` ga suradi;
+   * `aniqlanmagan` rasm/fayl (selfi, skrinshot…) tekshiruvni ochadi, lekin
+   * voronkaga TEGMAYDI. Surishdan oldingi bosqich tekshiruvga yoziladi —
+   * "Chek emas" uni qaytaradi. Faol xarid yo'q bo'lsa — hech narsa.
+   */
+  async chekKeldi(check: PaymentCheck): Promise<Purchase | null> {
+    if (check.receiptSource !== 'tolov') return null;
+    const oldin = await this.purchases.findActiveByClient(check.clientId);
+    if (!oldin || oldin.stage === 'chek_keldi') return null;
+    const yangi = await this.xarid.faolXaridBosqichi(check.clientId, 'chek_keldi', 'tizim');
+    if (yangi) await this.checks.setPrevStage(check.id, oldin.stage);
+    return yangi;
+  }
+
+  /**
+   * "Chek emas" — menejer rasm/fayl to'lov cheki emasligini aytdi.
+   * Tekshiruv yopiladi (`cancelled`), chek uchun qo'yilgan eskalatsiya
+   * yechiladi, chek bosqichni `chek_keldi` ga surgan bo'lsa xarid oldingi
+   * bosqichiga qaytadi. Mijozga hech narsa yozilmaydi.
+   */
+  async dismissReceipt(conversationId: string, actor: string): Promise<ReceiptDismissOutcome> {
+    const check = await this.ochiqTekshiruv(conversationId);
+    if (!check) return { kind: 'no_review' };
+    if (!(await this.checks.cancelById(check.id))) return { kind: 'no_review' };
+
+    let restoredStage: XaridBosqichi | null = null;
+    if (check.prevStage) {
+      const faol = await this.purchases.findActiveByClient(check.clientId);
+      // Faqat shu chek surgan xarid va u hali `chek_keldi` da bo'lsa: shu orada
+      // menejer bosqichni qo'lda o'zgartirgan bo'lsa, unga tegilmaydi.
+      if (faol && faol.stage === 'chek_keldi' && (!check.purchaseId || faol.id === check.purchaseId)) {
+        await this.purchases.setStage(faol.id, check.prevStage);
+        restoredStage = check.prevStage;
+      }
+    }
+
+    const conversation = await this.conversations.findById(conversationId);
+    const chekSababi = Object.values(RECEIPT_REVIEW_REASON) as string[];
+    if (
+      conversation?.needsHuman &&
+      (conversation.humanKind === 'chek_tekshiruvi' || (conversation.humanReason && chekSababi.includes(conversation.humanReason)))
+    ) {
+      await this.conversations.update(conversationId, { needsHuman: false, humanKind: null, humanReason: null });
+    }
+
+    await this.audit.record({
+      actor,
+      action: 'receipt_review.dismissed',
+      entity: 'conversation',
+      entityId: conversationId,
+      payload: { checkId: check.id, purchaseId: check.purchaseId, messageId: check.messageId, restoredStage },
+    });
+    this.events.publish({ type: 'conversation.updated', conversationId });
+    this.events.publish({ type: 'client.updated', clientId: check.clientId });
+    this.events.publish({ type: 'stats.invalidate' });
+    log.info({ conversationId, checkId: check.id, restoredStage }, 'Chek emas — tekshiruv yopildi');
+    return { kind: 'dismissed', restoredStage };
   }
 
   /** Menejer chekdagi summani kiritib "Tasdiqlash" ni bosdi. */
@@ -299,6 +364,8 @@ export class PaymentCheckService {
   /**
    * Havola xabarini yuboradi. Yiqilsa `link_sent_at` qaytariladi — havola
    * keyin "Havolani yuborish" bilan yana yuboriladi. Hech qachon otmaydi.
+   * Yuborish oynasi tekshirilmaydi: havola menejer amaliga (chek tasdig'i
+   * yoki tugma) javob. Kill switch va akkaunt limitlari dispatcher'da amal qiladi.
    */
   private async havolaniYubor(conversationId: string, purchaseId: string, link: string): Promise<boolean> {
     try {

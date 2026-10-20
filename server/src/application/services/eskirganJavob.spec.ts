@@ -218,7 +218,7 @@ function build(): {
       },
     } as unknown as IAgentUsageRepository,
     { list: async () => [], listKnowledge: async () => [] } as unknown as ICourseRepository,
-    { joriyXarid: async () => null, tolanganKurslar: async () => [], kursBelgila: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
+    { joriyXarid: async () => null, faol: async () => null, tolanganKurslar: async () => [], agentKursi: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
     { yubor: async () => ({ sent: false }) } as unknown as KartaYuboruvchi,
   );
 

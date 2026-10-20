@@ -21,18 +21,15 @@ import type { IAuditRepository } from '@/domain/repositories/ISupportRepositorie
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { AgentTurnOutput, IAgentEngine } from '@/domain/services/IAgentEngine';
 import type { IClock, IEventBus } from '@/domain/services/support';
-import { TASHQARI_JAVOBI } from '@/domain/services/mavzudanTashqari';
 
 /**
  * Qo'lda ishga tushiriladi: npm run test:qoriqchi-navbat --workspace=server
  *
- * `AgentRunner.reply()` dagi mavzudan tashqari qo'riqchisi. Qoida sifatida
- * uch marta yozilgan (114-116 migratsiyalari) va model "5+9" ga baribir
- * javob bergani uchun tekshiruv kodga ko'chirildi — bu test uning HAQIQATAN
- * modelni chaqirmasligini tasdiqlaydi.
- *
- * `try-agent` bu yerda yordam bermaydi: u dvigatelni to'g'ridan-to'g'ri
- * chaqiradi va `AgentRunner` ni umuman chetlab o'tadi.
+ * Debitordan qolgan "mavzudan tashqari" qo'riqchisi OLIB TASHLANDI (yakuniy
+ * sharh, 2-topilma): u oddiy kurs savollarini ("Kurs 3-4 oy davom etadimi?",
+ * "Python kod yozishni o'rgatasizmi?") qarz bo'yicha tayyor jumla bilan
+ * to'sardi. Endi har bir kiruvchi xabar modelga boradi — mavzudan tashqari
+ * savolni sotuv prompti o'zi hal qiladi.
  */
 let failed = 0;
 const check = (name: string, ok: boolean, izoh = ''): void => {
@@ -121,7 +118,7 @@ function build(sozlama: Sozlama = {}): {
     { findOpenByConversation: async () => null } as unknown as IPaymentCheckRepository,
     { record: async () => undefined } as unknown as IAgentUsageRepository,
     { list: async () => [], listKnowledge: async () => [] } as unknown as ICourseRepository,
-    { joriyXarid: async () => null, tolanganKurslar: async () => [], kursBelgila: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
+    { joriyXarid: async () => null, faol: async () => null, tolanganKurslar: async () => [], agentKursi: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
     { yubor: async () => ({ sent: false }) } as unknown as KartaYuboruvchi,
   );
 
@@ -129,49 +126,29 @@ function build(sozlama: Sozlama = {}): {
 }
 
 
-// ─── (a) Sof arifmetika — model CHAQIRILMAYDI ───────────────────────────
-{
+const KURS_SAVOLLARI = [
+  'Kurs 3-4 oy davom etadimi?',
+  'Darslar 19-21 da bo\'ladimi?',
+  'Python kod yozishni o\'rgatasizmi?',
+  'Rasm chizishni o\'rgatadimi bu kurs',
+  'Tarjima qilishni o\'rganmoqchiman',
+  '5+9 nechchi boladi?',
+];
+for (const savol of KURS_SAVOLLARI) {
   const { r, yuborilgan, chaqirildi } = build();
-  const natija = await r.reply('cv1', '5+9 nechchi boladi?');
-
-  check('arifmetika — model chaqirilmadi', chaqirildi() === 0, `chaqiriq: ${chaqirildi()}`);
-  check('arifmetika — bitta xabar yuborildi', yuborilgan.length === 1, `${yuborilgan.length}`);
-  check('arifmetika — matn qoidadagi jumla', yuborilgan[0]?.body === TASHQARI_JAVOBI, yuborilgan[0]?.body ?? '');
-  check('arifmetika — meta.guard qo\'yildi', yuborilgan[0]?.meta?.guard === 'mavzudan_tashqari');
-  check('arifmetika — sabab yozildi', yuborilgan[0]?.meta?.sabab === 'arifmetika');
-  check('arifmetika — natija yuborilgan deb qaytadi', natija.sent === true);
+  const natija = await r.reply('cv1', savol);
+  check(`"${savol}" — model chaqirildi`, chaqirildi() === 1, `chaqiriq: ${chaqirildi()}`);
+  check(`"${savol}" — model javobi yuborildi (tayyor jumla emas)`,
+    yuborilgan.length === 1 && yuborilgan[0]?.body === JAVOB.reply && yuborilgan[0]?.meta?.guard === undefined,
+    JSON.stringify(yuborilgan));
+  check(`"${savol}" — natija sent`, natija.sent === true);
 }
 
-// ─── (b) To'lov savoli — odatdagidek modelga ketadi ─────────────────────
 {
-  const { r, yuborilgan, chaqirildi } = build();
-  await r.reply('cv1', 'qoldiq qarzim qancha?');
-
-  check('to\'lov savoli — model chaqirildi', chaqirildi() === 1, `chaqiriq: ${chaqirildi()}`);
-  check('to\'lov savoli — qo\'riqchi jumlasi yuborilmadi',
-    !yuborilgan.some((x) => x.body === TASHQARI_JAVOBI));
-}
-
-// ─── (c) Ketma-ket sinov — ikkinchi marta javob berilmaydi ──────────────
-{
-  const { r, yuborilgan, chaqirildi } = build({
-    oxirgilar: [{ direction: 'out', meta: { guard: 'mavzudan_tashqari' } }],
-  });
-  const natija = await r.reply('cv1', '10+10 nechchi?');
-
-  check('takror — xabar yuborilmadi', yuborilgan.length === 0, `${yuborilgan.length}`);
-  check('takror — model ham chaqirilmadi', chaqirildi() === 0);
-  check('takror — natija yuborilmadi deb qaytadi', natija.sent === false);
-}
-
-// ─── (d) Qo'lda tasdiqlash rejimi — qo'riqchi ishlamaydi ────────────────
-{
-  const { r, yuborilgan, chaqirildi } = build({ agentAutoReply: false });
-  await r.reply('cv1', '5+9 nechchi?');
-
-  check('qo\'lda rejim — qo\'riqchi ishlamadi, model chaqirildi', chaqirildi() === 1);
-  check('qo\'lda rejim — tayyor jumla yuborilmadi',
-    !yuborilgan.some((x) => x.body === TASHQARI_JAVOBI));
+  // Oldingi (eski) qo'riqchi xabari tarixda bo'lsa ham javob to'silmaydi.
+  const { r, chaqirildi } = build({ oxirgilar: [{ direction: 'out', body: 'Men to\'lov bo\'yicha yordam beraman', createdAt: NOW, meta: { guard: 'mavzudan_tashqari' } } as never] });
+  await r.reply('cv1', '10+10 nechchi?');
+  check('eski guard belgisi — model baribir chaqirildi', chaqirildi() === 1);
 }
 
 console.log(failed ? `${failed} ta xato` : 'Hammasi o\'tdi');
