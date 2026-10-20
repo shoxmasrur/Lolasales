@@ -28,7 +28,7 @@ function workspacesIldizimi(dir: string, fs: IldizFs): boolean {
  *
  * NEGA QIDIRUV: `config.ts` dev'da (tsx) `server/src/shared` da, produksiya
  * bundle'ida esa `server/dist/main.js` ichida turadi. Qat'iy `../../..`
- * bundle'da `/opt/debitor-agent/server/dist` → `/opt` ni berardi va nisbiy
+ * bundle'da `/opt/lolasales/server/dist` → `/opt` ni berardi va nisbiy
  * `MEDIA_DIR` loyihadan tashqariga ketardi.
  * `server/package.json` da `workspaces` yo'q — u ildiz deb olinmaydi.
  */

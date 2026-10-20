@@ -14,9 +14,6 @@ import { mediaRoutes } from '@/presentation/http/routes/mediaRoutes';
 import { telegramRoutes } from '@/presentation/http/routes/telegramRoutes';
 import { settingsRoutes } from '@/presentation/http/routes/settingsRoutes';
 import { logRoutes } from '@/presentation/http/routes/logRoutes';
-import { recontactListRoutes } from '@/presentation/http/routes/recontactListRoutes';
-import { recontactTopicRoutes } from '@/presentation/http/routes/recontactTopicRoutes';
-import { recontactBulkRoutes } from '@/presentation/http/routes/recontactBulkRoutes';
 import { statsRoutes } from '@/presentation/http/routes/statsRoutes';
 import { userRoutes } from '@/presentation/http/routes/userRoutes';
 import { agentRoutes } from '@/presentation/http/routes/agentRoutes';
@@ -33,7 +30,7 @@ export function createApp(container: Container): Express {
   app.use(express.json({ limit: '2mb' }));
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, service: 'debitor-agent', time: new Date().toISOString() });
+    res.json({ ok: true, service: 'lolasales', time: new Date().toISOString() });
   });
 
   const api = Router();
@@ -64,15 +61,6 @@ export function createApp(container: Container): Express {
   api.use('/agent', agentRoutes(container));
   api.use('/users', userRoutes(container));
   api.use('/logs', requirePermission('logs.view'), logRoutes(container));
-  // Qayta aloqa: ro'yxat `/`, mavzular `/topics…`, navbat `/bulk…` — yo'llar
-  // to'qnashmaydi. Ichkaridagi yozish amallari o'z ruxsatini tekshiradi.
-  api.use(
-    '/recontact',
-    requirePermission('clients.view'),
-    recontactListRoutes(container),
-    recontactTopicRoutes(container),
-    recontactBulkRoutes(container),
-  );
 
   app.use('/api', api);
   app.use(notFoundHandler);

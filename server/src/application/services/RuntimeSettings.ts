@@ -19,24 +19,6 @@ export interface OutreachSettings {
   killSwitch: boolean;
   agentAutoReply: boolean;
   personaName: string;
-  /** Kelishilgan kunning ertalabida yumshoq eslatma yuborilsinmi. */
-  promiseReminder: boolean;
-  /**
-   * Eslatma shu vaqtgacha yuboriladi (HH:mm). Boshlanishi — ish vaqtining
-   * boshlanishi. Kunning ikkinchi yarmida eslatishning ma'nosi yo'q:
-   * mijoz to'lovni kun davomida rejalashtiradi, kechqurun eslatma esa
-   * eslatma emas, ta'qib bo'lib qoladi.
-   */
-  promiseReminderUntil: string;
-  /**
-   * "Pul tushdi" xabari shu vaqtgacha yuboriladi (HH:mm). Boshlanishi —
-   * ish vaqtining boshlanishi, kunlari — umumiy `weekdays` sozlamasi.
-   *
-   * To'lov bankdan istalgan payt, shu jumladan tunda ko'rinishi mumkin.
-   * Xabarni o'sha zahoti yuborish — yarim kechada mijozning telefonini
-   * jiringlatish demak. Pul kelgani ertalabgacha kutadi.
-   */
-  promiseThanksUntil: string;
   /** Jim qolgan mijozga bosqichiga bitta yumshoq eslatma yuborilsinmi. */
   eslatmaYoqilgan: boolean;
   /** Eslatma oxirgi xabardan necha soat o'tgach yuboriladi (1–168). */
@@ -58,26 +40,6 @@ export interface OutreachSettings {
   /** Qidiruv, tarix o'qish, holat tekshiruvi — bular ancha xavfsiz. */
   gateOtherMinSec: number;
   gateOtherMaxSec: number;
-  /**
-   * Minimal qarzdorlik chegarasi (so'm). Kechikkan to'lovi shu summadan
-   * KATTA bo'lmagan mijozga yozilmaydi.
-   *
-   * NEGA KERAK: 800-1000 so'mlik qoldiq — yaxlitlash farqi, qarz emas.
-   * Bunday mijozga yozilgan xabar hech qanday to'lovni tezlashtirmaydi,
-   * lekin akkauntning kunlik kvotasini yeydi va mijozning butun
-   * hisob-kitobga bo'lgan ishonchini so'ndiradi.
-   *
-   * Qaror MIJOZ bo'yicha: barcha "Сотилди" shartnomalarining kechikkan
-   * summasi qo'shilib solishtiriladi. Har shartnoma alohida tekshirilsa,
-   * 900 so'mdan uchta shartnomasi bor mijoz (jami 2700) 1000 lik
-   * chegarada o'tkazib yuborilardi — agent esa 2700 deb yozgan bo'lardi.
-   *
-   * 0 — chegara o'chirilgan (faqat nol kechikish "yo'q" hisoblanadi).
-   *
-   * DIQQAT: `CampaignFilters.minDebt` (`Campaign.ts`) BILAN ADASHTIRMANG
-   * — nom bir xil, ma'no teskari (u yerda izoh bor).
-   */
-  minDebt: number;
   /** To'lov kartalari; xabarga birinchi faol karta tushadi (LLM raqam yozmaydi). */
   paymentCards: PaymentCard[];
   /** Kompaniya nomi (agent matnlarida). */
@@ -111,16 +73,12 @@ export class RuntimeSettings {
       killSwitch: stored.killSwitch ?? config.KILL_SWITCH,
       agentAutoReply: stored.agentAutoReply ?? config.AGENT_AUTO_REPLY,
       personaName: stored.personaName ?? 'Lola',
-      promiseReminder: stored.promiseReminder ?? true,
-      promiseReminderUntil: stored.promiseReminderUntil ?? '12:00',
-      promiseThanksUntil: stored.promiseThanksUntil ?? '18:00',
       eslatmaYoqilgan: stored.eslatmaYoqilgan ?? true,
       eslatmaSoat: stored.eslatmaSoat ?? 24,
       gateMessageMinSec: stored.gateMessageMinSec ?? 5,
       gateMessageMaxSec: stored.gateMessageMaxSec ?? 20,
       gateOtherMinSec: stored.gateOtherMinSec ?? 1,
       gateOtherMaxSec: stored.gateOtherMaxSec ?? 4,
-      minDebt: stored.minDebt ?? 100_000,
       paymentCards: stored.paymentCards ?? [],
       kompaniyaNomi: stored.kompaniyaNomi ?? 'LolaSales',
       izohKalitSozlari: stored.izohKalitSozlari ?? IZOH_KALIT_SOZLARI,

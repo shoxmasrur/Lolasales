@@ -6,11 +6,8 @@ export type TelegramLookupStatus =
 /** "Aloqa" filtri kalitlari — server tomondagi `ALOQA_KALITLARI` bilan mos. */
 export type AloqaHolati = 'javobsiz' | 'oqilmagan';
 
-export type ConversationState =
-  | 'new' | 'contacted' | 'negotiating' | 'promised' | 'agreed'
-  | 'refused' | 'unreachable' | 'escalated' | 'closed';
-
-export type EscalationStage = 'soft' | 'hard' | 'legal';
+/** Suhbat holati: yangi → xabar ketgan → mijoz javob bergan → yopilgan. */
+export type ConversationState = 'new' | 'contacted' | 'active' | 'closed';
 
 export type Permission =
   | 'dashboard.view'
@@ -21,7 +18,6 @@ export type Permission =
   | 'clients.start_conversation'
   | 'clients.delete'
   | 'clients.export'
-  | 'contracts.sync'
   | 'courses.view' | 'courses.edit'
   | 'receipts.confirm'
   | 'comments.view' | 'comments.import'
@@ -102,8 +98,6 @@ export interface User {
   failedLoginAttempts: number;
   /** Bloklangan vaqt — bo'lsa faqat administrator ocha oladi. */
   lockedAt: string | null;
-  /** Biriktirilgan obyektlar — bo'sh bo'lsa cheklovsiz; admin uchun e'tiborsiz. */
-  objects: string[];
   createdAt: string;
 }
 
@@ -121,7 +115,6 @@ export interface PermissionGroup {
 
 export interface Client {
   id: string;
-  externalId: string | null;
   fullName: string;
   phone: string | null;
   extraPhones: string[];
@@ -137,8 +130,6 @@ export interface Client {
   /** Yumshoq o'chirish belgisi — bo'lsa mijoz "O'chirilgan" tabida turadi. */
   deletedAt: string | null;
   deletedBy: string | null;
-  /** Bazada yo'q, Telegramdan yozgan begona — shartnomasi hali topilmagan. */
-  nomalum: boolean;
   source: ClientSource;
   sourceGroup: string | null;
   sourceComment: string | null;
@@ -194,48 +185,11 @@ export interface CourseKnowledge {
   isEnabled: boolean;
 }
 
-export interface ClientWithDebt extends Client {
+/** Mijozlar ro'yxati qatori. */
+export interface ClientListItem extends Client {
   /** Joriy xarid: faol, bo'lmasa oxirgisi. */
   purchase?: Purchase | null;
-  /** Oyma-oy to'lovdagi kechikish (Долг мес.) — agent mijozga shuni aytadi. */
-  debtMonthly: number;
-  /** Umumiy kechikkan to'lov (Долг общ) — faqat xodim ko'radi. */
-  debtTotal: number;
-  daysOverdue: number;
-  contractsCount: number;
-  /** Shartnomalarining CRM holatlari (kalit bo'yicha, takrorsiz). */
-  contractStatuses: string[];
   accountName: string | null;
-}
-
-export interface Contract {
-  id: string;
-  clientId: string;
-  contractNo: string;
-  objectName: string | null;
-  status: string | null;
-  category: string | null;
-  totalPrice: number | null;
-  monthlyPayment: number | null;
-  paidTotal: number | null;
-  contractDate: string | null;
-  months: number | null;
-  nextPaymentDate: string | null;
-  /**
-   * Xonadonni bitish muddati, `YYYY-MM-DD`. Operator TO'LIQ sanani ko'radi
-   * (agent faqat chorakni) — o'tib ketgan sana ham shu yerda ko'rinishi kerak.
-   */
-  completionDate: string | null;
-  daysOverdue: number;
-  debtMonthly: number;
-  debtTotal: number;
-  /** Hisoblagichlar uchun to'lovdagi kechikish — `debtTotal` ga kirmaydi. */
-  debtMeter: number;
-  warningCount: number;
-  /** Shartnomalar bazasidan oxirgi muvaffaqiyatli yangilanish. */
-  syncedAt: string | null;
-  /** Oxirgi yangilash xatosi (`not_found` va h.k.). */
-  syncError: string | null;
 }
 
 export interface Conversation {
@@ -243,18 +197,15 @@ export interface Conversation {
   clientId: string;
   telegramAccountId: string | null;
   state: ConversationState;
-  stage: EscalationStage;
   agentEnabled: boolean;
   needsHuman: boolean;
   humanReason: string | null;
   /**
    * `'agent_error'` — agent texnik xato tufayli to'xtagan, qayta urinish
-   * mumkin. `'broken_promise'` — va'da bajarilmagan; suhbat operator
-   * ro'yxatida turadi, lekin agent unga sukutdan keyin baribir yozadi.
-   * `'chek_tekshiruvi'` — mijozning cheki menejerning "Tasdiqlash"/"Rad etish" qarorini
+   * mumkin. `'chek_tekshiruvi'` — mijozning cheki menejerning "Tasdiqlash"/"Rad etish" qarorini
    * kutyapti.
    */
-  humanKind: 'agent_error' | 'broken_promise' | 'chek_tekshiruvi' | 'crm_xato' | null;
+  humanKind: 'agent_error' | 'chek_tekshiruvi' | null;
   lastMessageAt: string | null;
   unreadCount: number;
   summary: string | null;
@@ -264,24 +215,12 @@ export interface ConversationListItem {
   conversation: Conversation;
   clientName: string;
   clientPhone: string | null;
-  debtMonthly: number;
-  debtTotal: number;
-  daysOverdue: number;
   lastMessageBody: string | null;
   lastMessageDirection: 'in' | 'out' | null;
-  nomalum: boolean;
-}
-
-/** Mijozlar ro'yxatidagi shartnoma holati filtri uchun variant. */
-export interface ContractStatusOption {
-  key: string;
-  label: string;
-  clients: number;
 }
 
 /** Suhbatlar ro'yxati filtrlari uchun variantlar — faqat uchraydiganlari. */
 export interface ConversationFilterOptions {
-  objects: string[];
   accounts: Array<{ id: string; label: string }>;
 }
 
@@ -332,16 +271,6 @@ export interface Message {
   imageStatus: 'none' | 'pending' | 'done' | 'failed';
   /** Vision qaytargan tavsif — faqat operator ko'radi. */
   imageNote: string | null;
-}
-
-export interface PaymentPromise {
-  id: string;
-  clientId: string;
-  amount: number;
-  promisedDate: string;
-  quote: string | null;
-  status: 'pending' | 'kept' | 'broken' | 'cancelled';
-  createdAt: string;
 }
 
 export type SpamStatus = 'unknown' | 'clean' | 'limited' | 'banned' | 'check_failed';
@@ -481,39 +410,24 @@ export interface Campaign {
   stats?: CampaignStats;
 }
 
+/** Sotuv paneli raqamlari ("bugun" — Asia/Tashkent bo'yicha). */
 export interface DashboardStats {
   clientsTotal: number;
-  clientsWithPhone: number;
   clientsOnTelegram: number;
-  contractsTotal: number;
-  debtMonthly: number;
-  debtTotal: number;
-  debtCollectedPromised: number;
-  /** Shu oyda undirilgan summa — gaplashilgan mijozdan, birinchi xabardan keyin. */
-  collectedThisMonth: number;
-  collectedClientsThisMonth: number;
   conversationsTotal: number;
   conversationsNeedingHuman: number;
   messagesSentToday: number;
   messagesReceivedToday: number;
-  promisesPending: number;
-  promisesKept: number;
-  promisesBroken: number;
-  byState: Array<{ state: string; count: number }>;
-  byStage: Array<{ stage: string; count: number }>;
+  /** Menejer tasdig'ini kutayotgan cheklar. */
+  receiptsPending: number;
+  /** Voronka: har mijozning joriy xaridi qaysi bosqichda. */
+  funnel: Array<{ stage: XaridBosqichi; count: number }>;
+  /** Bugun qo'shilgan mijozlar manbalar bo'yicha. */
+  newClientsToday: Array<{ source: ClientSource; count: number }>;
+  /** Bugun tasdiqlangan to'lovlar. */
+  paymentsToday: { count: number; amount: number };
   /** Kunlik dinamika — ODAM soni, xabar soni emas. */
   dailyActivity: Array<{ day: string; writtenTo: number; replied: number }>;
-}
-
-/** Davr bo'yicha statistika — bosh sahifadagi sana filtri. */
-export interface PeriodStats {
-  from: string;
-  to: string;
-  collectedByUs: { amount: number; clients: number };
-  collectedWithoutUs: { amount: number; clients: number };
-  daily: Array<{ day: string; byUs: number; withoutUs: number }>;
-  /** HOZIRGI kechikkan to'lov — davrga bog'liq emas (tarix saqlanmagan). */
-  debtNow: { total: number; monthly: number };
 }
 
 /** Ommaviy suhbat boshlashdan oldingi tekshiruv natijasi. */
@@ -569,10 +483,6 @@ export interface OutreachSettings {
   personaName: string;
   paymentCards: PaymentCard[];
   kompaniyaNomi: string;
-  promiseReminder: boolean;
-  promiseReminderUntil: string;
-  /** "Pul tushdi" xabari shu vaqtgacha yuboriladi (HH:mm). */
-  promiseThanksUntil: string;
   /** Jim qolgan mijozga bosqichiga bitta eslatma. */
   eslatmaYoqilgan: boolean;
   /** Oxirgi xabardan necha soat o'tgach (1–168). */
@@ -586,11 +496,6 @@ export interface OutreachSettings {
   gateMessageMaxSec: number;
   gateOtherMinSec: number;
   gateOtherMaxSec: number;
-  /**
-   * Minimal qarzdorlik chegarasi (so'm). Kechikkan to'lovi shu summadan
-   * katta bo'lmagan mijozga yozilmaydi. 0 — chegara yo'q.
-   */
-  minDebt: number;
   /** Kanal izohlarini saralash uchun kalit so'zlar ("+" — faqat yolg'iz plyus). */
   izohKalitSozlari: string[];
   /** Bir yig'ishda jami o'qiladigan izohlar (50–2000). */
@@ -619,24 +524,14 @@ export interface LlmModel {
   isEnabled: boolean;
 }
 
-export interface Bayram {
-  id: string;
-  name: string;
-  startsOn: string;
-  endsOn: string;
-  yillik: boolean;
-}
-
 export interface ImportBatch {
   id: string;
   filename: string;
-  kind: 'debtors' | 'phones' | 'leads';
+  kind: 'leads';
   rowsTotal: number;
   rowsOk: number;
   rowsFailed: number;
   clientsCreated: number;
-  contractsCreated: number;
-  contractsUpdated: number;
   errors: Array<{ row: number; reason: string; value?: string }>;
   createdAt: string;
   /** Import qaytarilgan bo'lsa — qachon va kim tomonidan. */
@@ -651,34 +546,6 @@ export interface Page<T> {
   offset: number;
 }
 
-// ─── Mijozni qo'lda qo'shish ─────────────────────────────────────────────
-
-export interface ContractPreview {
-  contractNo: string;
-  clientName: string;
-  phones: string[];
-  objectName: string | null;
-  /** Kechikkan to'lov. */
-  overdueTotal: number;
-  daysOverdue: number;
-}
-
-/**
- * Xato holatlari (`not_found`, `disabled`, `error`) serverdan HTTP xatosi
- * bo'lib keladi va bu tipga tushmaydi — shuning uchun `outcome` faqat 'ok'.
- */
-export interface AddClientPreview {
-  outcome: 'ok';
-  existingClient: { id: string; fullName: string } | null;
-  matchedByPhone: { id: string; fullName: string } | null;
-  contract: ContractPreview;
-}
-
-export interface AddClientResult {
-  outcome: 'created' | 'attached' | 'already_exists';
-  clientId: string;
-}
-
 /** Tizim jurnalining bitta qatori. */
 export interface AppLogItem {
   id: string;
@@ -688,7 +555,6 @@ export interface AppLogItem {
   flag: 'telegram' | null;
   scope: string | null;
   msg: string;
-  shartnoma: string | null;
   akkaunt: string | null;
   mijoz: string | null;
   payload: Record<string, unknown>;

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import type { Container } from '@/composition/container';
 import { NotFoundError } from '@/shared/errors';
-import { qamrovParam } from '@/presentation/http/middleware/qamrov';
 
 /**
  * Media fayllar statik papkadan berilmaydi — ular mijozlarning shaxsiy
@@ -12,9 +11,6 @@ export function mediaRoutes(container: Container): Router {
   const router = Router();
   const { messages } = container.repositories;
   const { mediaStorage } = container.services;
-
-  // Obyekt cheklovi: begona mijoz suhbatining xabari — 404. Cheklanmaganda o'zgarishsiz.
-  router.param('messageId', qamrovParam((q, id) => container.services.qamrovTekshiruvchi.xabar(q, id)));
 
   router.get('/:messageId', async (req, res) => {
     const id = String(req.params.messageId);

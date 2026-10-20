@@ -63,10 +63,6 @@ export type DomainEvent =
   | { type: 'telegram.lookup_progress'; job: unknown }
   /** Ommaviy suhbat boshlash progressi. */
   | { type: 'conversation.bulk_progress'; job: unknown }
-  /** Qayta aloqa ro'yxatidan ommaviy yuborish progressi. */
-  | { type: 'recontact.bulk_progress'; job: unknown }
-  /** Tanlangan mijozlarni CRM'dan ommaviy yangilash progressi. */
-  | { type: 'contracts.sync_progress'; job: unknown }
   | { type: 'stats.invalidate' }
   /** Bazaga yangi jurnal qatori yozildi — jurnal sahifasi uchun. */
   | { type: 'log.appended'; item: AppLogItem };

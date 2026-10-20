@@ -30,7 +30,7 @@ function check(holat: string, ok: boolean, izoh = ''): void {
 const API_KALIT = 'sk-ant-api03-sinov-kaliti';
 const OBUNA = 'sk-ant-oat01-sinov-tokeni';
 const rasm = Buffer.from('soxta-rasm');
-const JAVOB = '{"tur":"tolov","tavsif":"Xonsaroy Pay, 5 000 000 so\'m"}';
+const JAVOB = '{"tur":"tolov","tavsif":"Payme, 5 000 000 so\'m"}';
 
 interface Yozuv {
   daraja: 'info' | 'warn' | 'error';

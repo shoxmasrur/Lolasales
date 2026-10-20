@@ -5,8 +5,6 @@ export interface NewUser {
   passwordHash: string;
   fullName: string;
   roleId: string;
-  /** Obyekt cheklovi; berilmasa — bo'sh (cheklovsiz). */
-  objects?: string[];
 }
 
 export interface UserPatch {
@@ -14,8 +12,6 @@ export interface UserPatch {
   roleId?: string;
   passwordHash?: string;
   isActive?: boolean;
-  /** Bo'sh ro'yxat — cheklovni olib tashlaydi. */
-  objects?: string[];
 }
 
 /** Xato urinish qayd etilgandan keyingi holat. */

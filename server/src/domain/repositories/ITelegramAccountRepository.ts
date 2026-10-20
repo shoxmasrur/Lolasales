@@ -62,12 +62,5 @@ export interface ITelegramAccountRepository {
       llmModelId?: string | null;
     },
   ): Promise<TelegramAccount>;
-  /**
-   * Premium tugash sanasini qo'yadi (`null` — Premium yo'q). Eslatma
-   * bosqichi tozalanadi: yangi sana uchun eslatmalar qayta boshlanadi.
-   */
-  setPremium(id: string, untilIso: string | null): Promise<TelegramAccount>;
-  /** Shu bosqich eslatmasi yuborilganini yozadi — takrorlanmasin. */
-  markPremiumEslatildi(id: string, bosqich: number): Promise<void>;
   remove(id: string): Promise<void>;
 }

@@ -45,9 +45,9 @@ export function isClientType(value: string | null | undefined): value is ClientT
 }
 
 /**
- * Telegramda shartnoma egasining O'RNIGA yozayotgan odam — masalan o'g'li.
+ * Telegramda mijozning O'RNIGA yozayotgan odam — masalan o'g'li.
  *
- * To'ldirilgan bo'lsa agent murojaatni shartnoma egasining ismidan emas,
+ * To'ldirilgan bo'lsa agent murojaatni mijozning ismidan emas,
  * shu odamning ismi va jinsidan tuzadi (103-migratsiya).
  */
 export interface Interlocutor {
@@ -58,7 +58,7 @@ export interface Interlocutor {
   readonly name: string | null;
   /** NULL — aniqlanmadi: "aka/opa" ishlatilmaydi. */
   readonly gender: 'male' | 'female' | null;
-  /** Shartnoma egasiga kimligi: "o'g'li", "turmush o'rtog'i". */
+  /** Mijozga kimligi: "o'g'li", "turmush o'rtog'i". */
   readonly relation: string | null;
 }
 

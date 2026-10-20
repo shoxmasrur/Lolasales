@@ -25,14 +25,14 @@ function eq(nom: string, actual: unknown, kutilgan: unknown): void {
 
 // ── 1. To'liq kontekst ──────────────────────────────────────────────────
 eq(
-  'uchala maydon',
-  kontekst({ shartnoma: '3090MSO25A5', akkaunt: 'Madina', mijoz: 'Aziz Karimov' }),
-  { shartnoma: '3090MSO25A5', akkaunt: 'Madina', mijoz: 'Aziz Karimov' },
+  'ikkala maydon',
+  kontekst({ akkaunt: 'Madina', mijoz: 'Aziz Karimov' }),
+  { akkaunt: 'Madina', mijoz: 'Aziz Karimov' },
 );
 
 // ── 2. Bo'sh maydonlar jurnalga TUSHMAYDI ──────────────────────────────
-// `"shartnoma":null` qatorni uzaytiradi va hech narsa aytmaydi.
-eq('null tashlanadi', kontekst({ shartnoma: null, akkaunt: 'Madina', mijoz: null }), {
+// `"mijoz":null` qatorni uzaytiradi va hech narsa aytmaydi.
+eq('null tashlanadi', kontekst({ akkaunt: 'Madina', mijoz: null }), {
   akkaunt: 'Madina',
 });
 eq('undefined tashlanadi', kontekst({ akkaunt: 'Madina' }), { akkaunt: 'Madina' });
@@ -45,11 +45,11 @@ eq('hammasi bo\'sh', kontekst({}), {});
 
 // ── 4. Kalitlar tartibi barqaror ────────────────────────────────────────
 // Jurnal qatorlarini ko'z bilan solishtirish oson bo'lishi uchun tartib
-// har doim bir xil: shartnoma → akkaunt → mijoz.
+// har doim bir xil: akkaunt → mijoz.
 eq(
   'tartib barqaror',
-  Object.keys(kontekst({ mijoz: 'Aziz', akkaunt: 'Madina', shartnoma: '3090MSO' })),
-  ['shartnoma', 'akkaunt', 'mijoz'],
+  Object.keys(kontekst({ mijoz: 'Aziz', akkaunt: 'Madina' })),
+  ['akkaunt', 'mijoz'],
 );
 
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");

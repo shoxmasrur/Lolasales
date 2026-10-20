@@ -1,5 +1,6 @@
 /** Agent qaysi sabab bilan chaqirilgani — narx shu bo'yicha bo'linadi. */
-export type AgentUsageMode = 'first' | 'reply' | 'reminder' | 'thanks' | 'nudge' | 'operator' | 'oylik_eslatma';
+/** Sotuv agentining navbat turlari (`TurnMode`) bilan bir xil. */
+export type AgentUsageMode = 'first' | 'reply' | 'nudge' | 'operator' | 'receipt_confirmed' | 'receipt_rejected';
 
 /** Bitta model chaqiruvining hisobi. */
 export interface AgentUsageEntry {

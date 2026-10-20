@@ -39,7 +39,7 @@ function user(overrides: Partial<User> = {}): User {
     role: ROLE_WITH_LOGS as unknown as User['role'],
     isActive: true,
     failedLoginAttempts: 0,
-    lockedAt: null, objects: [],
+    lockedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

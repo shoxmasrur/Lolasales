@@ -243,7 +243,7 @@ export default function ImportPage() {
                     >
                       <td className="max-w-xs truncate px-4 py-2 text-ink-200">{b.filename}</td>
                       <td className="px-3 py-2 text-xs text-ink-500">
-                        {b.kind === 'leads' ? 'Mijozlar' : b.kind === 'debtors' ? 'Debitor' : 'Telefon'}
+                        Mijozlar
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-ink-400">{b.rowsTotal}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-emerald-300">{b.rowsOk}</td>

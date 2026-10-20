@@ -14,7 +14,7 @@ export class ApiError extends Error {
   }
 }
 
-const TOKEN_KEY = 'debitor.token';
+const TOKEN_KEY = 'lolasales.token';
 
 export const tokenStore = {
   get: (): string | null => localStorage.getItem(TOKEN_KEY),

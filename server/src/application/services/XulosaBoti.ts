@@ -1,6 +1,9 @@
 import { randomInt } from 'node:crypto';
-import type { ISettingsRepository } from '@/domain/repositories/ISupportRepositories';
+import type { DashboardStats, ISettingsRepository, IStatsRepository } from '@/domain/repositories/ISupportRepositories';
+import { CLIENT_SOURCE_LABEL, CLIENT_SOURCES, type ClientSource } from '@/domain/entities/Client';
 import { kodliChat, tokenXatosi } from '@/domain/services/botTokeni';
+import type { IClock } from '@/domain/services/support';
+import { zonedParts } from '@/shared/datetime';
 import type { BotApi } from '@/infrastructure/telegram/BotApi';
 import { decrypt, encrypt } from '@/shared/crypto';
 import { ValidationError } from '@/shared/errors';
@@ -37,6 +40,41 @@ export interface BotHolati {
   readonly chatId: string | null;
   readonly chatNomi: string | null;
   readonly yangilangan: string | null;
+}
+
+/** Kunlik xulosa qaysi kunga yuborilgani (`settings` kaliti) — kuniga bir marta. */
+export const XULOSA_SANASI_KALITI = 'daily_digest_last';
+
+/** Kunlik sotuv xulosasi shu soatdan keyin (loyiha vaqt mintaqasi) yuboriladi. */
+export const XULOSA_SOATI = 21;
+
+/** Xulosaga kerakli raqamlar — `DashboardStats` dan olinadi. */
+export type KunlikRaqamlar = Pick<DashboardStats, 'newClientsToday' | 'paymentsToday' | 'receiptsPending'>;
+
+const somFormat = (n: number): string =>
+  `${new Intl.NumberFormat('ru-RU').format(Math.round(n)).replace(/\u00a0/g, ' ')} so'm`;
+
+/**
+ * Kunlik sotuv xulosasi matni. Oddiy matn — `parse_mode` berilmaydi.
+ *
+ * Manbalar tartibi qotirilgan (`CLIENT_SOURCES`): kundan-kunga solishtirish
+ * oson bo'lsin. Yangi mijoz bo'lmagan manba ham "0" bilan ko'rsatiladi.
+ */
+export function kunlikXulosaMatni(sana: string, r: KunlikRaqamlar): string {
+  const manba = new Map(r.newClientsToday.map((x) => [x.source, x.count]));
+  const jami = r.newClientsToday.reduce((s, x) => s + x.count, 0);
+  const manbaQatorlari = CLIENT_SOURCES.map(
+    (k: ClientSource) => `  • ${CLIENT_SOURCE_LABEL[k]}: ${manba.get(k) ?? 0}`,
+  );
+  return [
+    `📊 Kunlik sotuv xulosasi — ${sana}`,
+    '',
+    `Yangi mijozlar: ${jami}`,
+    ...manbaQatorlari,
+    '',
+    `Tasdiqlangan to'lovlar: ${r.paymentsToday.count} ta, ${somFormat(r.paymentsToday.amount)}`,
+    `Tekshiruvni kutayotgan cheklar: ${r.receiptsPending}`,
+  ].join('\n');
 }
 
 const BOSH_HOLAT: BotHolati = {
@@ -208,9 +246,46 @@ export class XulosaBoti {
   }
 
   /**
-   * Kunlik xulosa xabari shu yerdan ketadi (keyingi bosqich).
+   * Kunlik sotuv xulosasini rejalashtirish: har 10 daqiqada tekshiradi,
+   * `XULOSA_SOATI` dan keyin va shu kunga hali yuborilmagan bo'lsa yuboradi.
+   * Bot ulanmagan bo'lsa hech narsa qilmaydi (sana ham belgilanmaydi).
    *
-   * Xato QAYTARILMAYDI: xulosa yuborilmagani tungi vazifani yiqitmasligi
+   * @returns to'xtatish funksiyasi
+   */
+  rejaBoshla(stats: IStatsRepository, clock: IClock, timeZone: string): () => void {
+    let band = false;
+    const tekshir = async (): Promise<void> => {
+      if (band) return;
+      band = true;
+      try {
+        const now = clock.now();
+        if (zonedParts(now, timeZone).hour < XULOSA_SOATI) return;
+        const bugun = clock.todayIso();
+        if ((await this.settings.get<string>(XULOSA_SANASI_KALITI)) === bugun) return;
+        const holat = await this.holat();
+        if (!holat.tokenBor || !holat.chatId) return;
+
+        const raqamlar = await stats.dashboard(bugun, timeZone);
+        if (await this.xabarYubor(kunlikXulosaMatni(bugun, raqamlar))) {
+          await this.settings.set(XULOSA_SANASI_KALITI, bugun);
+          log.info({ sana: bugun }, 'Kunlik sotuv xulosasi yuborildi');
+        }
+      } catch (err) {
+        log.error({ err }, 'Kunlik sotuv xulosasini tayyorlab bo\'lmadi');
+      } finally {
+        band = false;
+      }
+    };
+    const timer = setInterval(() => void tekshir(), 10 * 60_000);
+    timer.unref?.();
+    void tekshir();
+    return () => clearInterval(timer);
+  }
+
+  /**
+   * Bot orqali xabar yuborish (kunlik xulosa, sessiya ogohlantirishi).
+   *
+   * Xato QAYTARILMAYDI: xabar yuborilmagani chaqiruvchini yiqitmasligi
    * kerak — faqat jurnalga yoziladi.
    */
   async xabarYubor(matn: string): Promise<boolean> {

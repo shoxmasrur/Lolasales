@@ -1,8 +1,6 @@
 import type { Client } from '@/domain/entities/Client';
-import type { Contract } from '@/domain/entities/Contract';
 import type { Conversation } from '@/domain/entities/Conversation';
 import type { Message } from '@/domain/entities/Message';
-import type { PaymentPromise } from '@/domain/entities/PaymentPromise';
 import type { PaymentCheck } from '@/domain/entities/PaymentCheck';
 import type { Campaign, CampaignTarget } from '@/domain/entities/Campaign';
 import type { TelegramAccount } from '@/domain/entities/TelegramAccount';
@@ -11,7 +9,6 @@ import type { User } from '@/domain/entities/User';
 import type { Role } from '@/domain/entities/Role';
 import { isPermission } from '@/domain/entities/Permission';
 import type { ImportBatch } from '@/domain/entities/ImportBatch';
-import type { Bayram } from '@/domain/entities/bayram';
 import type { Course, CourseKnowledge } from '@/domain/entities/Course';
 import type { Purchase } from '@/domain/entities/Purchase';
 import type { LlmModel } from '@/domain/entities/LlmModel';
@@ -35,7 +32,6 @@ type Row = Record<string, any>;
 export function mapClient(r: Row): Client {
   return {
     id: r.id,
-    externalId: r.external_id ?? null,
     fullName: r.full_name,
     firstName: r.first_name ?? null,
     phone: r.phone ?? null,
@@ -55,66 +51,9 @@ export function mapClient(r: Row): Client {
     updatedAt: req(r.updated_at),
     deletedAt: toDate(r.deleted_at),
     deletedBy: r.deleted_by ?? null,
-    nomalum: Boolean(r.nomalum),
     source: r.source ?? 'qolda',
     sourceGroup: r.source_group ?? null,
     sourceComment: r.source_comment ?? null,
-  };
-}
-
-export function mapContract(r: Row): Contract {
-  return {
-    id: r.id,
-    clientId: r.client_id,
-    contractNo: r.contract_no,
-    externalId: r.external_id ?? null,
-    objectName: r.object_name ?? null,
-    objectAddress: r.object_address ?? null,
-    companyInn: r.company_inn ?? null,
-    // Uy ma'lumoti shartnomalar bazasidan keladi. Hech biri to'ldirilmagan
-    // bo'lsa butun blok `null` — bo'sh maydonli obyekt promptga
-    // "Uy: " degan ma'nosiz qator qo'shib qo'yardi.
-    apartment:
-      r.apartment_number || r.apartment_block || r.apartment_rooms
-        ? {
-            number: r.apartment_number ?? null,
-            floor: numOrNull(r.apartment_floor),
-            rooms: numOrNull(r.apartment_rooms),
-            entrance: r.apartment_entrance ?? null,
-            block: r.apartment_block ?? null,
-            area: numOrNull(r.apartment_area),
-          }
-        : null,
-    missedMonthsExact: num(r.missed_months),
-    // DATE ustuni satr bo'lib keladi (`pool.ts` da 1082 tipi uchun parser
-    // o'rnatilgan) — `toDate` ga o'girilmaydi, kun ma'nosida qoladi.
-    completionDate: r.completion_date ?? null,
-    syncedAt: toDate(r.synced_at),
-    syncError: r.sync_error ?? null,
-    status: r.status ?? null,
-    virtualStatus: r.virtual_status ?? null,
-    category: r.category ?? null,
-    totalPrice: numOrNull(r.total_price),
-    firstPayment: numOrNull(r.first_payment),
-    monthlyPayment: numOrNull(r.monthly_payment),
-    paidTotal: numOrNull(r.paid_total),
-    remainingTotal: numOrNull(r.remaining_total),
-    contractDate: toDate(r.contract_date),
-    months: numOrNull(r.months),
-    nextPaymentDate: toDate(r.next_payment_date),
-    daysOverdue: num(r.days_overdue),
-    debtFirst: num(r.debt_first),
-    debtMonthly: num(r.debt_monthly),
-    debtTotal: num(r.debt_total),
-    debtMeter: num(r.debt_meter ?? 0),
-    warningCount: num(r.warning_count),
-    lastWarningType: r.last_warning_type ?? null,
-    lastWarningMethod: r.last_warning_method ?? null,
-    lastWarningManager: r.last_warning_manager ?? null,
-    lastWarningAt: toDate(r.last_warning_at),
-    raw: r.raw ?? {},
-    createdAt: req(r.created_at),
-    updatedAt: req(r.updated_at),
   };
 }
 
@@ -126,7 +65,6 @@ export function mapConversation(r: Row): Conversation {
     peerId: r.peer_id ?? null,
     peerAccessHash: r.peer_access_hash ?? null,
     state: r.state,
-    stage: r.stage,
     agentEnabled: Boolean(r.agent_enabled),
     needsHuman: Boolean(r.needs_human),
     humanReason: r.human_reason ?? null,
@@ -136,7 +74,6 @@ export function mapConversation(r: Row): Conversation {
     lastInboundAt: toDate(r.last_inbound_at),
     lastOutboundAt: toDate(r.last_outbound_at),
     unreadCount: num(r.unread_count),
-    nudgeCount: num(r.nudge_count),
     summary: r.summary ?? null,
     createdAt: req(r.created_at),
     updatedAt: req(r.updated_at),
@@ -187,28 +124,6 @@ export function mapMessage(r: Row): Message {
   };
 }
 
-export function mapPromise(r: Row): PaymentPromise {
-  return {
-    id: r.id,
-    conversationId: r.conversation_id,
-    clientId: r.client_id,
-    contractId: r.contract_id ?? null,
-    amount: num(r.amount),
-    promisedDate: req(r.promised_date),
-    quote: r.quote ?? null,
-    status: r.status,
-    sourceMessageId: r.source_message_id ?? null,
-    createdAt: req(r.created_at),
-    resolvedAt: toDate(r.resolved_at),
-    remindedAt: toDate(r.reminded_at),
-    paidAmount: num(r.paid_amount),
-    thankedAmount: num(r.thanked_amount),
-    checkedAt: toDate(r.checked_at),
-    watchUntil: toDate(r.watch_until),
-    callId: r.call_id ?? null,
-  };
-}
-
 export function mapCampaign(r: Row): Campaign {
   return {
     id: r.id,
@@ -232,7 +147,6 @@ export function mapCampaignTarget(r: Row): CampaignTarget {
     id: r.id,
     campaignId: r.campaign_id,
     clientId: r.client_id,
-    contractId: r.contract_id ?? null,
     conversationId: r.conversation_id ?? null,
     state: r.state,
     skipReason: r.skip_reason ?? null,
@@ -282,8 +196,6 @@ export function mapTelegramAccount(r: Row): TelegramAccount {
     isEnabled: Boolean(r.is_enabled),
     styleVersion: uslubVersiyasi(r.style_version),
     llmModelId: r.llm_model_id ?? null,
-    premiumUntil: r.premium_until ? String(r.premium_until).slice(0, 10) : null,
-    premiumEslatildi: r.premium_eslatildi == null ? null : num(r.premium_eslatildi),
     createdAt: req(r.created_at),
     updatedAt: req(r.updated_at),
   };
@@ -304,9 +216,6 @@ export function mapRole(r: Row): Role {
 
 /** Foydalanuvchi qatorida rol ustunlari `r_` prefiksi bilan keladi. */
 export function mapUser(r: Row): User {
-  // `objects` tanlanmasa (masalan, `u.*` o'rniga ustunlar ro'yxati) cheklov
-  // jimgina olib tashlanmasin — yopiq holatda yiqilamiz.
-  if (r.objects === undefined) throw new Error('mapUser: users.objects ustuni so\'rovda yo\'q');
   return {
     id: r.id,
     email: r.email,
@@ -326,7 +235,6 @@ export function mapUser(r: Row): User {
     isActive: Boolean(r.is_active),
     failedLoginAttempts: Number(r.failed_login_attempts ?? 0),
     lockedAt: toDate(r.locked_at),
-    objects: Array.isArray(r.objects) ? r.objects.map(String) : [],
     createdAt: req(r.created_at),
     updatedAt: req(r.updated_at),
   };
@@ -341,8 +249,6 @@ export function mapImportBatch(r: Row): ImportBatch {
     rowsOk: num(r.rows_ok),
     rowsFailed: num(r.rows_failed),
     clientsCreated: num(r.clients_created),
-    contractsCreated: num(r.contracts_created),
-    contractsUpdated: num(r.contracts_updated),
     errors: r.errors ?? [],
     createdBy: r.created_by ?? null,
     createdAt: req(r.created_at),
@@ -391,18 +297,6 @@ export function mapLlmModel(r: Row): LlmModel {
     inputPricePerMtok: numOrNull(r.input_price_per_mtok),
     outputPricePerMtok: numOrNull(r.output_price_per_mtok),
     isEnabled: Boolean(r.is_enabled),
-  };
-}
-
-export function mapBayram(r: Row): Bayram {
-  return {
-    id: r.id,
-    name: r.name,
-    // DATE ustuni satr bo'lib keladi (`pool.ts` da 1082 tipi uchun
-    // parser o'rnatilgan), ya'ni qo'shimcha formatlash shart emas.
-    startsOn: r.starts_on,
-    endsOn: r.ends_on,
-    yillik: Boolean(r.yillik),
   };
 }
 

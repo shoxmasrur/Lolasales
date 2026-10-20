@@ -15,7 +15,7 @@ type JurnalKorinish = 'all' | 'error' | 'telegram';
  * Server `PgAppLogRepository.list` da ishlatgan filtr bilan bir xil qoida:
  * `all` — `info` dan yuqorilari (Telegram izi ko'rinmaydi, lekin uning
  * XATOLARI ko'rinadi), `error` — faqat xatolar, `telegram` — faqat audit
- * izi. Qidiruv esa shartnoma/akkaunt/mijoz/matn ustida harf
+ * izi. Qidiruv esa akkaunt/mijoz/matn ustida harf
  * katta-kichikligiga qaramay ishlaydi.
  *
  * Socket orqali kelgan qator serverdan filtrlanmasdan keladi — shu
@@ -28,7 +28,7 @@ function jurnalFiltrigaMosMi(item: AppLogItem, level: JurnalKorinish, q: string)
   if (level === 'all' && item.level === 'info') return false;
   const matn = q.trim().toLowerCase();
   if (!matn) return true;
-  return [item.shartnoma, item.akkaunt, item.mijoz, item.msg].some((v) =>
+  return [item.akkaunt, item.mijoz, item.msg].some((v) =>
     v?.toLowerCase().includes(matn),
   );
 }
@@ -146,7 +146,7 @@ export function LogsPage() {
 
         <input
           className="input !py-1 w-full text-xs sm:w-64"
-          placeholder="Shartnoma, akkaunt, mijoz yoki matn"
+          placeholder="Akkaunt, mijoz yoki matn"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -206,7 +206,6 @@ export function LogsPage() {
               ) : null}
               {item.scope ? <span className="text-ink-600">{item.scope}</span> : null}
               <span className="text-ink-200">{item.msg}</span>
-              {item.shartnoma ? <span className="text-ink-500">#{item.shartnoma}</span> : null}
               {item.akkaunt ? <span className="text-sky-300">{item.akkaunt}</span> : null}
               {item.mijoz ? <span className="text-ink-500">{item.mijoz}</span> : null}
             </div>

@@ -5,8 +5,7 @@ import type { ClientQuery } from '@/domain/repositories/IClientRepository';
 /**
  * Qo'lda ishga tushiriladi: npm run test:client-list-query --workspace=server
  *
- * Telegram va shartnoma holati filtrlari bir nechta qiymat oladi
- * (2026-10-13). Ro'yxat, "hammasini belgilash" va eksport shu bitta
+ * Telegram holati filtri bir nechta qiymat oladi (2026-10-13). Ro'yxat, "hammasini belgilash" va eksport shu bitta
  * sxemadan yuradi — bu yerda sxema va undan chiqadigan SQL sharti
  * tekshiriladi. Bazaga chiqmaydi.
  */
@@ -32,11 +31,7 @@ check('takror qiymatlar birlashtiriladi', filtr({ telegramStatus: ['found', 'fou
 check('bo\'sh satr — filtr yo\'q', filtr({ telegramStatus: '' }).telegramStatus, undefined);
 check('noto\'g\'ri holat rad etiladi', yaroqlimi({ telegramStatus: ['found', 'yoq_holat'] }), false);
 
-check('shartnoma: bitta', filtr({ virtualStatus: 'sold' }).virtualStatus, ['sold']);
-check('shartnoma: bir nechta', filtr({ virtualStatus: ['sold', 'Проц. отказ'] }).virtualStatus, ['sold', 'Проц. отказ']);
-// Vergul ajratuvchi EMAS: CRM'dan kelgan xom holat nomida vergul bo'lishi mumkin.
-check('vergulli nom bo\'linmaydi', filtr({ virtualStatus: 'Отказ, возврат' }).virtualStatus, ['Отказ, возврат']);
-check('shartnoma: bo\'sh — filtr yo\'q', filtr({ virtualStatus: [] }).virtualStatus, undefined);
+check('qarz filtrlari sxemada yo\'q', Object.keys(listQuery.shape).some((k) => /debt|overdue|virtualStatus|objectName/.test(k)), false);
 
 // ─── Filtr → SQL sharti ───────────────────────────────────────────────────
 const repo = new PgClientRepository() as unknown as {
@@ -54,19 +49,11 @@ const repo = new PgClientRepository() as unknown as {
   check('filtrsiz — parametr yo\'q', params, []);
 }
 {
-  const bitta = repo.buildSearchBase({ virtualStatus: ['sold'] }).params[0] as string[];
-  const ikkita = repo.buildSearchBase({ virtualStatus: ['sold', 'Проц. отказ'] });
-  const p = ikkita.params[0] as string[];
-  check('shartnoma: bitta shart ichida "yoki"', (ikkita.base.match(/trim\(ct\.virtual_status\) = ANY/g) ?? []).length, 1);
-  check('shartnoma: birinchi holatning hamma yozilishi kiradi', bitta.every((v) => p.includes(v)), true);
-  check('shartnoma: ikkinchi holat ham kiradi', p.includes('Проц. отказ'), true);
-  check('shartnoma: ro\'yxat kengaydi', p.length > bitta.length, true);
-}
-{
   // Ikki filtr orasida "va": har biri o'z parametri bilan.
-  const { base, params } = repo.buildSearchBase({ telegramStatus: ['found'], virtualStatus: ['sold'] });
+  const { base, params } = repo.buildSearchBase({ telegramStatus: ['found'], source: 'reklama' });
   check('ikki filtr — ikki parametr', params.length, 2);
-  check('ikki filtr AND bilan', base.includes('c.telegram_status = ANY($1::text[])') && base.includes('ANY($2::text[])'), true);
+  check('ikki filtr AND bilan', base.includes('c.telegram_status = ANY($1::text[])') && base.includes('$2'), true);
+  check('shartnomalar jadvaliga murojaat yo\'q', base.includes('contracts'), false);
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");

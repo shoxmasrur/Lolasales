@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCan } from '@/store/auth';
 import type { NavigateFunction } from 'react-router-dom';
 import {
   useMutation,
@@ -8,15 +9,9 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { Client, ClientProfile, Contract, Conversation, Purchase, XaridBosqichi } from '@/lib/types';
+import type { Client, ClientProfile, Conversation, Course, Purchase, XaridBosqichi } from '@/lib/types';
 import { BOSQICH_CLASS, BOSQICH_YORLIGI, MANBA_YORLIGI, XARID_BOSQICHLARI } from '@/lib/xarid';
-import {
-  dateUz,
-  initials,
-  som,
-  somShort,
-  TELEGRAM_STATUS_LABEL,
-} from '@/lib/format';
+import { dateUz, initials, som, TELEGRAM_STATUS_LABEL } from '@/lib/format';
 import { Avatar, ErrorNote, Spinner } from '@/components/ui';
 import { ClientPhonesCard } from '@/components/ClientPhonesCard';
 
@@ -24,34 +19,10 @@ import { ClientPhonesCard } from '@/components/ClientPhonesCard';
  * Mijoz kartasi — «Mijozlar» sahifasidan ajratilgan komponent.
  */
 
-interface SchedulePayment {
-  dateIso: string;
-  amount: number;
-  paid: number;
-  status: 'paid' | 'partially' | 'waiting';
-  /** `meter` — hisoblagichlar uchun to'lov (oylik emas). */
-  type: 'initial_payment' | 'monthly' | 'meter' | 'other';
-}
-
-interface ReceivedPayment {
-  dateIso: string;
-  amount: number;
-}
-
-interface ClientPayments {
-  contractId: string | null;
-  contractNo: string | null;
-  syncedAt: string | null;
-  syncError: string | null;
-  schedule: SchedulePayment[];
-  recent: ReceivedPayment[];
-}
-
 export interface ClientDetail {
   client: Client;
   /** Joriy xarid (faol, bo'lmasa oxirgi) — yo'q bo'lsa `null`. */
   purchase?: Purchase | null;
-  contracts: Contract[];
   conversation: Conversation | null;
   /**
    * "Bu raqam mijozniki emas" deb uzilgan raqamlar.
@@ -60,38 +31,7 @@ export interface ClientDetail {
    * aks holda raqam izsiz yo'qolardi.
    */
   blockedPhones: string[];
-  /** Oyma-oy to'lovdagi kechikish — agent mijozga aynan shuni aytadi. */
-  debtMonthly: number;
-  debtTotal: number;
-  daysOverdue: number;
-  payments: ClientPayments;
 }
-
-/**
- * Grafik qatorining ko'rinadigan holati.
- *
- * Kechikish SANANI solishtirib aniqlanadi: shartnomalar bazasidagi
- * `is_expired` bayrog'i ishonchsiz — kechikkan qatorlarda ham `false`
- * turadi, shuning uchun u umuman saqlanmaydi.
- */
-type RowState = 'paid' | 'overdue' | 'waiting';
-
-function rowState(p: SchedulePayment, todayIso: string): RowState {
-  if (p.status === 'paid') return 'paid';
-  return p.dateIso < todayIso ? 'overdue' : 'waiting';
-}
-
-const ROW_STYLE: Record<RowState, string> = {
-  paid: 'text-emerald-600',
-  overdue: 'text-rose-600 font-medium',
-  waiting: 'text-ink-500',
-};
-
-const ROW_LABEL: Record<RowState, string> = {
-  paid: 'to\'langan',
-  overdue: 'kechikkan',
-  waiting: 'kutilmoqda',
-};
 
 const CLIENT_TYPE_LABEL: Record<string, string> = {
   tez_qaror: 'Tez qaror qiladi',
@@ -103,7 +43,7 @@ const CLIENT_TYPE_LABEL: Record<string, string> = {
 /**
  * Mijozni o'chirish va qaytarish.
  *
- * O'chirish YUMSHOQ: bazadan hech narsa yo'qolmaydi, shartnomalari va
+ * O'chirish YUMSHOQ: bazadan hech narsa yo'qolmaydi, xaridlari va
  * yozishmalari joyida qoladi — mijoz shunchaki ro'yxatlardan chiqadi.
  * Shuning uchun tugma "xavfli" ko'rinishda, lekin qo'rqinchli emas.
  * Sabab ixtiyoriy va amallar jurnaliga tushadi.
@@ -144,7 +84,7 @@ function ClientDangerZone({ client, onDeleted }: { client: Client; onDeleted: ()
           {client.deletedBy ? ` (${client.deletedBy})` : ''}.
         </p>
         <p className="mt-1 text-[11px] text-amber-300/70">
-          Shartnomalari va yozishmalari bazada saqlanib turibdi.
+          Xaridlari va yozishmalari bazada saqlanib turibdi.
         </p>
         <button
           type="button"
@@ -342,7 +282,7 @@ function TelegramIdentityCard({ client, canConfirm }: { client: Client; canConfi
         </>
       ) : null}
 
-      {/* Mijoz shartnomadagi raqamdan boshqa raqamda o'tirgan bo'lishi mumkin —
+      {/* Mijoz bergan raqamdan boshqa raqamda o'tirgan bo'lishi mumkin —
           o'shanda username orqali bog'lanamiz. */}
       {canConfirm && !found ? (
         <div className="mt-3 border-t border-ink-800 pt-3">
@@ -374,94 +314,6 @@ function TelegramIdentityCard({ client, canConfirm }: { client: Client; canConfi
               <ErrorNote error={setByUsername.error} />
             </div>
           ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * To'lov grafigi va kelib tushgan to'lovlar.
- *
- * Grafik uzun (50 qatorgacha), shuning uchun jimlikda faqat kechikkanlar
- * va keyingi uchtasi ko'rsatiladi — xodimga aynan shular kerak. Qolgani
- * tugma bilan ochiladi.
- */
-function PaymentScheduleCard({ payments }: { payments: ClientPayments }) {
-  const [showAll, setShowAll] = useState(false);
-
-  // Grafik bo'lmasa blok chizilmaydi — bo'sh quti xodimga hech narsa
-  // bermaydi. Yangilash tugmasi yuqoridagi shartnoma qatorida, ya'ni
-  // hali sinxronlanmagan shartnomada ham qo'l ostida.
-  if (!payments.contractId) return null;
-  if (!payments.schedule.length && !payments.recent.length) return null;
-
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const rows = payments.schedule.map((p) => ({ ...p, state: rowState(p, todayIso) }));
-  const overdue = rows.filter((r) => r.state === 'overdue');
-  const upcoming = rows.filter((r) => r.state === 'waiting').slice(0, 3);
-  const visible = showAll ? rows : [...overdue, ...upcoming];
-
-  return (
-    <div className="border-t border-ink-800 pt-4">
-      <p className="mb-2 text-[11px] uppercase tracking-wide text-ink-500">To'lov grafigi</p>
-
-      <p className="mb-2 text-[11px] text-ink-500">
-        {payments.syncedAt
-          ? `Oxirgi yangilanish: ${dateUz(payments.syncedAt)}`
-          : 'Hali shartnomalar bazasidan yangilanmagan'}
-      </p>
-
-      {visible.length ? (
-        <div className="table-wrap">
-          <table className="w-full text-[11px]">
-            <tbody>
-              {visible.map((r) => (
-                <tr key={`${r.dateIso}-${r.amount}`} className="border-b border-ink-900 last:border-0">
-                  <td className="py-1 pr-2 text-ink-400">
-                    {dateUz(r.dateIso)}
-                    {r.type === 'meter' ? (
-                      <span className="ml-1.5 chip bg-sky-500/10 text-sky-300" title="Hisoblagichlar uchun to'lov — oylik to'lovga kirmaydi">
-                        Hisoblagich
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="py-1 pr-2 text-right text-ink-300">{somShort(r.amount)}</td>
-                  <td className={`py-1 text-right ${ROW_STYLE[r.state]}`}>
-                    {r.state === 'overdue' && r.paid > 0
-                      ? `qisman — ${somShort(r.amount - r.paid)} qoldi`
-                      : ROW_LABEL[r.state]}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      {rows.length > visible.length || showAll ? (
-        <button
-          type="button"
-          onClick={() => setShowAll((v) => !v)}
-          className="mt-1 text-[11px] text-ink-500 hover:text-ink-300"
-        >
-          {showAll ? 'Qisqartirish' : `Hammasini ko'rsatish (${rows.length})`}
-        </button>
-      ) : null}
-
-      {payments.recent.length ? (
-        <div className="mt-3">
-          <p className="mb-1 text-[11px] uppercase tracking-wide text-ink-500">
-            Kelib tushgan to'lovlar
-          </p>
-          <ul className="space-y-0.5 text-[11px]">
-            {payments.recent.slice(0, 8).map((p) => (
-              <li key={`${p.dateIso}-${p.amount}`} className="flex justify-between gap-2">
-                <span className="text-ink-500">{dateUz(p.dateIso)}</span>
-                <span className="text-emerald-500">{somShort(p.amount)}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       ) : null}
     </div>
@@ -602,9 +454,22 @@ export interface ClientDetailBodyProps {
   onClosed: () => void;
 }
 
-/** Xarid bosqichi va uni qo'lda o'zgartirish (menejer). */
-function PurchaseStageCard({ client, purchase, canEdit }: { client: Client; purchase: Purchase | null; canEdit: boolean }) {
+/**
+ * Xarid kartasi: bosqich (menejer qo'lda o'zgartira oladi), manba, kurs,
+ * to'langan summa va guruh izohi. Suhbatlar sahifasidagi mijoz paneli ham
+ * shu kartani ko'rsatadi.
+ */
+export function PurchaseStageCard({ client, purchase, canEdit }: { client: Client; purchase: Purchase | null; canEdit: boolean }) {
   const queryClient = useQueryClient();
+  const canSeeCourses = useCan('courses.view');
+  const coursesQuery = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => api.get<{ items: Course[] }>('/courses'),
+    enabled: canSeeCourses && Boolean(purchase?.courseId),
+  });
+  const kurs = purchase?.courseId
+    ? (coursesQuery.data?.items.find((c) => c.id === purchase.courseId)?.name ?? null)
+    : null;
   const change = useMutation({
     mutationFn: (stage: XaridBosqichi) => api.patch(`/clients/${client.id}/stage`, { stage }),
     onSuccess: () => {
@@ -620,10 +485,20 @@ function PurchaseStageCard({ client, purchase, canEdit }: { client: Client; purc
         <span className={BOSQICH_CLASS[stage]}>{BOSQICH_YORLIGI[stage]}</span>
         <span className="text-[11px] text-ink-500">Manba: {MANBA_YORLIGI[client.source] ?? '—'}</span>
       </div>
+      <p className="mt-1 text-[11px] text-ink-500">Kurs: {kurs ?? (purchase?.courseId ? '…' : 'tanlanmagan')}</p>
       {purchase && purchase.totalAmount ? (
         <p className="mt-1 text-[11px] text-ink-500">
           To'langan: {som(purchase.paidAmount)} / {som(purchase.totalAmount)}
+          {purchase.installment ? ' · bo\'lib to\'lash' : ''}
         </p>
+      ) : null}
+      {client.sourceGroup || client.sourceComment ? (
+        <div className="mt-2 rounded-md border border-ink-800 bg-ink-950/50 p-2 text-[11px]">
+          {client.sourceGroup ? <p className="text-ink-500">{client.sourceGroup}</p> : null}
+          {client.sourceComment ? (
+            <p className="mt-0.5 italic text-ink-300">“{client.sourceComment}”</p>
+          ) : null}
+        </div>
       ) : null}
       {canEdit && !client.deletedAt ? (
         <select
@@ -693,30 +568,6 @@ export function ClientDetailBody({
         canEdit={canEdit}
       />
 
-      {/* Agent mijoz bilan FAQAT oyma-oy kechikish haqida gaplashadi,
-          shuning uchun u birinchi va yirikroq. Umumiy kechikish xodim
-          uchun — yonida, xotirjam rangda. */}
-      <div className="card !p-3">
-        <p className="text-[10px] uppercase text-ink-500">Oyma-oy to'lovdagi kechikish</p>
-        <p className="mt-0.5 text-lg font-semibold text-red-300">
-          {som(detailQuery.data.debtMonthly)}
-        </p>
-        <p className="text-[10px] text-ink-600">Agent mijozga shu summani aytadi</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div className="card !p-3">
-          <p className="text-[10px] uppercase text-ink-500">Umumiy kechikish</p>
-          <p className="mt-0.5 text-sm font-semibold text-ink-300">
-            {som(detailQuery.data.debtTotal)}
-          </p>
-        </div>
-        <div className="card !p-3">
-          <p className="text-[10px] uppercase text-ink-500">Kechikish</p>
-          <p className="mt-0.5 text-sm font-semibold">{detailQuery.data.daysOverdue} kun</p>
-        </div>
-      </div>
-
       {/* O'chirilgan mijozga qidiruv/suhbat amallari ko'rsatilmaydi —
           avval qaytarish kerak. */}
       {writable && lookup && startConversation && setMismatchOverride && !detailQuery.data.client.deletedAt ? (
@@ -769,8 +620,8 @@ export function ClientDetailBody({
                     Ism mos kelmasa ham yuborilsin — javobgarlikni o'z zimmamga
                     olaman.
                     <span className="block text-ink-500">
-                      Raqam boshqa odamga o'tgan bo'lsa, to'lov ma'lumoti begona
-                      odamga ketadi. Har bir bunday yuborish amallar jurnaliga
+                      Raqam boshqa odamga o'tgan bo'lsa, xabar begona odamga
+                      ketadi. Har bir bunday yuborish amallar jurnaliga
                       yoziladi.
                     </span>
                   </span>
@@ -808,49 +659,6 @@ export function ClientDetailBody({
       ) : null}
 
       <ClientMemoryCard clientId={detailQuery.data.client.id} canEdit={canEdit} />
-
-      <div>
-        <p className="mb-2 text-[11px] uppercase tracking-wide text-ink-500">
-          Shartnomalar ({detailQuery.data.contracts.length})
-        </p>
-        <div className="space-y-2">
-          {detailQuery.data.contracts.map((c) => (
-            <div key={c.id} className="rounded-lg border border-ink-800 bg-ink-950/50 p-3">
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="font-mono text-xs">{c.contractNo}</p>
-                <span className="text-xs font-medium text-red-300">{somShort(c.debtMonthly)}</span>
-              </div>
-              <p className="mt-1 text-[11px] text-ink-500">{c.objectName ?? '—'}</p>
-              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-                <dt className="text-ink-600">Summa</dt>
-                <dd className="text-right text-ink-300">{somShort(c.totalPrice)}</dd>
-                <dt className="text-ink-600">Oylik</dt>
-                <dd className="text-right text-ink-300">{somShort(c.monthlyPayment)}</dd>
-                <dt className="text-ink-600">Umumiy kechikish</dt>
-                <dd className="text-right text-ink-300">{somShort(c.debtTotal)}</dd>
-                {c.debtMeter > 0 ? (
-                  <>
-                    <dt className="text-ink-600" title="Oylik to'lovdan alohida; umumiy kechikishga kirmaydi">
-                      Hisoblagich (kechikkan)
-                    </dt>
-                    <dd className="text-right text-red-300">{somShort(c.debtMeter)}</dd>
-                  </>
-                ) : null}
-                <dt className="text-ink-600">Kechikish</dt>
-                <dd className="text-right text-ink-300">{c.daysOverdue} kun</dd>
-                <dt className="text-ink-600">Keyingi to'lov</dt>
-                <dd className="text-right text-ink-300">{dateUz(c.nextPaymentDate)}</dd>
-                <dt className="text-ink-600">Bitish muddati</dt>
-                <dd className="text-right text-ink-300">{dateUz(c.completionDate)}</dd>
-                <dt className="text-ink-600">Ogohlantirishlar</dt>
-                <dd className="text-right text-ink-300">{c.warningCount}</dd>
-              </dl>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <PaymentScheduleCard payments={detailQuery.data.payments} />
 
       {canDelete ? (
         <div className="border-t border-ink-800 pt-4">

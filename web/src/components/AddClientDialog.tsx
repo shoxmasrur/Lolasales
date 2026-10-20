@@ -1,20 +1,16 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { AddClientPreview, AddClientResult } from '@/lib/types';
+import type { Client, Course } from '@/lib/types';
+import { useCan } from '@/store/auth';
 import { ErrorNote, Spinner } from '@/components/ui';
-import { som } from '@/lib/format';
 import { Sheet } from '@/components/Sheet';
 
 /**
- * "+ Mijoz qo'shish" oynasi.
+ * "+ Mijoz qo'shish" oynasi — lead qo'lda qo'shiladi (manba "Qo'lda").
  *
- * Ikki bosqich: raqamni tekshirish, so'ng tasdiqlash. Bitta raqam xato
- * terilsa butunlay boshqa odam qo'shilib ketardi va uni keyin o'chirish
- * kerak bo'lardi — shuning uchun saqlashdan oldin kim qo'shilayotgani
- * ko'rsatiladi.
- *
- * Ism, telefon va to'lov summasi qo'lda kiritilmaydi: summa har kuni
- * o'zgaradi va odam yozib qo'ysa o'sha zahoti eskiradi.
+ * Shu telefonli mijoz bazada bo'lsa yangisi yaratilmaydi: server mavjudini
+ * qaytaradi va oyna uni ochadi. Kurs tanlansa xarid shu kursga ochiladi.
  */
 export function AddClientDialog({
   onClose,
@@ -23,35 +19,39 @@ export function AddClientDialog({
   onClose: () => void;
   onCreated: (clientId: string) => void;
 }) {
-  const [contractNo, setContractNo] = useState('');
-  const [preview, setPreview] = useState<AddClientPreview | null>(null);
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [courseId, setCourseId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [mavjud, setMavjud] = useState<Client | null>(null);
 
-  const check = async (): Promise<void> => {
-    setBusy(true);
-    setError(null);
-    setPreview(null);
-    try {
-      const res = await api.post<{ preview: AddClientPreview }>('/clients/from-contract/preview', {
-        contractNo: contractNo.trim(),
-      });
-      setPreview(res.preview);
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(false);
-    }
-  };
+  const canSeeCourses = useCan('courses.view');
+  const coursesQuery = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => api.get<{ items: Course[] }>('/courses'),
+    enabled: canSeeCourses,
+  });
+  const kurslar = (coursesQuery.data?.items ?? []).filter((c) => c.isActive);
+
+  const tayyor = fullName.trim().length >= 2 && phone.trim().length > 0;
 
   const create = async (): Promise<void> => {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<{ result: AddClientResult }>('/clients/from-contract', {
-        contractNo: contractNo.trim(),
+      const res = await api.post<{ client: Client; created: boolean }>('/clients', {
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        courseId: courseId || null,
       });
-      onCreated(res.result.clientId);
+      if (res.created) {
+        onCreated(res.client.id);
+        return;
+      }
+      // Shu raqamli mijoz bor — yangisi yaratilmadi.
+      setMavjud(res.client);
+      setBusy(false);
     } catch (err) {
       setError(err);
       setBusy(false);
@@ -61,92 +61,84 @@ export function AddClientDialog({
   return (
     <Sheet
       open
-      // Saqlash ketayotganda dialog yopilmasin — hozirgi `busy`
-      // shartining o'zi, faqat endi u `Sheet` ga uzatiladi.
+      // Saqlash ketayotganda dialog yopilmasin.
       onClose={() => {
         if (!busy) onClose();
       }}
       title="Mijoz qo'shish"
       maxWidth="max-w-lg"
     >
-      <div className="p-4 md:p-5">
+      <div className="space-y-3 p-4 md:p-5">
         <p className="text-xs leading-relaxed text-ink-400">
-          Shartnoma raqamini kiriting — ism, telefon va to'lov ma'lumoti shartnomalar
-          bazasidan olinadi.
+          Ism va telefon raqamini kiriting. Mijoz «Qo'lda» manbasi bilan qo'shiladi; suhbatni
+          keyin kartadan yoki kampaniya orqali boshlaysiz.
         </p>
 
-        <div className="mt-4 flex gap-2">
+        <div>
+          <label className="label">Ism</label>
           <input
             autoFocus
-            value={contractNo}
-            onChange={(e) => setContractNo(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && contractNo.trim() && !busy) void check();
-            }}
-            placeholder="Shartnoma raqami"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Masalan: Aziz Karimov"
             className="input"
           />
-          <button
-            type="button"
-            className="btn-ghost shrink-0 !py-1 text-xs"
-            disabled={!contractNo.trim() || busy}
-            onClick={() => void check()}
-          >
-            {busy && !preview ? <Spinner /> : 'Tekshirish'}
-          </button>
         </div>
 
-        <ErrorNote error={error} />
+        <div>
+          <label className="label">Telefon</label>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && tayyor && !busy) void create();
+            }}
+            placeholder="+998 90 123 45 67"
+            className="input"
+          />
+        </div>
 
-        {preview ? (
-          <div className="mt-4 rounded-xl border border-ink-700 bg-ink-950/50 p-4 text-sm">
-            <div className="font-medium">{preview.contract.clientName}</div>
-            <div className="mt-1 text-xs text-ink-400">{preview.contract.phones.join(', ')}</div>
-            {preview.contract.objectName ? (
-              <div className="mt-1 text-xs text-ink-400">
-                Obyekt: {preview.contract.objectName}
-              </div>
-            ) : null}
-
-            <div className="mt-3 border-t border-ink-800 pt-3">
-              <div>
-                Kechikkan to'lov:{' '}
-                <span className="tabular-nums">{som(preview.contract.overdueTotal)}</span>
-              </div>
-              <div className="mt-0.5 text-xs text-ink-400">
-                Kechikish: <span className="tabular-nums">{preview.contract.daysOverdue}</span> kun
-              </div>
-            </div>
-
-            {preview.existingClient ? (
-              <p className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-300">
-                Bu shartnoma bazada bor: {preview.existingClient.fullName}. «Ochish» uni
-                ko'rsatadi.
-              </p>
-            ) : null}
-            {preview.matchedByPhone ? (
-              <p className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-300">
-                Bu raqam {preview.matchedByPhone.fullName} ga tegishli — shartnoma o'sha
-                mijozga qo'shiladi.
-              </p>
-            ) : null}
+        {canSeeCourses ? (
+          <div>
+            <label className="label">Kurs (ixtiyoriy)</label>
+            <select className="input" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
+              <option value="">Tanlanmagan</option>
+              {kurslar.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
         ) : null}
 
-        <div className="mt-5 flex justify-end gap-2">
+        <ErrorNote error={error} />
+
+        {mavjud ? (
+          <p className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-300">
+            Bu raqam bazada bor: {mavjud.fullName}. «Ochish» uning kartasini ko'rsatadi.
+          </p>
+        ) : null}
+
+        <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-ghost !py-1 text-xs" disabled={busy} onClick={onClose}>
             Bekor qilish
           </button>
-          {preview ? (
+          {mavjud ? (
+            <button type="button" className="btn-primary !py-1 text-xs" onClick={() => onCreated(mavjud.id)}>
+              Ochish
+            </button>
+          ) : (
             <button
               type="button"
               className="btn-primary !py-1 text-xs"
-              disabled={busy}
+              disabled={busy || !tayyor}
               onClick={() => void create()}
             >
-              {preview.existingClient ? 'Ochish' : 'Qo\'shish'}
+              {busy ? <Spinner /> : null}
+              Qo'shish
             </button>
-          ) : null}
+          )}
         </div>
       </div>
     </Sheet>

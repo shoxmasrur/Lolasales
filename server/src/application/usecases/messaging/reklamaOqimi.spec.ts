@@ -15,10 +15,9 @@ function qur(o: { creator?: boolean; creatorXato?: boolean } = {}) {
   const yaratilgan: string[] = [];
   const suhbatlar: Array<Record<string, unknown>> = [];
   const pushlar: Array<[string, string]> = [];
-  const mijoz = { id: 'c1', telegramUserId: '555', nomalum: false };
+  const mijoz = { id: 'c1', telegramUserId: '555' };
   const uc = new HandleIncomingMessageUseCase(
     { findByTelegramUserId: async () => null, findByPhone: async () => null, setTelegramIdentity: async () => mijoz } as never,
-    {} as never,
     {
       findByPeer: async () => null,
       findByClientId: async () => null,

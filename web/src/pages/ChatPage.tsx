@@ -7,26 +7,16 @@ import { getSocket, type ServerEvent } from '@/lib/socket';
 import { useCan } from '@/store/auth';
 import type {
   Client,
-  Contract,
   Conversation,
   ConversationFilterOptions,
   ConversationListItem,
-  ConversationState,
   Message,
   Page,
-  PaymentPromise,
+  Purchase,
 } from '@/lib/types';
-import {
-  dateUz,
-  initials,
-  relative,
-  som,
-  somShort,
-  STAGE_COLOR,
-  STAGE_LABEL,
-  STATE_COLOR,
-  STATE_LABEL,
-} from '@/lib/format';
+import { dateUz, initials, relative, STATE_COLOR, STATE_LABEL } from '@/lib/format';
+import { BOSQICH_CLASS, BOSQICH_YORLIGI } from '@/lib/xarid';
+import { PurchaseStageCard } from '@/components/client/ClientDetailBody';
 import { Avatar, EmptyState, ErrorNote, Spinner, Toggle } from '@/components/ui';
 import MessageBubble from '@/components/MessageBubble';
 import { ReceiptConfirmButton, SendLinkButton, type ReceiptReview } from '@/components/ReceiptConfirmButton';
@@ -42,18 +32,14 @@ interface AccountOption {
 interface ConversationDetail {
   conversation: Conversation;
   client: Client | null;
-  contracts: Contract[];
-  activePromise: PaymentPromise | null;
+  /** Joriy xarid (faol, bo'lmasa oxirgisi). */
+  purchase: Purchase | null;
   /** Suhbatni davom ettirish mumkin bo'lgan akkauntlar (yoza oladiganlari). */
   accountOptions: AccountOption[];
   /** Ochiq chek tekshiruvi — "Tasdiqlash"/"Rad etish" tugmalari uchun. */
   receiptReview: ReceiptReview | null;
   /** Kurs qoidasi bajarilgan, guruh havolasi bor, lekin hali yuborilmagan. */
   linkPending: boolean;
-  debtMonthly: number;
-  debtTotal: number;
-  daysOverdue: number;
-  /** Noma'lum yozuvchi bo'lsa — bog'lash holati, aks holda null. */
 }
 
 /** `POST /conversations/:id/agent-retry` javobi. */
@@ -80,8 +66,10 @@ export default function ChatPage() {
   const canDeleteMessage = useCan('conversations.delete_message');
 
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
-  const [objectName, setObjectName] = useState('');
+  // Dashboarddagi "Navbatdagi cheklar" havolasi `?filter=receipt` bilan ochadi.
+  const [filter, setFilter] = useState<Filter>(() =>
+    new URLSearchParams(window.location.search).get('filter') === 'receipt' ? 'receipt' : 'all',
+  );
   const [accountId, setAccountId] = useState('');
   const [draft, setDraft] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -117,7 +105,7 @@ export default function ChatPage() {
   // yuklanadi. Ilgari faqat birinchi 100 ta suhbat ko'rinardi, qolgani
   // uchun operator qidiruvdan boshqa yo'l topa olmasdi.
   const listQuery = useInfiniteQuery({
-    queryKey: ['conversations', search, filter, objectName, accountId],
+    queryKey: ['conversations', search, filter, accountId],
     queryFn: ({ pageParam }) =>
       api.get<Page<ConversationListItem>>('/conversations', {
         search: search || undefined,
@@ -126,7 +114,6 @@ export default function ChatPage() {
         blocked: filter === 'blocked' ? 'true' : undefined,
         // "Chek keldi" — menejer tasdig'ini kutayotgan ochiq chek tekshiruvi bor suhbatlar.
         receiptPending: filter === 'receipt' ? 'true' : undefined,
-        objectName: objectName || undefined,
         telegramAccountId: accountId || undefined,
         limit: LIST_PAGE_SIZE,
         offset: pageParam,
@@ -141,7 +128,7 @@ export default function ChatPage() {
     refetchInterval: 20_000,
   });
 
-  // Ro'yxatlar kamdan-kam o'zgaradi (yangi obyekt yoki akkaunt qo'shilganda),
+  // Ro'yxat kamdan-kam o'zgaradi (yangi akkaunt qo'shilganda),
   // shuning uchun suhbatlar bilan birga har 20 soniyada qayta so'ralmaydi.
   const filtersQuery = useQuery({
     queryKey: ['conversation-filters'],
@@ -221,13 +208,11 @@ export default function ChatPage() {
   });
 
   const resolveHuman = useMutation({
-    // `escalated` — yakuniy holat, agent unda javob bermaydi. Operator
-    // masalani hal qilgach, boshqaruvni agentga qaytarish kerak.
-    mutationFn: (currentState: ConversationState) =>
+    // Operator masalani hal qilgach, boshqaruvni agentga qaytaradi.
+    mutationFn: () =>
       api.patch(`/conversations/${conversationId}`, {
         needsHuman: false,
         humanReason: null,
-        ...(currentState === 'escalated' ? { state: 'negotiating' } : {}),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
@@ -395,7 +380,7 @@ export default function ChatPage() {
           </div>
 
           {/*
-            Obyekt va akkaunt ro'yxatlari serverdan keladi va faqat
+            Akkauntlar ro'yxati serverdan keladi va faqat
             suhbatlarda HAQIQATAN uchraydiganlarini o'z ichiga oladi —
             operator tanlab, bo'sh natija olmaydi.
 
@@ -403,21 +388,6 @@ export default function ChatPage() {
             akkaunt biriktirilmagan bo'lsa, tanlash tugmasi faqat joyni
             egallardi.
           */}
-          {(filtersQuery.data?.objects.length ?? 0) > 0 ? (
-            <select
-              className="input text-xs"
-              value={objectName}
-              onChange={(e) => setObjectName(e.target.value)}
-            >
-              <option value="">Barcha obyektlar</option>
-              {filtersQuery.data?.objects.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          ) : null}
-
           {(filtersQuery.data?.accounts.length ?? 0) > 0 ? (
             <select
               className="input text-xs"
@@ -435,13 +405,10 @@ export default function ChatPage() {
 
           {/* Filtr yoqilganda buni ko'rsatib turish kerak: aks holda bo'sh
               ro'yxatni "suhbat yo'q" deb tushunish oson. */}
-          {objectName || accountId ? (
+          {accountId ? (
             <button
               type="button"
-              onClick={() => {
-                setObjectName('');
-                setAccountId('');
-              }}
+              onClick={() => setAccountId('')}
               className="w-full rounded-md border border-ink-800 px-2 py-1 text-[11px] text-ink-400 hover:bg-ink-800/50"
             >
               Filtrni tozalash ({listTotal} ta topildi)
@@ -458,7 +425,7 @@ export default function ChatPage() {
             // Filtr yoqilganda sabab boshqacha: suhbatlar bor, shunchaki
             // shu tanlovga tushmadi. Eski matn "hali hech narsa yo'q" deb
             // adashtirardi.
-            objectName || accountId || search || filter !== 'all' ? (
+            accountId || search || filter !== 'all' ? (
               <EmptyState
                 title="Mos suhbat topilmadi"
                 hint="Tanlangan filtrga tushadigan suhbat yo'q — filtrni kengaytirib ko'ring."
@@ -498,8 +465,6 @@ export default function ChatPage() {
                       <span className={`chip ${STATE_COLOR[item.conversation.state]}`}>
                         {STATE_LABEL[item.conversation.state]}
                       </span>
-                      {/* Ro'yxatda oyma-oy kechikish — suhbat mavzusi shu. */}
-                      <span className="chip bg-ink-800 text-ink-400">{somShort(item.debtMonthly)}</span>
                       {item.conversation.needsHuman ? (
                         <span className="chip bg-orange-500/20 text-orange-300">!</span>
                       ) : null}
@@ -555,9 +520,11 @@ export default function ChatPage() {
             </div>
             {detail ? (
               <div className="flex items-center gap-2">
-                <span className={`chip ${STAGE_COLOR[detail.conversation.stage]}`}>
-                  {STAGE_LABEL[detail.conversation.stage]}
-                </span>
+                {detail.purchase ? (
+                  <span className={BOSQICH_CLASS[detail.purchase.stage]}>
+                    {BOSQICH_YORLIGI[detail.purchase.stage]}
+                  </span>
+                ) : null}
                 <span className={`chip ${STATE_COLOR[detail.conversation.state]}`}>
                   {STATE_LABEL[detail.conversation.state]}
                 </span>
@@ -612,7 +579,7 @@ export default function ChatPage() {
                       <button
                         type="button"
                         className="btn-ghost !py-1 text-xs"
-                        onClick={() => resolveHuman.mutate(detail.conversation.state)}
+                        onClick={() => resolveHuman.mutate()}
                       >
                         Hal qilindi — agentga qaytarish
                       </button>
@@ -721,7 +688,7 @@ export default function ChatPage() {
                     className="input min-h-[42px] resize-none"
                     rows={2}
                     maxLength={1000}
-                    placeholder="Masalan: va'da kuni to'lamadi, yaqin kunlardan birini so'ra"
+                    placeholder="Masalan: karta oldi, lekin to'lamadi — qulay vaqtini so'ra"
                     value={instruction}
                     disabled={instructAgent.isPending}
                     onChange={(e) => setInstruction(e.target.value)}
@@ -968,7 +935,8 @@ function ClientPanel({ detail }: { detail: ConversationDetail }) {
 
 /** Panelning mazmuni — keng ekrandagi ustunda ham, `Sheet` ichida ham shu. */
 function ClientPanelBody({ detail }: { detail: ConversationDetail }) {
-  const { client, contracts, activePromise, debtMonthly, debtTotal, daysOverdue } = detail;
+  const { client } = detail;
+  const canEditClient = useCan('clients.edit');
 
   return (
     <>
@@ -980,7 +948,7 @@ function ClientPanelBody({ detail }: { detail: ConversationDetail }) {
 
       <AccountPicker detail={detail} />
 
-      {/* Kechikkan summadan YUQORIDA: mijoz chek yuborganda operator birinchi
+      {/* Xarid kartasidan YUQORIDA: mijoz chek yuborganda operator birinchi
           shu tugmani qidiradi. */}
       <ReceiptConfirmButton
         key={detail.conversation.id}
@@ -996,49 +964,18 @@ function ClientPanelBody({ detail }: { detail: ConversationDetail }) {
         }
       />
 
-      {/* Agent va operator mijoz bilan oyma-oy kechikish haqida gaplashadi —
-          shuning uchun yirik raqam shu. Umumiy kechikish pastda, ma'lumot uchun. */}
-      <div className="card mb-3">
-        <p className="text-[11px] uppercase tracking-wide text-ink-500">Oyma-oy to'lovdagi kechikish</p>
-        <p className="mt-1 text-xl font-semibold text-red-300">{som(debtMonthly)}</p>
-        <p className="mt-0.5 text-[11px] text-ink-500">{daysOverdue} kun kechikish</p>
-        <p className="mt-1 text-[11px] text-ink-600">Umumiy kechikish: {som(debtTotal)}</p>
-      </div>
-
-      {activePromise ? (
-        <div className="card mb-3 border-emerald-500/30 bg-emerald-500/5">
-          <p className="text-[11px] uppercase tracking-wide text-emerald-400">Ochiq va'da</p>
-          <p className="mt-1 text-sm font-medium text-emerald-200">{som(activePromise.amount)}</p>
-          <p className="text-[11px] text-ink-400">{dateUz(activePromise.promisedDate)} gacha</p>
-          {activePromise.quote ? (
-            <p className="mt-1.5 border-l-2 border-emerald-500/40 pl-2 text-[11px] italic text-ink-400">
-              “{activePromise.quote}”
-            </p>
-          ) : null}
+      {client ? (
+        <div className="mb-3">
+          <PurchaseStageCard client={client} purchase={detail.purchase} canEdit={canEditClient} />
         </div>
       ) : null}
 
-      <p className="mb-2 text-[11px] uppercase tracking-wide text-ink-500">
-        Shartnomalar ({contracts.length})
-      </p>
-      <div className="space-y-2">
-        {contracts.map((c) => (
-          <div key={c.id} className="rounded-lg border border-ink-800 bg-ink-950/50 p-2.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="truncate font-mono text-xs text-ink-200">{c.contractNo}</p>
-              <span className="shrink-0 text-[11px] text-red-300">{somShort(c.debtMonthly)}</span>
-            </div>
-            <p className="mt-0.5 truncate text-[11px] text-ink-500">{c.objectName ?? '—'}</p>
-            <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] text-ink-500">
-              <span className="chip bg-ink-800">{c.daysOverdue} kun</span>
-              {c.monthlyPayment ? (
-                <span className="chip bg-ink-800">oylik {somShort(c.monthlyPayment)}</span>
-              ) : null}
-              {c.category ? <span className="chip bg-ink-800">{c.category}</span> : null}
-            </div>
-          </div>
-        ))}
-      </div>
+      {client?.notes ? (
+        <div className="card mb-3">
+          <p className="text-[11px] uppercase tracking-wide text-ink-500">Izoh</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-ink-300">{client.notes}</p>
+        </div>
+      ) : null}
 
       {detail.conversation.summary ? (
         <div className="card mt-3">

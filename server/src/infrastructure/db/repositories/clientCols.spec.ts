@@ -5,12 +5,9 @@ import { fileURLToPath } from 'node:url';
 /**
  * Qo'lda ishga tushiriladi: npm run test:client-cols --workspace=server
  *
- * NEGA KERAK: `PgClientRepository` dagi `COLS` ro'yxatida `c.nomalum` yo'q edi.
- * `mapClient` esa `r.nomalum` ni o'qiydi — ustun tanlanmasa `undefined` →
- * `false`. Natijada `findById/findByTelegramUserId/...` har bir noma'lum
- * mijozni "oddiy mijoz" deb qaytargan va butun himoya (asosiy agent
- * notanishga yozmasin) prodda ishlamagan; soxta repozitoriyli testlar buni
- * ko'rmagan.
+ * NEGA KERAK: `mapClient` o'qiydigan ustun `PgClientRepository` dagi `COLS`
+ * ro'yxatida bo'lmasa, u jimgina `undefined` bo'lib qoladi va soxta
+ * repozitoriyli testlar buni ko'rmaydi.
  *
  * Statik tekshiruv — fayllar matn sifatida o'qiladi, modul import QILINMAYDI
  * (`mappers.ts` → `shared/crypto` → `shared/config` `.env` talab qiladi).
@@ -37,7 +34,7 @@ check('COLS topildi', tanlanadi.size > 10, `${tanlanadi.size} ta`);
 
 const yoq = [...oqiladi].filter((c) => !tanlanadi.has(c));
 check('mapClient o\'qiydigan har bir ustun COLS da bor', yoq.length === 0, `yo'q: ${yoq.join(', ')}`);
-check('COLS: nomalum tanlanadi (himoya shunga bog\'liq)', tanlanadi.has('nomalum'));
+check('COLS: source tanlanadi', tanlanadi.has('source'));
 check('COLS: telegram_hash_account_id tanlanadi', tanlanadi.has('telegram_hash_account_id'));
 
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");

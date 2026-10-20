@@ -83,14 +83,6 @@ export interface TelegramAccount {
    * keyingi barcha akkauntlar shu holatdan boshlanadi.
    */
   readonly llmModelId: string | null;
-  /**
-   * Telegram Premium tugash sanasi, YYYY-MM-DD. `null` — Premium yo'q.
-   * Qo'lda kiritiladi (`domain/services/premium.ts`); tizim ishiga
-   * ta'sir qilmaydi — faqat belgi va eslatma.
-   */
-  readonly premiumUntil: string | null;
-  /** Shu sana uchun oxirgi yuborilgan eslatma bosqichi (30/7/1/0 kun). */
-  readonly premiumEslatildi: number | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -142,7 +134,7 @@ export function canLookup(account: TelegramAccount, now: Date, todayIso: string)
  * yozishdan himoya; mijoz o'zi yozgan suhbatda javob berish esa
  * Telegram uchun oddiy yozishma va PEER_FLOOD xavfini tug'dirmaydi.
  * Kvota javoblarga ham tegsa, kun o'rtasida agent jim qolib, mijoz
- * javobsiz qolardi — bu undiruv uchun ham, obro' uchun ham yomon.
+ * javobsiz qolardi — bu sotuv uchun ham, obro' uchun ham yomon.
  *
  * `limited` holati ham to'sqinlik qilmaydi: spam filtri cheklagan
  * akkaunt notanish odamga yoza olmaydi, lekin mavjud suhbatni davom

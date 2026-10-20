@@ -29,7 +29,7 @@ const schema = z.object({
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET kamida 16 belgi bo\'lsin'),
   JWT_EXPIRES_IN: z.string().default('12h'),
-  ADMIN_EMAIL: z.string().email().default('admin@xonsaroy.uz'),
+  ADMIN_EMAIL: z.string().email().default('admin@lolasales.uz'),
   ADMIN_PASSWORD: z.string().default('change-me'),
   ADMIN_NAME: z.string().default('Admin'),
   ENCRYPTION_KEY: z.string().min(16, 'ENCRYPTION_KEY kamida 16 belgi bo\'lsin'),
@@ -103,47 +103,6 @@ const schema = z.object({
    * FLOOD_WAIT ga tushadi va soatlab hech narsa yubora olmaydi.
    */
   TELEGRAM_LOOKUP_DELAY_MS: z.coerce.number().int().nonnegative().default(4_000),
-  // ─── Shartnomalar bazasi (app-api.xonsaroy.uz) ──────────────────────────
-  CONTRACTS_API_URL: z.string().default('https://app-api.xonsaroy.uz'),
-  /**
-   * Zaxira manzillar (vergul bilan). Asosiy manzil javob bermasa (DNS,
-   * ulanish, timeout, 502-504) navbat bilan shular sinab ko'riladi.
-   * 2026-10-06 da `app-api.xonsaroy.uz` DNS'dan yo'qoldi va agent CRM'siz qoldi.
-   * Ikkala domen ham standartda: `.env` da qaysi biri asosiy bo'lsa, ikkinchisi zaxira.
-   */
-  CONTRACTS_API_FALLBACK_URLS: z
-    .string()
-    .default('https://crm-api.xonapps.uz,https://app-api.xonsaroy.uz'),
-  CONTRACTS_API_CLIENT_ID: z.string().optional(),
-  CONTRACTS_API_CLIENT_SECRET: z.string().optional(),
-  CONTRACTS_API_USERNAME: z.string().optional(),
-  CONTRACTS_API_PASSWORD: z.string().optional(),
-  /** false bo'lsa integratsiya butunlay o'chadi, tizim Excel bilan ishlaydi. */
-  CONTRACTS_SYNC_ENABLED: z
-    .string()
-    .optional()
-    .transform((v) => v !== 'false' && v !== '0'),
-  /** Kechasi to'liq sinxronizatsiya soati (Asia/Tashkent). */
-  CONTRACTS_SYNC_HOUR: z.coerce.number().int().min(0).max(23).default(3),
-  /** So'rovlar orasidagi pauza — ularning serveriga bir tekis yuk berish uchun. */
-  CONTRACTS_SYNC_DELAY_MS: z.coerce.number().int().nonnegative().default(200),
-  CONTRACTS_API_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
-  /** Suhbat davomida shundan yangi ma'lumot qayta so'ralmaydi. */
-  CONTRACTS_FRESH_MINUTES: z.coerce.number().int().nonnegative().default(30),
-  /** Shundan eski ma'lumot bilan mijozga BIRINCHI xabar yuborilmaydi. */
-  CONTRACTS_STALE_HOURS: z.coerce.number().int().positive().default(24),
-  /**
-   * CRM javob bermaganda javobni qayta urinish oralig'i va urinishlar
-   * soni.
-   *
-   * Mijozga aytiladigan summa CRM'dan olinadi: u kelmasa xabar umuman
-   * yozilmaydi. 5 daqiqa — CRM qisqa uzilishdan o'ziga kelishiga yetadi,
-   * mijoz esa javobni hali ham kutib turgan bo'ladi. Uchinchi urinishdan
-   * keyin suhbat operatorga o'tadi: bundan uzoq kutish mijozni javobsiz
-   * qoldirish bilan barobar.
-   */
-  CRM_RETRY_MS: z.coerce.number().int().positive().default(300_000),
-  CRM_RETRY_MAX: z.coerce.number().int().positive().default(3),
 
   KILL_SWITCH: boolish,
   /**

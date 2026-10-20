@@ -253,22 +253,6 @@ export class PgTelegramAccountRepository implements ITelegramAccountRepository {
     return mapTelegramAccount(rows[0]);
   }
 
-  async setPremium(id: string, untilIso: string | null): Promise<TelegramAccount> {
-    const { rows } = await query(
-      `UPDATE telegram_accounts
-          SET premium_until = $2, premium_eslatildi = NULL
-        WHERE id = $1 AND deleted_at IS NULL
-        RETURNING *`,
-      [id, untilIso],
-    );
-    if (!rows[0]) throw new NotFoundError('Telegram akkaunt', id);
-    return mapTelegramAccount(rows[0]);
-  }
-
-  async markPremiumEslatildi(id: string, bosqich: number): Promise<void> {
-    await query('UPDATE telegram_accounts SET premium_eslatildi = $2 WHERE id = $1', [id, bosqich]);
-  }
-
   /**
    * Yumshoq o'chirish: yozuv bazada qoladi, lekin hech qayerda ko'rinmaydi.
    *

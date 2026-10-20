@@ -1,6 +1,5 @@
 import { StartConversationUseCase } from '@/application/usecases/messaging/StartConversationUseCase';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
@@ -9,7 +8,6 @@ import type { ITelegramGateway } from '@/domain/services/ITelegramGateway';
 import type { MessageStatus } from '@/domain/entities/Message';
 import type { AgentRunner } from '@/application/services/AgentRunner';
 import type { ClientTelegramResolver } from '@/application/services/ClientTelegramResolver';
-import type { ContractSyncService } from '@/application/services/ContractSyncService';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 
 /**
@@ -38,12 +36,10 @@ interface Muhit {
   readonly suhbat: { state: string } | null;
   /** Suhbatdagi chiquvchi xabarlar holati. */
   readonly chiquvchi: MessageStatus[];
-  /** Mijozda muddati tugamagan talabnoma bor. */
-  readonly sukut?: boolean;
 }
 
 function build(m: Muhit) {
-  const iz = { sinx: 0, qidiruv: 0, agent: 0, tekshiruv: 0, sukutSorovi: [] as Array<[string, string]> };
+  const iz = { qidiruv: 0, agent: 0, tekshiruv: 0 };
   const conv = m.suhbat
     ? { id: 'conv1', clientId: 'c1', state: m.suhbat.state, telegramAccountId: 'a1' }
     : null;
@@ -54,13 +50,6 @@ function build(m: Muhit) {
       telegramUserId: null, telegramStatus: 'unknown', doNotContact: false,
     }),
   } as unknown as IClientRepository;
-
-  const contracts = {
-    findByClientId: async () => [
-      { id: 'ct1', virtualStatus: 'sold', debtFirst: 0, debtMonthly: 500_000, daysOverdue: 30 },
-    ],
-    findPrimaryForClient: async () => null,
-  } as unknown as IContractRepository;
 
   const conversations = {
     findByClientId: async () => conv,
@@ -99,13 +88,6 @@ function build(m: Muhit) {
     { publish: () => undefined } as unknown as IEventBus,
     { saveContact: async () => undefined } as unknown as ITelegramGateway,
     messages,
-    {
-      sukutdami: async (clientId: string, today: string) => {
-        iz.sukutSorovi.push([clientId, today]);
-        return m.sukut === true;
-      },
-    },
-    { todayIso: () => '2026-10-19' },
   );
   return { useCase, iz };
 }
@@ -121,9 +103,8 @@ for (const holat of ['sending', 'queued', 'sent', 'delivered', 'read'] as const)
     natija.status === 'skipped' ? natija.reason : natija.status,
   );
   check(`'${holat}' — agent CHAQIRILMAYDI (xabar ketmaydi)`, t.iz.agent === 0);
-  // Tekshiruv sinxronizatsiya va qidiruvdan OLDIN: behuda HTTP so'rov va
-  // MTProto qidiruvi ketmasin.
-  check(`'${holat}' — qidiruv va sinx yo'q`, t.iz.qidiruv === 0 && t.iz.sinx === 0);
+  // Tekshiruv qidiruvdan OLDIN: behuda MTProto qidiruvi ketmasin.
+  check(`'${holat}' — qidiruv yo'q`, t.iz.qidiruv === 0);
 }
 
 // ─── Faqat aniq yiqilgan yoki qoralama — xabar mijozga yetmagan ────────────
@@ -155,28 +136,6 @@ for (const holat of ['sending', 'queued', 'sent', 'delivered', 'read'] as const)
   const natija = await t.useCase.execute('c1');
   check('new emas — o\'tkazib yuboriladi', natija.status === 'skipped');
   check('new emas — agent chaqirilmadi', t.iz.agent === 0);
-}
-
-// ─── Talabnoma muddati ichida — suhbat boshlanmaydi ───────────────────────
-{
-  const t = build({ suhbat: null, chiquvchi: [], sukut: true });
-  const natija = await t.useCase.execute('c1');
-  check(
-    'talabnoma muddati — skipped, kod talabnoma_sukuti',
-    natija.status === 'skipped' && natija.code === 'talabnoma_sukuti' && natija.reason === 'Talabnoma muddati tugamagan',
-    JSON.stringify(natija),
-  );
-  check('talabnoma muddati — agent, qidiruv va sinx yo\'q', t.iz.agent === 0 && t.iz.qidiruv === 0 && t.iz.sinx === 0, JSON.stringify(t.iz));
-  check(
-    'talabnoma muddati — mijoz va bugungi sana bilan so\'raldi',
-    t.iz.sukutSorovi.some(([c, d]) => c === 'c1' && d === '2026-10-19'),
-    JSON.stringify(t.iz.sukutSorovi),
-  );
-}
-{
-  const t = build({ suhbat: null, chiquvchi: [], sukut: false });
-  const natija = await t.useCase.execute('c1');
-  check('talabnoma sukuti yo\'q — avvalgidek boshlanadi', natija.status === 'started' && t.iz.agent === 1, natija.status);
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");

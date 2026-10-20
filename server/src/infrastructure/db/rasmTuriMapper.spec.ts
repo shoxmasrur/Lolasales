@@ -31,11 +31,11 @@ const asos = {
     ...asos,
     image_kind: 'tolov',
     image_status: 'done',
-    image_note: 'Xonsaroy Pay, 5 000 000 so\'m',
+    image_note: 'Payme, 5 000 000 so\'m',
   } as never);
   check('imageKind o\'qiladi', m.imageKind === 'tolov', String(m.imageKind));
   check('imageStatus o\'qiladi', m.imageStatus === 'done', m.imageStatus);
-  check('imageNote o\'qiladi', m.imageNote === 'Xonsaroy Pay, 5 000 000 so\'m', String(m.imageNote));
+  check('imageNote o\'qiladi', m.imageNote === 'Payme, 5 000 000 so\'m', String(m.imageNote));
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : '\nHammasi o\'tdi');

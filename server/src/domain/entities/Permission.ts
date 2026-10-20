@@ -27,7 +27,6 @@ export const PERMISSIONS = [
   'clients.start_conversation',
   'clients.delete',
   'clients.export',
-  'contracts.sync',
 
   // Kurslar
   'courses.view',
@@ -135,11 +134,11 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     section: 'clients',
     label: 'Mijozlar',
     items: [
-      { key: 'clients.view', label: 'Ko\'rish', hint: 'Mijozlar ro\'yxati va to\'lov kartasi' },
+      { key: 'clients.view', label: 'Ko\'rish', hint: 'Mijozlar ro\'yxati, xarid bosqichi va manbasi' },
       {
         key: 'clients.create',
         label: 'Qo\'shish',
-        hint: 'Shartnoma raqami bo\'yicha yangi mijoz qo\'shish',
+        hint: 'Ism va telefon bo\'yicha yangi mijoz (lead) qo\'shish',
       },
       { key: 'clients.edit', label: 'Tahrirlash', hint: 'Ism, telefon, izoh o\'zgartirish' },
       { key: 'clients.telegram_lookup', label: 'Telegramdan qidirish', hint: 'Raqam bo\'yicha profil topish' },
@@ -152,12 +151,7 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       {
         key: 'clients.export',
         label: 'Ro\'yxatni yuklab olish',
-        hint: 'Mijozlar ro\'yxatini Excel qilib kompyuterga saqlash. Faylda telefon raqamlari va to\'lov summalari bo\'ladi',
-      },
-      {
-        key: 'contracts.sync',
-        label: 'Shartnomani yangilash',
-        hint: 'Shartnomalar bazasidan to\'lov ma\'lumotini qayta so\'rash',
+        hint: 'Mijozlar ro\'yxatini Excel qilib kompyuterga saqlash. Faylda telefon raqamlari va to\'langan summalar bo\'ladi',
       },
     ],
   },
@@ -203,11 +197,11 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     label: 'Import',
     items: [
       { key: 'import.view', label: 'Tarixni ko\'rish', hint: 'Oldingi importlar ro\'yxati' },
-      { key: 'import.run', label: 'Fayl yuklash', hint: 'Debitor va telefon fayllarini import qilish' },
+      { key: 'import.run', label: 'Fayl yuklash', hint: 'Mijozlar (ism, telefon, kurs) faylini import qilish' },
       {
         key: 'import.undo',
         label: 'Importni qaytarish',
-        hint: 'Noto\'g\'ri yuklangan faylni bekor qilish — u yaratgan mijoz va shartnomalar ro\'yxatdan chiqadi',
+        hint: 'Noto\'g\'ri yuklangan faylni bekor qilish — u yaratgan mijozlar ro\'yxatdan chiqadi',
       },
     ],
   },

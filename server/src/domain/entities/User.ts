@@ -14,11 +14,6 @@ export interface User {
   readonly failedLoginAttempts: number;
   /** Bloklangan vaqt. NULL bo'lmasa kirish taqiqlanadi. */
   readonly lockedAt: Date | null;
-  /**
-   * Biriktirilgan obyekt nomlari (134). Bo'sh — cheklovsiz; admin rolida
-   * e'tiborsiz. Qamrov `qamrovOl` orqali hisoblanadi.
-   */
-  readonly objects: string[];
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

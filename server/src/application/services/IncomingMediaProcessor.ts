@@ -51,8 +51,8 @@ export class IncomingMediaProcessor {
 
   /**
    * `tasniflama` — rasm vision modelga YUBORILMAYDI (fayl baribir saqlanadi).
-   * Noma'lum mijoz uchun: u pasport yoki shartnoma sahifasini yuboradi —
-   * shaxsiy hujjatni tashqi modelga berish shart emas, uni operator ko'radi.
+   * Shaxsiy hujjat (pasport va h.k.) bo'lishi kutilgan joyda: uni tashqi
+   * modelga berish shart emas, operator o'zi ko'radi.
    * Tasnif bo'lmasa natija "tasnifchi o'chiq" bilan bir xil (`aniqlanmagan`).
    */
   async process(incoming: IncomingMedia, caption: string, opts: { tasniflama?: boolean } = {}): Promise<ProcessedMedia> {

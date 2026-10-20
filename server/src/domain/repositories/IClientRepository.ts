@@ -4,7 +4,6 @@ import type { AloqaHolati } from '@/domain/entities/aloqaHolati';
 import type { ClientSource } from '@/domain/entities/Client';
 import type { XaridBosqichi } from '@/domain/entities/Purchase';
 import type { Page, Pagination } from '@/domain/repositories/types';
-import type { MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 
 export type ClientTab = 'all' | 'new' | 'in_conversation' | 'no_telegram' | 'needs_review' | 'deleted';
 
@@ -13,10 +12,8 @@ export type ClientTabCounts = Record<ClientTab, number>;
 /** Yumshoq o'chirish (yoki tiklash) nechta qatorga tegdi — audit uchun. */
 export interface ClientDeletionSummary {
   readonly deletedAt: Date;
-  readonly contracts: number;
   readonly conversations: number;
   readonly messages: number;
-  readonly promises: number;
   readonly campaignTargets: number;
   readonly profiles: number;
 }
@@ -35,17 +32,6 @@ export interface ClientQuery extends Pagination {
    */
   tab?: ClientTab;
   hasPhone?: boolean;
-  hasDebt?: boolean;
-  minDaysOverdue?: number;
-  objectName?: string;
-  /**
-   * Shartnoma holati (`virtual_status`) — kalit bo'yicha.
-   *
-   * Bitta holat bazada ikki xil yozilgan bo'lishi mumkin (kalit va
-   * ko'rinadigan nom), shuning uchun kalit `holatQiymatlari()` orqali
-   * barcha yozilishlariga yoyiladi. Bir nechta kalit — "yoki".
-   */
-  virtualStatus?: readonly string[];
   /**
    * Aloqa qay bosqichda uzilgani — `javobsiz` yoki `oqilmagan`.
    * Berilmasa filtr qo'llanmaydi.
@@ -57,34 +43,11 @@ export interface ClientQuery extends Pagination {
   source?: ClientSource;
   /** Mijozning joriy xaridi shu kursga tegishli. */
   courseId?: string;
-  sort?: 'debt' | 'overdue' | 'name' | 'recent';
+  sort?: 'name' | 'recent';
 }
 
-/** Filtr ro'yxati uchun: bazada uchraydigan holatlar va ular soni. */
-export interface ContractStatusOption {
-  readonly key: string;
-  readonly label: string;
-  readonly clients: number;
-}
-
-/** Ro'yxat uchun: mijoz + shartnomalari bo'yicha jamlangan kechikkan to'lov. */
-export interface ClientWithDebt extends Client {
-  /**
-   * Oyma-oy to'lovdagi kechikish (`Долг (мес.)`) — agent mijozga AYNAN
-   * shu summani aytadi. `debtTotal` esa xodim uchun to'liq manzara.
-   */
-  readonly debtMonthly: number;
-  readonly debtTotal: number;
-  readonly daysOverdue: number;
-  readonly contractsCount: number;
-  /**
-   * Shartnomalarining CRM holatlari (kalit bo'yicha, takrorsiz).
-   *
-   * Ro'yxat, chunki mijozda bir nechta shartnoma bo'lishi va ular turli
-   * holatda turishi mumkin — aynan shunday holatlar chalkashlik tug'diradi
-   * ("nega bunga xabar ketmadi?"), shuning uchun hammasi ko'rsatiladi.
-   */
-  readonly contractStatuses: string[];
+/** Ro'yxat qatori: mijoz + biriktirilgan akkaunt nomi. */
+export interface ClientListItem extends Client {
   /**
    * Biriktirilgan akkauntning mijozga ko'rinadigan ismi, u bo'lmasa ichki
    * nomi. Biriktirilmagan bo'lsa `null`.
@@ -164,21 +127,16 @@ export interface TelegramIdentity {
 export interface IClientRepository {
   /** `includeDeleted` faqat savat va tiklash oqimi uchun. */
   findById(id: string, options?: { includeDeleted?: boolean }): Promise<Client | null>;
-  findByExternalId(externalId: string): Promise<Client | null>;
   findByPhone(phoneE164: string): Promise<Client | null>;
   findByTelegramUserId(tgUserId: string): Promise<Client | null>;
   /** Berilgan Telegram id'lardan qaysilari tirik mijozga tegishli (bitta so'rov). */
   existingTelegramUserIds(tgUserIds: string[]): Promise<Set<string>>;
-  /**
-   * Ro'yxat metodlarining oxirgi `qamrov` parametri — obyekt cheklovi.
-   * Sukut `HAMMASI`: SQL o'zgarmaydi.
-   */
-  search(query: ClientQuery, qamrov?: MijozQamrovi): Promise<Page<ClientWithDebt>>;
+  search(query: ClientQuery): Promise<Page<ClientListItem>>;
   /**
    * Filtrga tushgan hamma mijozning id'lari — sahifalashsiz.
    * "Filtrdagi hammasini belgilash" uchun.
    */
-  searchIds(query: ClientQuery, qamrov?: MijozQamrovi): Promise<string[]>;
+  searchIds(query: ClientQuery): Promise<string[]>;
   /**
    * Filtrga tushgan hamma qator — bo'laklab, sanoqsiz.
    *
@@ -186,24 +144,17 @@ export interface IClientRepository {
    * qiladi — u ekran uchun. Bu esa eksport uchun: butun to'plamni
    * xotiraga yig'masdan, bo'lak-bo'lak beradi.
    */
-  searchAll(query: ClientQuery, batchSize?: number, qamrov?: MijozQamrovi): AsyncIterable<ClientWithDebt[]>;
+  searchAll(query: ClientQuery, batchSize?: number): AsyncIterable<ClientListItem[]>;
   /** Har bir tabdagi mijozlar soni — tugmalar yonida ko'rsatiladi. */
-  tabCounts(qamrov?: MijozQamrovi): Promise<ClientTabCounts>;
-  /** Filtr uchun: bazada uchraydigan shartnoma holatlari. */
-  contractStatuses(qamrov?: MijozQamrovi): Promise<ContractStatusOption[]>;
+  tabCounts(): Promise<ClientTabCounts>;
   create(data: NewClient): Promise<Client>;
-  /** Kampaniya filtriga mos mijoz id'lari (qamrov bilan; eng eskilari birinchi). */
-  findCampaignTargets(filters: CampaignFilters, qamrov?: MijozQamrovi): Promise<string[]>;
+  /** Kampaniya filtriga mos mijoz id'lari (eng eskilari birinchi). */
+  findCampaignTargets(filters: CampaignFilters): Promise<string[]>;
   /**
    * Mijozni va unga bog'liq hamma narsani yumshoq o'chiradi.
    * Bazadan hech narsa yo'qolmaydi — faqat `deleted_at` qo'yiladi.
    */
   softDelete(id: string, actor: string): Promise<ClientDeletionSummary>;
-  /**
-   * Faqat noma'lum mijoz qatorini yopadi (suhbat/xabarlarga tegmaydi, Telegram
-   * id tozalanadi). Suhbat haqiqiy mijozga ko'chirilgandan keyin chaqiriladi.
-   */
-  nomalumniYopish(clientId: string): Promise<void>;
   /** O'chirishni bekor qiladi. */
   restore(id: string): Promise<ClientDeletionSummary>;
   update(id: string, patch: Partial<NewClient> & { doNotContact?: boolean }): Promise<Client>;

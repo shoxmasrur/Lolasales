@@ -4,7 +4,6 @@ import type { CampaignFilters } from '@/domain/entities/Campaign';
 import type { Container } from '@/composition/container';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
 import { parseBody } from '@/presentation/http/middleware/validate';
-import { qamrov } from '@/presentation/http/middleware/qamrov';
 import { CLIENT_SOURCES } from '@/domain/entities/Client';
 import { XARID_BOSQICHLARI } from '@/domain/entities/Purchase';
 import { NotFoundError } from '@/shared/errors';
@@ -57,10 +56,10 @@ export function campaignRoutes(container: Container): Router {
     res.json({ campaign, stats, targets });
   });
 
-  /** Kampaniya yaratmasdan qamrovni ko'rish. */
+  /** Kampaniya yaratmasdan nechta mijoz tushishini ko'rish. */
   router.post('/preview', requirePermission('campaigns.create'), async (req, res) => {
     const filters = parseBody(filtersSchema, req);
-    const count = await container.useCases.createCampaign.preview(filters as CampaignFilters, qamrov(req));
+    const count = await container.useCases.createCampaign.preview(filters as CampaignFilters);
     res.json({ count });
   });
 
@@ -70,7 +69,6 @@ export function campaignRoutes(container: Container): Router {
     const result = await container.useCases.createCampaign.execute({
       ...payload,
       filters: payload.filters as CampaignFilters,
-      qamrov: qamrov(req),
       userId: user.id,
       userEmail: user.email,
     });

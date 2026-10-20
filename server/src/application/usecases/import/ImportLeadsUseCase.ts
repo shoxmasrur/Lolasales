@@ -113,8 +113,6 @@ export class ImportLeadsUseCase {
       rowsOk: created + existing,
       rowsFailed: errors.length,
       clientsCreated: created,
-      contractsCreated: 0,
-      contractsUpdated: 0,
       errors,
     });
 

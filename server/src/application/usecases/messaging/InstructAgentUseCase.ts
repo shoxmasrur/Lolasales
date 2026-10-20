@@ -9,8 +9,6 @@ import type { IAuditRepository } from '@/domain/repositories/ISupportRepositorie
 import type { IClock, IEventBus } from '@/domain/services/support';
 import {
   AbortedError,
-  CrmUnavailableError,
-  NomalumMijozXatosi,
   NotFoundError,
   StaleTurnError,
   ValidationError,
@@ -33,10 +31,9 @@ export interface InstructAgentInput {
  * "Agentga topshiriq" tugmasi (2026-09-15).
  *
  * Operator NIMA haqida gaplashishni yozadi, xabarni agent o'zi tuzib
- * yuboradi va suhbatni davom ettiradi. Real holat: mijoz va'da kuni
- * to'lamadi va jim qoldi, operator salomni qo'lda yozdi — agent esa bunday
- * holatda o'zi davom ettira olmasdi, operator hamma xabarni o'zi yozishi
- * kerak edi.
+ * yuboradi va suhbatni davom ettiradi. Real holat: mijoz karta olgach jim
+ * qoldi, operator xabarni qo'lda yozishi kerak edi — endi u mavzuni yozadi,
+ * agent esa o'zi davom ettiradi.
  *
  * Topshiriq mijozga KETMAYDIGAN qayd bo'lib chatga yoziladi (`note`):
  * operator nima so'raganini ko'radi, agent esa keyingi javoblarda ham
@@ -71,19 +68,14 @@ export class InstructAgentUseCase {
     const conversation = await this.conversations.findById(input.conversationId);
     if (!conversation) throw new NotFoundError('Suhbat', input.conversationId);
 
-    // Noma'lum suhbatga asosiy agent topshirig'i berilmaydi: javobni
-    // noma'lum agent beradi. Tekshiruv BIRINCHI: aks holda qayd yozilib,
-    // bayroq o'zgarib, keyin `operatorTurn` rad etgach suhbat bekorga
-    // `agent_error` bo'lib qolardi.
     const client = await this.clients.findById(conversation.clientId);
-    if (client?.nomalum) throw new NomalumMijozXatosi();
 
     const runtime = await this.settings.get();
     if (runtime.killSwitch) {
       throw new ValidationError('Favqulodda to\'xtatish yoqilgan — agent hozir hech kimga yozmaydi');
     }
 
-    // `escalated` bu yerda to'siq EMAS: operator masalani ko'rib chiqib,
+    // `needsHuman` bu yerda to'siq EMAS: operator masalani ko'rib chiqib,
     // suhbatni agentga ongli ravishda qaytaryapti ("Hal qilindi — agentga
     // qaytarish" tugmasi bilan bir xil). `closed` esa yakuniy.
     if (conversation.state === 'closed') {
@@ -102,8 +94,7 @@ export class InstructAgentUseCase {
 
     // Agent konteksti (mijoz, xarid, sotuvdagi kurslar) qayd yozilishidan
     // OLDIN quriladi: u yiqilsa chatda "topshiriq berildi" qaydi qolib,
-    // mijozga hech narsa ketmagan bo'lardi. Ommaviy qayta aloqa navbati
-    // bunday suhbatni o'tkazib yuboradi va keyinroq qayta urinadi.
+    // mijozga hech narsa ketmagan bo'lardi.
     await this.agent.buildContext(conversation.clientId);
 
     // Qayd, bayroq va chaqiruv navbat qulfi ICHIDA: aks holda debouncer
@@ -131,7 +122,6 @@ export class InstructAgentUseCase {
         humanReason: null,
         humanKind: null,
         agentEnabled: true,
-        ...(conversation.state === 'escalated' ? { state: 'negotiating' as const } : {}),
       };
       await this.conversations.update(conversation.id, patch);
       this.events.publish({ type: 'conversation.updated', conversationId: conversation.id });
@@ -155,26 +145,6 @@ export class InstructAgentUseCase {
         // `AbortedError` dan OLDIN — `StaleTurnError` undan meros oladi.
         if (err instanceof StaleTurnError) {
           log.info({ conversationId: conversation.id }, 'Topshiriq eskirdi — mijoz yozdi, javobni agent beradi');
-          throw err;
-        }
-
-        // CRM oradagi soniyalarda yiqildi (yuqoridagi tekshiruvdan o'tgan).
-        // Bu AGENT xatosi emas: suhbat operatorga CHIQARILMAYDI, bayroqlar
-        // topshiriqdan oldingi holatiga qaytariladi. Ommaviy navbatda
-        // yuzlab suhbat bir vaqtda operator ro'yxatiga tushib ketardi.
-        // Qayd qoladi — bu kamdan-kam poyga, operator uni ko'radi.
-        if (err instanceof CrmUnavailableError) {
-          log.warn({ conversationId: conversation.id }, 'Operator topshirig\'i bajarilmadi — CRM javob bermadi');
-          await this.conversations
-            .update(conversation.id, {
-              needsHuman: conversation.needsHuman,
-              humanReason: conversation.humanReason,
-              humanKind: conversation.humanKind,
-              agentEnabled: conversation.agentEnabled,
-              state: conversation.state,
-            })
-            .catch((e) => log.error({ conversationId: conversation.id, err: e }, 'Bayroqni qaytarib bo\'lmadi'));
-          this.events.publish({ type: 'conversation.updated', conversationId: conversation.id });
           throw err;
         }
 

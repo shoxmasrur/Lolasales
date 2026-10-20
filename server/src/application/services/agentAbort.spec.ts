@@ -5,7 +5,6 @@ import { AgentRunner } from '@/application/services/AgentRunner';
 import type { AgentEngineFactory } from '@/application/services/AgentEngineFactory';
 import type { AgentTurnInput, AgentTurnOutput, IAgentEngine } from '@/domain/services/IAgentEngine';
 import type { Conversation } from '@/domain/entities/Conversation';
-import type { PaymentPromise } from '@/domain/entities/PaymentPromise';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
@@ -127,8 +126,7 @@ const SUHBAT = {
   id: SUHBAT_ID,
   clientId: 'm1',
   telegramAccountId: null,
-  state: 'negotiating',
-  stage: 'soft',
+  state: 'active',
   agentEnabled: true,
   needsHuman: false,
   humanReason: null,
@@ -239,13 +237,6 @@ function build(): { runner: AgentRunner; kuzatuv: Kuzatuv; rejim: Rejim } {
 
   return { runner, kuzatuv, rejim };
 }
-
-/** Va'da eslatmasi uchun eng kichik yozuv. */
-const VADA = {
-  id: 'v1',
-  amount: 1_000_000,
-  promisedDate: new Date('2026-08-11T00:00:00Z'),
-} as unknown as PaymentPromise;
 
 // ─── Ketayotgan navbat darhol uziladi va xabar ketmaydi ──────────────────
 {

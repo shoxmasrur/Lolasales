@@ -13,7 +13,6 @@ import {
   type ReceiptSource,
 } from '@/domain/entities/PaymentCheck';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type {
   ConversationPatch,
   IConversationRepository,
@@ -78,7 +77,7 @@ async function manba(
 }
 
 {
-  const tolov = await manba({ kind: 'tolov', note: 'Xonsaroy Pay', failed: false });
+  const tolov = await manba({ kind: 'tolov', note: 'Payme', failed: false });
   check('tolov → tolov', tolov.receiptSource === 'tolov', String(tolov.receiptSource));
   check('tolov: sabab matni', tolov.reviewReason === RECEIPT_REVIEW_REASON.tolov, String(tolov.reviewReason));
 
@@ -240,7 +239,7 @@ function muhit(opts: {
     id: 'cv1',
     clientId: 'c1',
     peerId: 'u1',
-    state: 'negotiating',
+    state: 'active',
     agentEnabled: true,
     needsHuman: false,
     humanKind: null,
@@ -288,7 +287,6 @@ function muhit(opts: {
 
   const useCase = new HandleIncomingMessageUseCase(
     { findByTelegramUserId: async () => ({ id: 'c1', telegramUserId: 'u1' }) } as unknown as IClientRepository,
-    { findByClientId: async () => [] } as unknown as IContractRepository,
     conversations,
     { existsTelegramMessage: async () => false, create: async () => ({ id: 'm1' }) } as unknown as IMessageRepository,
     { push: (_id: string, text: string) => void navbat.push(text) } as unknown as ReplyDebouncer,

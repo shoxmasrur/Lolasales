@@ -105,7 +105,9 @@ export function XulosaBotiPanel() {
     <div>
       <h2 className="mb-1 text-sm font-medium text-ink-200">Kunlik xulosa boti</h2>
       <p className="mb-3 text-xs text-ink-500">
-        Kun oxiridagi xulosa shu bot orqali Telegramga keladi. Mijozlarga yozadigan
+        Har kuni soat 21:00 dan keyin sotuv xulosasi (yangi mijozlar manbalar bo'yicha,
+        tasdiqlangan to'lovlar, navbatdagi cheklar) shu bot orqali Telegramga keladi.
+        Akkaunt chiqib ketsa ogohlantirish ham shu yerga keladi. Mijozlarga yozadigan
         akkauntlarga aloqasi yo'q.
       </p>
 

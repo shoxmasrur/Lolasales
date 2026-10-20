@@ -13,8 +13,6 @@ export type BulkStartStatus = 'running' | 'done' | 'stopped' | 'failed';
 /** Bitta o'tkazib yuborilgan mijoz — progressdagi "batafsil" ro'yxati uchun. */
 export interface SkippedClient {
   readonly clientId: string;
-  /** Asosiy shartnoma raqami — operator CRM'da aynan shuni qidiradi. */
-  readonly contractNo: string | null;
   readonly fullName: string;
   readonly reason: string;
 }

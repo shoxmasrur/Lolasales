@@ -8,7 +8,6 @@ import { evaluateWindow } from '@/domain/policies/SendWindowPolicy';
 import { nextDelayMs } from '@/domain/policies/PacingPolicy';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 import type { StartConversationUseCase } from '@/application/usecases/messaging/StartConversationUseCase';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import { TelegramError } from '@/shared/errors';
 import { sleep } from '@/shared/datetime';
 import { config } from '@/shared/config';
@@ -41,7 +40,6 @@ export class OutreachScheduler {
     private readonly audit: IAuditRepository,
     private readonly events: IEventBus,
     private readonly clock: IClock,
-    private readonly holidays: IHolidayRepository,
   ) {}
 
   start(): void {
@@ -91,18 +89,12 @@ export class OutreachScheduler {
 
     const now = this.clock.now();
     const today = this.clock.todayIso();
-    // Bir marta o'qiladi: aks holda tsikldagi birinchi va oxirgi kampaniya
-    // bir xil daqiqada turlicha ro'yxatni ko'rishi mumkin edi (operator
-    // aynan shu tsikl davomida bayram qo'shsa/o'chirsa).
-    const bayramlar = await this.holidays.list();
-
     for (const campaign of running) {
       const window = evaluateWindow(now, {
         start: campaign.windowStart || runtime.windowStart,
         end: campaign.windowEnd || runtime.windowEnd,
         weekdays: runtime.weekdays,
         timeZone: config.TIMEZONE,
-        holidays: bayramlar,
       });
 
       if (!window.allowed) {

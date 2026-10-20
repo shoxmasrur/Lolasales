@@ -1,5 +1,5 @@
 import type { XaridBosqichi } from '@/domain/entities/Purchase';
-import type { Conversation, EscalationStage } from '@/domain/entities/Conversation';
+import type { Conversation } from '@/domain/entities/Conversation';
 import { CHEK_TEKSHIRUVI_MUDDATI_KUNLAR } from '@/domain/entities/PaymentCheck';
 import type {
   ConversationFilterOptions,
@@ -13,8 +13,6 @@ import type {
 import type { Page } from '@/domain/repositories/types';
 import { query, withTransaction } from '@/infrastructure/db/pool';
 import { mapConversation } from '@/infrastructure/db/mappers';
-import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
-import { mijozQamroviSharti } from '@/infrastructure/db/qamrovSharti';
 import { NotFoundError } from '@/shared/errors';
 
 export class PgConversationRepository implements IConversationRepository {
@@ -41,22 +39,6 @@ export class PgConversationRepository implements IConversationRepository {
       [clientId, telegramAccountId],
     );
     return rows[0] ? mapConversation(rows[0]) : null;
-  }
-
-  async reassignClient(conversationId: string, clientId: string): Promise<void> {
-    await query(
-      `UPDATE conversations SET client_id = $2, updated_at = now()
-        WHERE id = $1 AND deleted_at IS NULL`,
-      [conversationId, clientId],
-    );
-  }
-
-  async yopish(conversationId: string): Promise<void> {
-    // Noma'lum suhbat haqiqiy mijozning mavjud suhbatiga qo'shilganda ishlatiladi.
-    await query(
-      `UPDATE conversations SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`,
-      [conversationId],
-    );
   }
 
   async findByPeer(telegramAccountId: string, peerId: string): Promise<Conversation | null> {
@@ -87,13 +69,10 @@ export class PgConversationRepository implements IConversationRepository {
     return rowCount ?? 0;
   }
 
-  async list(q: ConversationQuery, qamrov: MijozQamrovi = HAMMASI): Promise<Page<ConversationListItem>> {
+  async list(q: ConversationQuery): Promise<Page<ConversationListItem>> {
     // O'chirilgan suhbat ham, o'chirilgan mijozning suhbati ham ko'rinmaydi.
     const where: string[] = ['cv.deleted_at IS NULL', 'cl.deleted_at IS NULL'];
     const params: unknown[] = [];
-    // Obyekt cheklovi. Cheklanmaganda shart QO'SHILMAYDI — SQL aynan avvalgidek.
-    // Shartda `NOT cl.nomalum` bor: noma'lumlar cheklanganga ko'rinmaydi.
-    if (qamrov.cheklangan) where.push(mijozQamroviSharti(qamrov, 'cl', params));
 
     if (q.search) {
       params.push(`%${q.search.trim()}%`);
@@ -103,21 +82,8 @@ export class PgConversationRepository implements IConversationRepository {
       params.push(q.state);
       where.push(`cv.state = $${params.length}`);
     }
-    if (q.stage) {
-      params.push(q.stage);
-      where.push(`cv.stage = $${params.length}`);
-    }
     if (q.needsHuman) where.push('cv.needs_human = TRUE');
     if (q.unreadOnly) where.push('cv.unread_count > 0');
-    if (q.objectName) {
-      // Mijozning bir nechta shartnomasi bo'lishi mumkin — bittasi shu
-      // obyektda bo'lsa yetarli. `EXISTS` qatorni ko'paytirmaydi, JOIN esa
-      // ko'paytirardi va ro'yxatda bitta suhbat ikki marta chiqardi.
-      params.push(q.objectName);
-      where.push(`EXISTS (SELECT 1 FROM contracts ct
-                           WHERE ct.client_id = cl.id AND ct.deleted_at IS NULL
-                             AND ct.object_name = $${params.length})`);
-    }
     if (q.telegramAccountId) {
       params.push(q.telegramAccountId);
       where.push(`cv.telegram_account_id = $${params.length}`);
@@ -127,8 +93,6 @@ export class PgConversationRepository implements IConversationRepository {
       where.push(`cv.client_id = $${params.length}`);
     }
     if (q.blocked) where.push(`cl.telegram_status = 'blocked'`);
-    // Noma'lum mijozlar oddiy ro'yxatda ham ko'rinadi (belgi bilan); bu filtr faqat ularni ajratadi.
-    if (q.nomalum) where.push('cl.nomalum');
     // "Chek keldi": tugma ko'rinadigan (ochiq, muddat ichidagi) chek tekshiruvi bor suhbatlar.
     if (q.receiptPending) {
       where.push(`EXISTS (SELECT 1 FROM payment_checks pc
@@ -143,12 +107,6 @@ export class PgConversationRepository implements IConversationRepository {
       FROM conversations cv
       JOIN clients cl ON cl.id = cv.client_id
       LEFT JOIN LATERAL (
-        SELECT COALESCE(SUM(ct.debt_monthly), 0) AS debt_monthly,
-               COALESCE(SUM(ct.debt_total), 0) AS debt_total,
-               COALESCE(MAX(ct.days_overdue), 0) AS days_overdue
-          FROM contracts ct WHERE ct.client_id = cl.id AND ct.deleted_at IS NULL
-      ) agg ON TRUE
-      LEFT JOIN LATERAL (
         SELECT m.body, m.direction FROM messages m
          -- Operator topshirig'i (note) mijoz bilan yozishma emas — ro'yxatda
          -- "Siz: …" bo'lib oxirgi xabar o'rnida turmasin.
@@ -161,7 +119,7 @@ export class PgConversationRepository implements IConversationRepository {
     const [{ rows: countRows }, { rows }] = await Promise.all([
       query<{ count: number }>(`SELECT COUNT(*)::int AS count ${base}`, params),
       query(
-        `SELECT cv.*, cl.full_name, cl.phone, cl.nomalum, agg.debt_monthly, agg.debt_total, agg.days_overdue,
+        `SELECT cv.*, cl.full_name, cl.phone,
                 lm.body AS last_body, lm.direction AS last_direction
          ${base}
          -- Faqat vaqt bo'yicha (2026-09-15): "Inson kerak" suhbatlari tepaga
@@ -180,74 +138,38 @@ export class PgConversationRepository implements IConversationRepository {
       conversation: mapConversation(r),
       clientName: r.full_name,
       clientPhone: r.phone ?? null,
-      debtMonthly: Number(r.debt_monthly ?? 0),
-      debtTotal: Number(r.debt_total ?? 0),
-      daysOverdue: Number(r.days_overdue ?? 0),
       lastMessageBody: r.last_body ?? null,
       lastMessageDirection: r.last_direction ?? null,
-      nomalum: Boolean(r.nomalum),
     }));
 
     return { items, total: countRows[0]?.count ?? 0, limit, offset };
   }
 
-  async filterOptions(qamrov: MijozQamrovi = HAMMASI): Promise<ConversationFilterOptions> {
-    // Obyekt cheklovi: cheklanmaganda SQL va parametrlar aynan avvalgidek.
-    // Cheklanganda ikkala ro'yxat ham faqat ko'rinadigan mijozlar suhbatlaridan
-    // (mijoz darajasida: ko'rinadigan mijozning boshqa obyektdagi shartnomasi ham).
-    const obyektParams: unknown[] = [];
-    const obyektSharti = qamrov.cheklangan ? ` AND ${mijozQamroviSharti(qamrov, 'cl', obyektParams)}` : '';
-    const akkauntParams: unknown[] = [];
-    const akkauntJoin = qamrov.cheklangan
-      ? `
-           JOIN clients cl ON cl.id = cv.client_id AND cl.deleted_at IS NULL`
-      : '';
-    const akkauntSharti = qamrov.cheklangan ? ` AND ${mijozQamroviSharti(qamrov, 'cl', akkauntParams)}` : '';
-
-    const [objects, accounts] = await Promise.all([
-      query<{ object_name: string }>(
-        `SELECT DISTINCT ct.object_name
-           FROM conversations cv
-           JOIN clients cl ON cl.id = cv.client_id AND cl.deleted_at IS NULL
-           JOIN contracts ct ON ct.client_id = cl.id AND ct.deleted_at IS NULL
-          WHERE cv.deleted_at IS NULL AND ct.object_name IS NOT NULL${obyektSharti}
-          ORDER BY 1`,
-        obyektParams,
-      ),
-      // Akkaunt o'chirilgan bo'lsa ham suhbatlari qoladi; JOIN bunday
-      // qatorni tashlab ketadi, ya'ni ro'yxatda faqat tanlash mumkin
-      // bo'lganlari turadi.
-      query<{ id: string; label: string }>(
-        `SELECT DISTINCT ta.id, ta.label
-           FROM conversations cv
-           JOIN telegram_accounts ta ON ta.id = cv.telegram_account_id${akkauntJoin}
-          WHERE cv.deleted_at IS NULL${akkauntSharti}
-          ORDER BY ta.label`,
-        akkauntParams,
-      ),
-    ]);
-
-    return {
-      objects: objects.rows.map((r) => r.object_name),
-      accounts: accounts.rows.map((r) => ({ id: r.id, label: r.label })),
-    };
+  async filterOptions(): Promise<ConversationFilterOptions> {
+    // Akkaunt o'chirilgan bo'lsa ham suhbatlari qoladi; JOIN bunday
+    // qatorni tashlab ketadi, ya'ni ro'yxatda faqat tanlash mumkin
+    // bo'lganlari turadi.
+    const accounts = await query<{ id: string; label: string }>(
+      `SELECT DISTINCT ta.id, ta.label
+         FROM conversations cv
+         JOIN telegram_accounts ta ON ta.id = cv.telegram_account_id
+        WHERE cv.deleted_at IS NULL
+        ORDER BY ta.label`,
+    );
+    return { accounts: accounts.rows.map((r) => ({ id: r.id, label: r.label })) };
   }
 
-  async create(data: {
-    clientId: string;
-    telegramAccountId?: string | null;
-    stage: EscalationStage;
-  }): Promise<Conversation> {
+  async create(data: { clientId: string; telegramAccountId?: string | null }): Promise<Conversation> {
     const { rows } = await query(
-      `INSERT INTO conversations (client_id, telegram_account_id, stage)
-       VALUES ($1, $2, $3)
+      `INSERT INTO conversations (client_id, telegram_account_id)
+       VALUES ($1, $2)
        -- Unique indeks endi qisman (faqat tirik suhbatlar), shuning uchun
        -- ON CONFLICT ga ham o'sha shart yozilishi shart — aks holda
        -- Postgres indeksni topa olmay xato beradi.
        ON CONFLICT (client_id, telegram_account_id) WHERE deleted_at IS NULL
-         DO UPDATE SET stage = EXCLUDED.stage
+         DO UPDATE SET updated_at = now()
        RETURNING *`,
-      [data.clientId, data.telegramAccountId ?? null, data.stage],
+      [data.clientId, data.telegramAccountId ?? null],
     );
     return mapConversation(rows[0]!);
   }
@@ -261,17 +183,15 @@ export class PgConversationRepository implements IConversationRepository {
     };
 
     if (patch.state !== undefined) push('state', patch.state);
-    if (patch.stage !== undefined) push('stage', patch.stage);
     if (patch.agentEnabled !== undefined) push('agent_enabled', patch.agentEnabled);
     if (patch.needsHuman !== undefined) push('needs_human', patch.needsHuman);
     if (patch.humanReason !== undefined) push('human_reason', patch.humanReason);
     // `human_kind` bog'liqligi ikki tomonlama bo'lishi kerak: bayroq
-    // TUSHGANDA ham, boshqa manbadan (masalan `PromiseWatcher`,
-    // `PaymentCheckService`, `HandleIncomingMessageUseCase`) QAYTA
-    // qo'yilganda ham turi oshkora berilmasa tozalanadi. Aks holda eski
-    // 'agent_error' yangi sababning ustida qolib ketardi — operator
-    // "Agent to'xtab qoldi: <buzilgan va'da matni>" degan yolg'on bannerni
-    // va tegishli bo'lmagan "Qayta urinish" tugmasini ko'rardi.
+    // TUSHGANDA ham, boshqa manbadan (masalan `PaymentCheckService`,
+    // `HandleIncomingMessageUseCase`) QAYTA qo'yilganda ham turi oshkora
+    // berilmasa tozalanadi. Aks holda eski 'agent_error' yangi sababning
+    // ustida qolib ketardi — operator yolg'on bannerni va tegishli
+    // bo'lmagan "Qayta urinish" tugmasini ko'rardi.
     //
     // `else if` shart: bitta ustunni ikki marta `SET` qilib bo'lmaydi
     // ("multiple assignments to same column").
@@ -300,14 +220,13 @@ export class PgConversationRepository implements IConversationRepository {
   }
 
   async touchInbound(id: string, at: Date): Promise<void> {
-    // `nudge_count` shu yerda nolga qaytadi: mijozning har qanday javobi
-    // sukut zanjirini uzadi. Alohida metod qilinmadi — inbound yozuvi
-    // butun tizimda faqat shu yerdan o'tadi, ya'ni ikkinchi chaqiruv
-    // joyi unutilib qolishi mumkin bo'lgan yagona xato manbai bo'lardi.
+    // Mijoz javob berdi — yangi yoki xabar yuborilgan suhbat `active` bo'ladi.
+    // Inbound yozuvi butun tizimda faqat shu yerdan o'tadi.
     await query(
       `UPDATE conversations
           SET last_message_at = $2, last_inbound_at = $2,
-              unread_count = unread_count + 1, nudge_count = 0
+              unread_count = unread_count + 1,
+              state = CASE WHEN state IN ('new', 'contacted') THEN 'active' ELSE state END
         WHERE id = $1`,
       [id, at],
     );
@@ -334,8 +253,7 @@ export class PgConversationRepository implements IConversationRepository {
           AND (c.last_inbound_at IS NULL OR c.last_inbound_at < c.last_outbound_at)
           AND c.agent_enabled
           AND NOT c.needs_human
-          AND NOT cl.nomalum
-          AND c.state NOT IN ('closed', 'escalated', 'refused', 'unreachable')
+          AND c.state <> 'closed'
           AND cl.telegram_status NOT IN ('blocked', 'deactivated')
           AND NOT EXISTS (
             SELECT 1 FROM payment_checks pc
@@ -363,13 +281,12 @@ export class PgConversationRepository implements IConversationRepository {
   /**
    * Barcha yozishmalarni tozalaydi — sinovni noldan boshlash uchun.
    *
-   * O'CHIRISH YUMSHOQ: suhbatlar, xabarlar, to'lov va'dalari va mijoz
-   * profillari `deleted_at` bilan belgilanadi, bazadan yo'qolmaydi
-   * (032-migratsiya izohiga qarang). Ya'ni "tozalash" — ro'yxatlarni
-   * bo'shatish, tarixni yo'q qilish emas.
+   * O'CHIRISH YUMSHOQ: suhbatlar, xabarlar va mijoz profillari
+   * `deleted_at` bilan belgilanadi, bazadan yo'qolmaydi. Ya'ni "tozalash"
+   * — ro'yxatlarni bo'shatish, tarixni yo'q qilish emas.
    *
-   * MIJOZLAR VA SHARTNOMALAR QOLADI: import qayta bajarilmasin. Agentning
-   * qoidalari va saboqlari ham tegilmaydi (011-migratsiya izohiga qarang).
+   * MIJOZLAR VA XARIDLAR QOLADI: import qayta bajarilmasin. Agentning
+   * qoidalari va saboqlari ham tegilmaydi.
    *
    * `resetCampaigns` yoqilsa, kampaniya nishonlari "pending" holatiga
    * qaytariladi va tugagan kampaniyalar qayta ishga tushadi — aks holda
@@ -380,12 +297,10 @@ export class PgConversationRepository implements IConversationRepository {
       const counted = await query<{
         conversations: string;
         messages: string;
-        promises: string;
         profiles: string;
       }>(
         `SELECT (SELECT COUNT(*) FROM conversations    WHERE deleted_at IS NULL) AS conversations,
                 (SELECT COUNT(*) FROM messages         WHERE deleted_at IS NULL) AS messages,
-                (SELECT COUNT(*) FROM payment_promises WHERE deleted_at IS NULL) AS promises,
                 (SELECT COUNT(*) FROM client_profiles  WHERE deleted_at IS NULL) AS profiles`,
         [],
         client,
@@ -399,11 +314,6 @@ export class PgConversationRepository implements IConversationRepository {
         `UPDATE messages SET deleted_at = now()
           WHERE deleted_at IS NULL
             AND conversation_id IN (SELECT id FROM conversations WHERE deleted_at IS NULL)`,
-        [],
-        client,
-      );
-      await query(
-        'UPDATE payment_promises SET deleted_at = now() WHERE deleted_at IS NULL',
         [],
         client,
       );
@@ -436,7 +346,6 @@ export class PgConversationRepository implements IConversationRepository {
       return {
         conversations: Number(before.conversations),
         messages: Number(before.messages),
-        promises: Number(before.promises),
         profiles: Number(before.profiles),
         campaignTargets: targets,
       };

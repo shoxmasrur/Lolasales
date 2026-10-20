@@ -49,7 +49,6 @@ export interface CampaignTarget {
   readonly id: string;
   readonly campaignId: string;
   readonly clientId: string;
-  readonly contractId: string | null;
   readonly conversationId: string | null;
   readonly state: CampaignTargetState;
   readonly skipReason: string | null;

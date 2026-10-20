@@ -1,8 +1,8 @@
 /**
  * Begona raqamni mijozdan uzish mantig'i.
  *
- * NEGA ALOHIDA MODUL: bu qoidalar uchta joyda kerak — operator tugmasi
- * (`BlockClientPhone`), shartnomalar sinxronizatsiyasi va telefon importi.
+ * NEGA ALOHIDA MODUL: bu qoidalar ikki joyda kerak — operator tugmasi
+ * (`BlockClientPhone`) va mijozlar importi.
  * Har birida qaytadan yozilsa, ular vaqt o'tib bir-biridan ajralib
  * ketardi va raqam bittasidan sizib o'tib qaytib kelardi.
  *
@@ -19,8 +19,8 @@ export interface RaqamlarHolati {
 /**
  * Raqamni mijozdan uzadi.
  *
- * Asosiy raqam uzilsa, qolganlardan birinchisi asosiy bo'ladi: undiruv
- * aynan asosiy raqam orqali ketadi, shuning uchun mijozda boshqa raqam
+ * Asosiy raqam uzilsa, qolganlardan birinchisi asosiy bo'ladi: Telegram
+ * qidiruvi aynan asosiy raqam orqali ketadi, shuning uchun mijozda boshqa raqam
  * tursa-yu asosiy bo'sh qolsa, u sababsiz "raqamsiz" ko'rinardi.
  *
  * Raqam ro'yxatda umuman bo'lmasligi ham normal holat: operator tugmani
@@ -42,9 +42,9 @@ export function raqamniUz(current: RaqamlarHolati, phone: string): RaqamlarHolat
 /**
  * Kiruvchi raqamlardan to'silganlarini tashlaydi.
  *
- * Sinxronizatsiya va import shu filtrdan o'tkaziladi. Usiz CRM har
- * yangilanishda uzilgan raqamni qaytarib qo'yardi va begona odamga bergan
- * "boshqa yozilmaydi" degan va'damiz buzilardi.
+ * Import shu filtrdan o'tkaziladi. Usiz qayta yuklangan fayl uzilgan
+ * raqamni qaytarib qo'yardi va begona odamga bergan "boshqa yozilmaydi"
+ * degan so'zimiz buzilardi.
  */
 export function tosilganlarniTashla(
   incoming: readonly string[],

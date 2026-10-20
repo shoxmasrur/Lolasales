@@ -11,24 +11,18 @@ import {
 } from '@/lib/socket';
 import { useCan } from '@/store/auth';
 import type {
-  AloqaHolati, ClientSource, ClientWithDebt, ContractStatusOption, Conversation, Course, Page,
+  AloqaHolati, ClientListItem, ClientSource, Conversation, Course, Page,
   TelegramLookupStatus, XaridBosqichi,
 } from '@/lib/types';
 import { BOSQICH_CLASS, BOSQICH_YORLIGI, MANBA_YORLIGI, XARID_BOSQICHLARI } from '@/lib/xarid';
 import { MultiSelect, type MultiSelectOption } from '@/components/MultiSelect';
-import {
-  CONTRACT_STATUS_CLASS,
-  initials,
-  somShort,
-  TELEGRAM_STATUS_LABEL,
-} from '@/lib/format';
+import { initials, somShort, TELEGRAM_STATUS_LABEL } from '@/lib/format';
 import { Avatar, EmptyState, ErrorNote, Spinner } from '@/components/ui';
 import { StartConversationsDialog } from '@/components/StartConversationsDialog';
 import { LookupAccountsDialog } from '@/components/LookupAccountsDialog';
 import { AddClientDialog } from '@/components/AddClientDialog';
 import { PhoneBlocksExport } from '@/components/PhoneBlocksExport';
 import { ClientsExportButton } from '@/components/ClientsExportButton';
-import { RecontactPanel } from '@/components/recontact/RecontactPanel';
 import { Sheet } from '@/components/Sheet';
 import { useIsMobile } from '@/lib/useBreakpoint';
 import { ClientDetailBody, type ClientDetail } from '@/components/client/ClientDetailBody';
@@ -57,9 +51,6 @@ const TG_STATUS_OPTIONS: ReadonlyArray<MultiSelectOption<TelegramLookupStatus>> 
   { value: 'blocked', label: 'Bloklangan' },
 ];
 
-/** URL'dagi `?tab=` qiymati — "Qayta aloqa" bo'limi. */
-const RECONTACT_TAB = 'qayta-aloqa';
-
 /** Operatorning ish oqimi bo'yicha tablar. */
 const TABS: Array<{ key: ClientTab; label: string; hint: string }> = [
   { key: 'all', label: 'Hammasi', hint: 'Barcha mijozlar' },
@@ -83,45 +74,29 @@ export default function ClientsPage() {
   const isMobile = useIsMobile();
 
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<'debt' | 'overdue' | 'name'>('debt');
+  const [sort, setSort] = useState<'recent' | 'name'>('recent');
   const [onlyNoPhone, setOnlyNoPhone] = useState(false);
   // Telegram holati bo'yicha filtr — tab bilan BIRGA ishlaydi, ya'ni
   // "Yangi + Telegram topilgan" kombinatsiyasi mumkin. Aynan shu kerak:
   // hali suhbat boshlanmagan, lekin bog'lansa bo'ladigan mijozlar.
   // Bir nechta holat tanlanadi ("yoki"); bo'sh ro'yxat — hammasi.
   const [tgStatus, setTgStatus] = useState<TelegramLookupStatus[]>([]);
-  // Shartnoma holati (`virtual_status`) bo'yicha filtr. Agent faqat
-  // "Сотилди" bo'yicha yozadi, ya'ni operator "nega bu mijozga xabar
-  // ketmadi?" degan savolga shu filtr orqali javob topadi.
-  const [contractStatus, setContractStatus] = useState<string[]>([]);
   const [aloqa, setAloqa] = useState<'' | AloqaHolati>('');
   // Kurs sotuvi: xarid bosqichi, mijoz manbasi va kurs bo'yicha filtrlar.
   const [stage, setStage] = useState<'' | XaridBosqichi>('');
   const [source, setSource] = useState<'' | ClientSource>('');
   const [courseId, setCourseId] = useState('');
   const canSeeCourses = useCan('courses.view');
-  /**
-   * Faqat kechikkan to'lovi borlar.
-   *
-   * `debt_total` — boshlang'ich va oylik kechikishning YIG'INDISI, ya'ni
-   * `StartConversationUseCase` tekshiradigan summaning aynan o'zi. Shu
-   * sabab bu filtr "xabar ketadiganlar" bilan bir xil ma'noda ishlaydi.
-   */
-  const [onlyWithDebt, setOnlyWithDebt] = useState(false);
-  // Tab va "Qayta aloqa" bo'limi URL'da (`?tab=`) turadi, holatda emas.
+  // Tab URL'da (`?tab=`) turadi, holatda emas.
   // Holatda turganda chatga o'tib "Orqaga" bosilsa yoki F5 qilinsa sahifa
   // "Hammasi" ga qaytib ketardi va operator bo'limni qaytadan topishi kerak
   // edi. `replace` — tab almashtirish brauzer tarixini to'ldirmasin:
   // "Orqaga" chatdan to'g'ri shu ro'yxatga qaytishi kerak.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const recontactOpen = tabParam === RECONTACT_TAB;
   const tab: ClientTab = TABS.some((t) => t.key === tabParam) ? (tabParam as ClientTab) : 'all';
   const setTab = (next: ClientTab): void => {
     setSearchParams(next === 'all' ? {} : { tab: next }, { replace: true });
-  };
-  const openRecontact = (): void => {
-    if (!recontactOpen) setSearchParams({ tab: RECONTACT_TAB }, { replace: true });
   };
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
@@ -145,15 +120,13 @@ export default function ClientsPage() {
       search: search || undefined,
       tab: tab === 'all' ? undefined : tab,
       telegramStatus: tgStatus.length ? tgStatus : undefined,
-      virtualStatus: contractStatus.length ? contractStatus : undefined,
       aloqa: aloqa || undefined,
       stage: stage || undefined,
       source: source || undefined,
       courseId: courseId || undefined,
       hasPhone: onlyNoPhone ? 'false' : undefined,
-      hasDebt: onlyWithDebt ? 'true' : undefined,
     }),
-    [search, tab, tgStatus, contractStatus, aloqa, stage, source, courseId, onlyNoPhone, onlyWithDebt],
+    [search, tab, tgStatus, aloqa, stage, source, courseId, onlyNoPhone],
   );
 
   const listQuery = useQuery({
@@ -163,34 +136,13 @@ export default function ClientsPage() {
     // natijani ko'rsatib turardi.
     queryKey: ['clients', filtrlar, sort, page, pageSize],
     queryFn: () =>
-      api.get<Page<ClientWithDebt>>('/clients', {
+      api.get<Page<ClientListItem>>('/clients', {
         ...filtrlar,
         sort,
         limit: pageSize,
         offset: page * pageSize,
       }),
   });
-
-  // Ro'yxat kamdan-kam o'zgaradi (CRM yangi holat qo'shganda), shuning
-  // uchun mijozlar bilan birga qayta so'ralmaydi.
-  const statusesQuery = useQuery({
-    queryKey: ['contract-statuses'],
-    queryFn: () => api.get<{ items: ContractStatusOption[] }>('/clients/contract-statuses'),
-    staleTime: 5 * 60_000,
-  });
-
-  /**
-   * Holat kaliti → ko'rinadigan nom.
-   *
-   * Serverdan kelgan ro'yxatdan quriladi — nomlar u yerda bitta joyda
-   * turadi. Tanilmagan kalit o'zi ko'rsatiladi: CRM yangi holat qo'shsa,
-   * jadvalda bo'sh katak emas, xom nom chiqadi.
-   */
-  const statusLabel = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const h of statusesQuery.data?.items ?? []) m.set(h.key, h.label);
-    return m;
-  }, [statusesQuery.data]);
 
   const coursesQuery = useQuery({
     queryKey: ['courses'],
@@ -218,7 +170,7 @@ export default function ClientsPage() {
    * NEGA KERAK: ilgari tanlov filtrdan QAT'IY NAZAR saqlanardi va ekranda
    * faqat "N ta mijoz belgilandi" degan son turardi — KIMLAR ekani hech
    * qayerda ko'rinmasdi. Operator filtrsiz ro'yxatda mijozlarni belgilab,
-   * keyin "Сотилди + Telegram topilgan" filtrini qo'ysa, ekranda butunlay
+   * keyin "Qiziqdi + Telegram topilgan" filtrini qo'ysa, ekranda butunlay
    * boshqa odamlar turardi, tanlov esa hamon eskilari edi. "Suhbat
    * boshlash" bosilganda xabarlar aynan o'sha ko'rinmayotgan eski
    * ro'yxatga ketardi. Bir marta shunday bo'lgan.
@@ -231,7 +183,7 @@ export default function ClientsPage() {
    */
   useEffect(() => {
     setChecked((s) => (s.size ? new Set() : s));
-  }, [search, tab, tgStatus, contractStatus, onlyNoPhone, onlyWithDebt]);
+  }, [search, tab, tgStatus, aloqa, stage, source, courseId, onlyNoPhone]);
   const [job, setJob] = useState<BulkLookupJob | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
@@ -462,7 +414,7 @@ export default function ClientsPage() {
           <div className="mt-3 flex flex-wrap gap-1">
             {TABS.filter((t) => t.key !== 'deleted' || canDelete).map((t) => {
               const count = countsQuery.data?.counts[t.key];
-              const active = tab === t.key && !recontactOpen;
+              const active = tab === t.key;
               return (
                 <button
                   key={t.key}
@@ -493,22 +445,8 @@ export default function ClientsPage() {
                 </button>
               );
             })}
-            <button
-              type="button"
-              title="Avtomatika yozishni tugatgan, 3 ish kunidan beri jim suhbatlar"
-              onClick={openRecontact}
-              className={clsx(
-                'rounded-lg px-3 py-1.5 text-xs transition-colors',
-                recontactOpen
-                  ? 'bg-brand-600 text-white'
-                  : 'bg-ink-800/60 text-ink-300 hover:bg-ink-800',
-              )}
-            >
-              Qayta aloqa
-            </button>
           </div>
 
-          {!recontactOpen ? (<>
           {/* Ketayotgan yoki endigina tugagan tekshiruv. */}
           {job && !dismissed ? (
             <div
@@ -730,9 +668,8 @@ export default function ClientsPage() {
               ) : null}
 
               {/* Nega o'tkazib yuborilgani — xodim sababni bilishi kerak.
-                  Sababning o'zi yetarli emas: "9 tasi Сотилди emas" degan
-                  qatorni ko'rgan operator QAYSI shartnomalar ekanini
-                  bilishi va CRM bilan solishtira olishi kerak. */}
+                  Sababning o'zi yetarli emas: operator QAYSI mijozlar
+                  ekanini ham ko'rishi kerak. */}
               {Object.keys(startJob.skipReasons).length ? (
                 <ul className="mt-1.5 space-y-0.5 text-[11px] text-ink-500">
                   {Object.entries(startJob.skipReasons).map(([reason, count]) => {
@@ -756,12 +693,7 @@ export default function ClientsPage() {
                           <ul className="mt-1 max-h-52 space-y-0.5 overflow-y-auto rounded-md border border-ink-800 bg-ink-950/60 p-2">
                             {items.map((x) => (
                               <li key={x.clientId} className="flex items-baseline gap-2">
-                                {/* Shartnoma raqami birinchi: operator CRM'da
-                                    aynan shuni qidiradi. */}
-                                <span className="shrink-0 font-mono text-ink-300">
-                                  {x.contractNo ?? '—'}
-                                </span>
-                                <span className="truncate text-ink-400">{x.fullName}</span>
+                                <span className="truncate text-ink-300">{x.fullName}</span>
                               </li>
                             ))}
                             {startJob.skippedItemsTruncated > 0 ? (
@@ -853,7 +785,7 @@ export default function ClientsPage() {
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <input
               className="input w-full md:max-w-xs"
-              placeholder="Ism, telefon yoki shartnoma raqami…"
+              placeholder="Ism, telefon yoki @username…"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -865,8 +797,7 @@ export default function ClientsPage() {
               value={sort}
               onChange={(e) => setSort(e.target.value as typeof sort)}
             >
-              <option value="debt">Oyma-oy kechikish bo'yicha</option>
-              <option value="overdue">Kechikish bo'yicha</option>
+              <option value="recent">Eng yangilari</option>
               <option value="name">Ism bo'yicha</option>
             </select>
             <MultiSelect
@@ -879,25 +810,6 @@ export default function ClientsPage() {
                 setPage(0);
               }}
             />
-            {/* Shartnoma holati. Ro'yxat serverdan keladi va faqat bazada
-                UCHRAYDIGANLARINI o'z ichiga oladi — operator tanlab, bo'sh
-                natija olmaydi. Bir xil holatning ikki xil yozilishi
-                (`sold` va "Сотилди") bitta variant bo'lib birlashtirilgan. */}
-            {(statusesQuery.data?.items.length ?? 0) > 0 ? (
-              <MultiSelect
-                nom="Shartnoma"
-                className="w-full md:max-w-[210px]"
-                options={(statusesQuery.data?.items ?? []).map((h) => ({
-                  value: h.key,
-                  label: `${h.label} (${h.clients})`,
-                }))}
-                value={contractStatus}
-                onChange={(next) => {
-                  setContractStatus(next);
-                  setPage(0);
-                }}
-              />
-            ) : null}
             <select
               className="input w-full md:max-w-[170px]"
               value={stage}
@@ -971,21 +883,9 @@ export default function ClientsPage() {
               />
               Faqat raqamsizlar
             </label>
-            {/* Uzilgan raqamlar CRM'da tuzatilishi kerak — u yerga yozish
-                huquqimiz yo'q, shuning uchun ro'yxat eksport qilinadi. */}
+            {/* "Mijozniki emas" deb uzilgan raqamlar ro'yxati — Excel. */}
             <PhoneBlocksExport />
             <ClientsExportButton filtrlar={{ ...filtrlar, sort }} soni={total} />
-            <label className="flex items-center gap-2 text-xs text-ink-400">
-              <input
-                type="checkbox"
-                checked={onlyWithDebt}
-                onChange={(e) => {
-                  setOnlyWithDebt(e.target.checked);
-                  setPage(0);
-                }}
-              />
-              Faqat kechikkan to'lovi borlar
-            </label>
           </div>
 
           {/* `title` faqat hover'da ko'rinadi, bu sahifa esa teginish
@@ -999,17 +899,15 @@ export default function ClientsPage() {
               umuman kelmaydi — ro'yxatda o'qigan mijoz ham bo'lishi mumkin.
             </p>
           ) : null}
-          </>) : null}
         </header>
 
-        {recontactOpen ? <RecontactPanel /> : (<>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {listQuery.isLoading ? (
             <div className="flex justify-center py-10">
               <Spinner />
             </div>
           ) : items.length === 0 ? (
-            <EmptyState title="Mijoz topilmadi" hint="Import sahifasidan debitor faylini yuklang." />
+            <EmptyState title="Mijoz topilmadi" hint="Import sahifasidan mijozlar faylini yuklang yoki «+ Mijoz qo'shish» bilan qo'shing." />
           ) : isMobile ? (
             <>
               {canSelect ? (
@@ -1068,19 +966,11 @@ export default function ClientsPage() {
                           <p className="truncate text-sm font-medium text-ink-100">
                             {client.fullName}
                           </p>
-                          <span className="shrink-0 text-sm font-medium tabular-nums text-red-300">
-                            {somShort(client.debtMonthly)}
-                          </span>
                         </div>
 
-                        <div className="mt-0.5 flex items-baseline justify-between gap-2">
-                          <p className="truncate font-mono text-[11px] text-ink-500">
-                            {client.phone ?? 'raqam yo\'q'}
-                          </p>
-                          <span className="shrink-0 text-[11px] text-ink-500">
-                            {client.daysOverdue > 0 ? `${client.daysOverdue} kun` : '—'}
-                          </span>
-                        </div>
+                        <p className="mt-0.5 truncate font-mono text-[11px] text-ink-500">
+                          {client.phone ?? 'raqam yo\'q'}
+                        </p>
 
                         <div className="mt-1.5 flex flex-wrap gap-1">
                           {client.doNotContact ? (
@@ -1147,18 +1037,10 @@ export default function ClientsPage() {
                   <th className="px-6 py-2.5 text-left font-medium">Mijoz</th>
                   <th className="px-3 py-2.5 text-left font-medium">Telefon</th>
                   <th className="px-3 py-2.5 text-left font-medium">Telegram</th>
-                  <th
-                    className="px-3 py-2.5 text-left font-medium"
-                    title="CRM'dagi shartnoma holati — agent &quot;Сотилди&quot;, &quot;К оплате&quot; va &quot;Проц. отказ&quot; bo'yicha yozadi"
-                  >
-                    Shartnoma
-                  </th>
                   <th className="px-3 py-2.5 text-left font-medium">Bosqich</th>
                   <th className="px-3 py-2.5 text-left font-medium">Manba</th>
                   <th className="px-3 py-2.5 text-left font-medium">Akkaunt</th>
-                  <th className="px-3 py-2.5 text-right font-medium" title="Долг (мес.) — agent mijozga shu summani aytadi">Oyma-oy kechikish</th>
-                  <th className="px-3 py-2.5 text-right font-medium" title="Долг (Общ) — boshlang'ich to'lovdagi kechikish bilan birga">Umumiy kechikish</th>
-                  <th className="px-6 py-2.5 text-right font-medium">Kechikish</th>
+                  <th className="px-6 py-2.5 text-right font-medium">To'langan</th>
                 </tr>
               </thead>
               <tbody>
@@ -1224,25 +1106,6 @@ export default function ClientsPage() {
                         </p>
                       ) : null}
                     </td>
-                    {/* Shartnoma holati. Mijozda bir nechta shartnoma bo'lsa
-                        hammasi ko'rsatiladi — aralash holat aynan "nega
-                        bunga xabar ketmadi?" degan savolni tug'diradi. */}
-                    <td className="px-3 py-2.5">
-                      {client.contractStatuses.length === 0 ? (
-                        <span className="text-ink-600">—</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {client.contractStatuses.map((k) => (
-                            <span
-                              key={k}
-                              className={CONTRACT_STATUS_CLASS[k] ?? 'chip bg-ink-800 text-ink-400'}
-                            >
-                              {statusLabel.get(k) ?? k}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
                     <td className="px-3 py-2.5">
                       {client.purchase ? (
                         <>
@@ -1265,14 +1128,8 @@ export default function ClientsPage() {
                     <td className="px-3 py-2.5 text-ink-400">
                       {client.accountName ?? '—'}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-medium tabular-nums text-red-300">
-                      {somShort(client.debtMonthly)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-ink-400">
-                      {somShort(client.debtTotal)}
-                    </td>
-                    <td className="px-6 py-2.5 text-right text-xs text-ink-500">
-                      {client.daysOverdue > 0 ? `${client.daysOverdue} kun` : '—'}
+                    <td className="px-6 py-2.5 text-right tabular-nums text-ink-300">
+                      {client.purchase && client.purchase.paidAmount > 0 ? somShort(client.purchase.paidAmount) : '—'}
                     </td>
                   </tr>
                 ))}
@@ -1333,7 +1190,6 @@ export default function ClientsPage() {
             ) : null}
           </div>
         ) : null}
-        </>)}
       </div>
 
       {/* Kompyuterda ustun jadval bilan yonma-yon turadi — operator

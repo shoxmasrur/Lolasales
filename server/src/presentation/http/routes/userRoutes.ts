@@ -5,18 +5,8 @@ import { PERMISSION_GROUPS, PERMISSIONS, isPermission } from '@/domain/entities/
 import { ADMIN_ROLE_KEY } from '@/domain/entities/Role';
 import { toPublicUser } from '@/domain/entities/User';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
-import { yopiqCheklanganga } from '@/presentation/http/middleware/qamrov';
 import { parseBody } from '@/presentation/http/middleware/validate';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/shared/errors';
-
-/**
- * Obyekt cheklovi: nomlar qirqiladi, takrorlar bitta bo'ladi (birinchi
- * uchragan tartibda). Bo'sh ro'yxat — cheklovsiz.
- */
-const objectList = z
-  .array(z.string().trim().min(1, 'Obyekt nomi bo\'sh').max(200, 'Obyekt nomi juda uzun'))
-  .max(100, 'Obyektlar juda ko\'p')
-  .transform((list) => [...new Set(list)]);
 
 const permissionList = z.array(z.string()).transform((list) => list.filter(isPermission));
 
@@ -25,7 +15,6 @@ const createUserSchema = z.object({
   fullName: z.string().min(2, 'Ism juda qisqa'),
   password: z.string().min(8, 'Parol kamida 8 belgi bo\'lsin'),
   roleId: z.string().uuid('Rol tanlanmagan'),
-  objects: objectList.optional(),
 });
 
 const updateUserSchema = z.object({
@@ -33,7 +22,6 @@ const updateUserSchema = z.object({
   roleId: z.string().uuid().optional(),
   password: z.string().min(8, 'Parol kamida 8 belgi bo\'lsin').optional(),
   isActive: z.boolean().optional(),
-  objects: objectList.optional(),
 });
 
 const createRoleSchema = z.object({
@@ -60,11 +48,8 @@ const updateRoleSchema = z.object({
 
 export function userRoutes(container: Container): Router {
   const router = Router();
-  const { users, roles, apiTokens, audit, contracts } = container.repositories;
+  const { users, roles, apiTokens, audit } = container.repositories;
   const { hasher } = container;
-  // Obyekt bilan cheklangan foydalanuvchi foydalanuvchi, rol va API kalitlarni
-  // boshqara olmaydi (o'z cheklovini olib tashlamasin) — faqat o'qish (GET).
-  const tahrirYopiq = yopiqCheklanganga();
 
   // ─── Ruxsatlar katalogi (rol tahrirlash oynasi uchun) ───────────────────
   router.get('/permissions', requirePermission('roles.manage'), (_req, res) => {
@@ -80,7 +65,7 @@ export function userRoutes(container: Container): Router {
     res.json({ items: withCounts });
   });
 
-  router.post('/roles', requirePermission('roles.manage'), tahrirYopiq, async (req, res) => {
+  router.post('/roles', requirePermission('roles.manage'), async (req, res) => {
     const actor = currentUser(req);
     const payload = parseBody(createRoleSchema, req);
 
@@ -102,7 +87,7 @@ export function userRoutes(container: Container): Router {
     res.status(201).json({ role });
   });
 
-  router.patch('/roles/:id', requirePermission('roles.manage'), tahrirYopiq, async (req, res) => {
+  router.patch('/roles/:id', requirePermission('roles.manage'), async (req, res) => {
     const actor = currentUser(req);
     const patch = parseBody(updateRoleSchema, req);
     const role = await roles.findById(String(req.params.id));
@@ -129,7 +114,7 @@ export function userRoutes(container: Container): Router {
     res.json({ role: updated });
   });
 
-  router.delete('/roles/:id', requirePermission('roles.manage'), tahrirYopiq, async (req, res) => {
+  router.delete('/roles/:id', requirePermission('roles.manage'), async (req, res) => {
     const actor = currentUser(req);
     const role = await roles.findById(String(req.params.id));
     if (!role) throw new NotFoundError('Rol', String(req.params.id));
@@ -160,7 +145,7 @@ export function userRoutes(container: Container): Router {
     res.json({ items: await apiTokens.list() });
   });
 
-  router.post('/tokens', requirePermission('users.manage'), tahrirYopiq, async (req, res) => {
+  router.post('/tokens', requirePermission('users.manage'), async (req, res) => {
     const actor = currentUser(req);
     const payload = parseBody(createTokenSchema, req);
 
@@ -186,7 +171,7 @@ export function userRoutes(container: Container): Router {
     res.status(201).json({ token: created.token, plainKey: created.plainKey });
   });
 
-  router.delete('/tokens/:id', requirePermission('users.manage'), tahrirYopiq, async (req, res) => {
+  router.delete('/tokens/:id', requirePermission('users.manage'), async (req, res) => {
     const actor = currentUser(req);
     await apiTokens.revoke(String(req.params.id));
 
@@ -200,18 +185,13 @@ export function userRoutes(container: Container): Router {
     res.json({ ok: true });
   });
 
-  // ─── Obyektlar katalogi (foydalanuvchiga biriktirish uchun) ─────────────
-  router.get('/obyektlar', requirePermission('users.manage'), async (_req, res) => {
-    res.json({ items: await contracts.obyektNomlari() });
-  });
-
   // ─── Foydalanuvchilar ───────────────────────────────────────────────────
   router.get('/', requirePermission('users.view'), async (_req, res) => {
     const list = await users.list();
     res.json({ items: list.map(toPublicUser) });
   });
 
-  router.post('/', requirePermission('users.manage'), tahrirYopiq, async (req, res) => {
+  router.post('/', requirePermission('users.manage'), async (req, res) => {
     const actor = currentUser(req);
     const payload = parseBody(createUserSchema, req);
 
@@ -227,7 +207,6 @@ export function userRoutes(container: Container): Router {
       fullName: payload.fullName,
       passwordHash: await hasher.hash(payload.password),
       roleId: payload.roleId,
-      objects: payload.objects ?? [],
     });
 
     await audit.record({
@@ -235,13 +214,13 @@ export function userRoutes(container: Container): Router {
       action: 'user.created',
       entity: 'user',
       entityId: user.id,
-      payload: { email: user.email, role: user.role.key, objects: user.objects },
+      payload: { email: user.email, role: user.role.key },
     });
 
     res.status(201).json({ user: toPublicUser(user) });
   });
 
-  router.patch('/:id', requirePermission('users.manage'), tahrirYopiq, async (req, res) => {
+  router.patch('/:id', requirePermission('users.manage'), async (req, res) => {
     const actor = currentUser(req);
     const id = String(req.params.id);
     const patch = parseBody(updateUserSchema, req);
@@ -278,7 +257,6 @@ export function userRoutes(container: Container): Router {
       fullName: patch.fullName,
       roleId: patch.roleId,
       isActive: patch.isActive,
-      objects: patch.objects,
       ...(patch.password ? { passwordHash: await hasher.hash(patch.password) } : {}),
     });
 
@@ -293,8 +271,7 @@ export function userRoutes(container: Container): Router {
         fullName: patch.fullName,
         role: updated.role.key,
         isActive: patch.isActive,
-        objects: patch.objects,
-        passwordChanged: Boolean(patch.password),
+          passwordChanged: Boolean(patch.password),
       },
     });
 
@@ -308,7 +285,7 @@ export function userRoutes(container: Container): Router {
    * bir necha marta adashgan. Bunday holatda parolni ham almashtirish
    * keraksiz ish va yangi parolni yetkazish muammosini keltirib chiqaradi.
    */
-  router.post('/:id/unlock', requirePermission('users.manage'), tahrirYopiq, async (req, res) => {
+  router.post('/:id/unlock', requirePermission('users.manage'), async (req, res) => {
     const actor = currentUser(req);
     const id = String(req.params.id);
 
@@ -337,7 +314,7 @@ export function userRoutes(container: Container): Router {
     res.json({ user: toPublicUser(updated ?? user) });
   });
 
-  router.delete('/:id', requirePermission('users.manage'), tahrirYopiq, async (req, res) => {
+  router.delete('/:id', requirePermission('users.manage'), async (req, res) => {
     const actor = currentUser(req);
     const id = String(req.params.id);
 

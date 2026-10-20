@@ -72,7 +72,7 @@ function foydalanuvchi(permissions: Permission[]): User {
     },
     isActive: true,
     failedLoginAttempts: 0,
-    lockedAt: null, objects: [],
+    lockedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

@@ -3,7 +3,7 @@
 # Produksiyaga chiqarish — serverning O'ZIDA bajariladi.
 #
 # GitHub Actions buni SSH orqali ishga tushiradi, lekin qo'lda ham
-# ishlatsa bo'ladi:  ssh debitor-new 'bash -s' < scripts/deploy.sh
+# ishlatsa bo'ladi:  ssh lolasales 'bash -s' < scripts/deploy.sh
 #
 # Nima qiladi: kodni GitHub'dan tortadi, bog'liqliklarni o'rnatadi,
 # build qiladi va xizmatni qayta ishga tushiradi. Migratsiyalar xizmat
@@ -14,8 +14,8 @@
 
 set -euo pipefail
 
-APP_DIR=${APP_DIR:-/opt/debitor-agent}
-SERVICE=${SERVICE:-debitor}
+APP_DIR=${APP_DIR:-/opt/lolasales}
+SERVICE=${SERVICE:-lolasales}
 BRANCH=${BRANCH:-main}
 
 log() { printf '\n\033[1;36m▸ %s\033[0m\n' "$*"; }
@@ -27,10 +27,10 @@ cd "$APP_DIR"
 # Har bir deploy migratsiya olib kelishi mumkin. Zaxira arzon, buzilgan
 # bazani tiklash esa qimmat. Oxirgi 10 tasi saqlanadi.
 log "Baza zaxirasi"
-BACKUP_DIR=/var/backups/debitor
+BACKUP_DIR=/var/backups/lolasales
 mkdir -p "$BACKUP_DIR"
 STAMP=$(date +%Y%m%d-%H%M%S)
-sudo -u postgres pg_dump debitor_agent02 | gzip > "$BACKUP_DIR/db-$STAMP.sql.gz"
+sudo -u postgres pg_dump lolasales | gzip > "$BACKUP_DIR/db-$STAMP.sql.gz"
 ls -1t "$BACKUP_DIR"/db-*.sql.gz | tail -n +11 | xargs -r rm --
 echo "  $BACKUP_DIR/db-$STAMP.sql.gz ($(du -h "$BACKUP_DIR/db-$STAMP.sql.gz" | cut -f1))"
 
@@ -51,7 +51,7 @@ log "O'rnatish va build"
 NODE_ENV=development npm ci --include=dev
 npm run build
 
-chown -R debitor:debitor "$APP_DIR"
+chown -R lolasales:lolasales "$APP_DIR"
 
 # ─── Ishga tushirish ───────────────────────────────────────────────────
 log "Xizmatni qayta ishga tushirish"
@@ -78,5 +78,5 @@ done
 
 log "Tayyor"
 systemctl is-active "$SERVICE"
-sudo -u postgres psql -d debitor_agent02 -qtc \
+sudo -u postgres psql -d lolasales -qtc \
   "SELECT 'oxirgi migratsiya: ' || name FROM schema_migrations ORDER BY name DESC LIMIT 1;"

@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export type ThemeChoice = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
-const KEY = 'debitor.theme';
+const KEY = 'lolasales.theme';
 
 /** Saqlangan tanlov. Buzuq qiymat bo'lsa tizim sozlamasiga qaytamiz. */
 export function storedChoice(): ThemeChoice {
@@ -69,7 +69,7 @@ export const useTheme = create<ThemeState>((set, get) => ({
  * mavzuga qarab tanlanadi.
  *
  * Faqat NEYTRAL elementlar almashadi (o'q, to'r, tooltip). Ma'noli
- * ranglar — ko'k "biz undirgan", yashil, qizil — ikkala fonda ham
+ * ranglar — ko'k, yashil, qizil — ikkala fonda ham
  * o'qiladi va o'zgarmaydi.
  */
 export interface ChartColors {

@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
  * Agent promptining kodli manbaida qaytib kelmasligi kerak bo'lgan
  * so'z va shakllarni qo'riqlaydi:
  *
- *   • "qarz" — mijozga qarz demaymiz: Xonsaroy qarz bermagan, bo'lib-bo'lib
- *     to'lash shartnomasi tuzilgan;
+ *   • "qarz" — sotuv agenti mijozga qarz demaydi: bo'lib to'lashda ham
+ *     "qolgan summa" deyiladi;
  *   • "qachonroq" — o'zbek tilida bunday so'z yo'q, faqat "qachon";
  *   • "-da" zarrachasi — yozma matnda sun'iy eshitiladi (2026-08-12 tuzatishi).
  *   • eskrou yonidagi oy nomi — o'tish muddati tasdiqlanmagan (2026-08-20).

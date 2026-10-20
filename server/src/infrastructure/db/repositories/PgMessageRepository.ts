@@ -209,36 +209,4 @@ export class PgMessageRepository implements IMessageRepository {
     );
     return rows[0]?.bor === true;
   }
-
-  async yuborilganFayl(clientId: string, fileName: string): Promise<Message | null> {
-    // `deleted_at` ataylab filtrlanmaydi: o'chirilgan suhbatdagi xabar ham
-    // mijozga yetgan — shubha bo'lganda qayta yubormaymiz.
-    const { rows } = await query(
-      `SELECT m.* FROM messages m
-         JOIN conversations c ON c.id = m.conversation_id
-        WHERE c.client_id = $1
-          AND m.direction = 'out'
-          AND m.status NOT IN ('draft', 'failed')
-          AND m.media_file_name = $2
-        ORDER BY m.created_at DESC
-        LIMIT 1`,
-      [clientId, fileName],
-    );
-    return rows[0] ? mapMessage(rows[0]) : null;
-  }
-
-  async moveAll(fromConversationId: string, toConversationId: string): Promise<number> {
-    // `idx_messages_tg_unique (conversation_id, telegram_msg_id)`: maqsad
-    // suhbatda xuddi shu Telegram xabari bo'lsa, eskisi ko'chirilmaydi —
-    // u allaqachon bor.
-    const { rowCount } = await query(
-      `UPDATE messages m SET conversation_id = $2
-        WHERE m.conversation_id = $1
-          AND (m.telegram_msg_id IS NULL OR NOT EXISTS (
-                SELECT 1 FROM messages t
-                 WHERE t.conversation_id = $2 AND t.telegram_msg_id = m.telegram_msg_id))`,
-      [fromConversationId, toConversationId],
-    );
-    return rowCount ?? 0;
-  }
 }

@@ -41,9 +41,9 @@ export class PgUserRepository implements IUserRepository {
 
   async create(data: NewUser): Promise<User> {
     const { rows } = await query(
-      `INSERT INTO users (email, password_hash, full_name, role_id, objects)
-       VALUES (lower($1),$2,$3,$4,$5::text[]) RETURNING id`,
-      [data.email, data.passwordHash, data.fullName, data.roleId, data.objects ?? []],
+      `INSERT INTO users (email, password_hash, full_name, role_id)
+       VALUES (lower($1),$2,$3,$4) RETURNING id`,
+      [data.email, data.passwordHash, data.fullName, data.roleId],
     );
     const created = await this.findById(rows[0]!.id);
     if (!created) throw new NotFoundError('Foydalanuvchi');
@@ -62,7 +62,6 @@ export class PgUserRepository implements IUserRepository {
     if (patch.roleId !== undefined) push('role_id', patch.roleId);
     if (patch.passwordHash !== undefined) push('password_hash', patch.passwordHash);
     if (patch.isActive !== undefined) push('is_active', patch.isActive);
-    if (patch.objects !== undefined) push('objects', patch.objects);
 
     if (sets.length) {
       params.push(id);

@@ -3,7 +3,7 @@ import type { ImageKind } from '@/domain/services/IImageClassifier';
 /**
  * `note` — mijozga KETMAYDIGAN ichki qayd: operatorning agentga topshirig'i.
  *
- * Alohida yo'nalish ATAYLAB, `out` + maxsus holat emas: sukut, hisobot,
+ * Alohida yo'nalish ATAYLAB, `out` + maxsus holat emas: eslatma, hisobot,
  * "javobsiz xabar" va o'qilganlik hisoblari `direction = 'out'` bo'yicha
  * sanaydi. Qayd `out` bo'lsa, ularning har biri uni yuborilgan xabar deb
  * hisoblardi va har birini alohida tuzatish kerak bo'lardi.

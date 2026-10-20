@@ -20,9 +20,6 @@ const updateSchema = z.object({
   killSwitch: z.boolean().optional(),
   agentAutoReply: z.boolean().optional(),
   personaName: z.string().min(2).max(40).optional(),
-  promiseReminder: z.boolean().optional(),
-  promiseReminderUntil: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  promiseThanksUntil: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   eslatmaYoqilgan: z.boolean().optional(),
   // 1 soatdan 7 kungacha: undan ko'pi eslatma emas, yangi murojaat bo'lib tuyuladi.
   eslatmaSoat: z.number().int().min(1).max(168).optional(),
@@ -32,10 +29,6 @@ const updateSchema = z.object({
   gateMessageMaxSec: z.number().int().min(0).max(300).optional(),
   gateOtherMinSec: z.number().int().min(0).max(300).optional(),
   gateOtherMaxSec: z.number().int().min(0).max(300).optional(),
-  // Minimal qarzdorlik chegarasi. Yuqori chegara 10 mln: undan katta
-  // qiymat oylik to'lovdan oshib ketadi va butun kampaniyani jimgina
-  // o'chirib qo'yardi.
-  minDebt: z.number().int().min(0).max(10_000_000).optional(),
   paymentCards: z
     .array(
       z.object({

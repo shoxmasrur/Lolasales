@@ -9,7 +9,7 @@ import type { IClientRepository } from '@/domain/repositories/IClientRepository'
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IClock, IEventBus } from '@/domain/services/support';
-import { AbortedError, NomalumMijozXatosi, NotFoundError, StaleTurnError, ValidationError } from '@/shared/errors';
+import { AbortedError, NotFoundError, StaleTurnError, ValidationError } from '@/shared/errors';
 import { childLogger } from '@/shared/logger';
 
 const log = childLogger('agent-retry');
@@ -47,11 +47,6 @@ export class RetryAgentTurnUseCase {
   async execute(input: RetryAgentTurnInput): Promise<AgentTurnResult> {
     const conversation = await this.conversations.findById(input.conversationId);
     if (!conversation) throw new NotFoundError('Suhbat', input.conversationId);
-
-    // Noma'lum suhbatga asosiy agent qayta urinmaydi: javobni noma'lum
-    // agent beradi. Bayroqqa tegishdan OLDIN rad etiladi.
-    const client = await this.clients.findById(conversation.clientId);
-    if (client?.nomalum) throw new NomalumMijozXatosi();
 
     if (!conversation.needsHuman || conversation.humanKind !== 'agent_error') {
       throw new ValidationError('Bu suhbat texnik xato tufayli to\'xtamagan — qayta urinish yordam bermaydi');

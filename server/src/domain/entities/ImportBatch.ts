@@ -1,4 +1,4 @@
-export type ImportKind = 'debtors' | 'phones' | 'leads';
+export type ImportKind = 'leads';
 
 export interface ImportRowError {
   readonly row: number;
@@ -14,8 +14,6 @@ export interface ImportBatch {
   readonly rowsOk: number;
   readonly rowsFailed: number;
   readonly clientsCreated: number;
-  readonly contractsCreated: number;
-  readonly contractsUpdated: number;
   readonly errors: ImportRowError[];
   readonly createdBy: string | null;
   readonly createdAt: Date;

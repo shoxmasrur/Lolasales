@@ -31,7 +31,7 @@ function account(patch: Partial<TelegramAccount> = {}): TelegramAccount {
     peerFloodSince: null,
     spamStatus: 'clean', spamCheckedAt: null, spamMessage: null, spamUntil: null,
     proxy: null,
-    isEnabled: true, styleVersion: 'v1', llmModelId: null, premiumUntil: null, premiumEslatildi: null, createdAt: NOW, updatedAt: NOW,
+    isEnabled: true, styleVersion: 'v1', llmModelId: null, createdAt: NOW, updatedAt: NOW,
     ...patch,
   };
 }

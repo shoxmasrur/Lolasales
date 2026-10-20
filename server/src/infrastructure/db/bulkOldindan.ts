@@ -30,6 +30,5 @@ export function bulkOldindanSql(alive: string): string {
             LIMIT 1
          ) cv ON TRUE
         WHERE c.id = ANY($1::uuid[]) AND ${alive}
-          AND NOT c.nomalum
         ORDER BY c.full_name ASC`;
 }

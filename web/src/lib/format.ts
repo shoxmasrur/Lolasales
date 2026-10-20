@@ -1,4 +1,4 @@
-import type { ConversationState, EscalationStage } from '@/lib/types';
+import type { ConversationState } from '@/lib/types';
 
 const somFmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 
@@ -79,37 +79,15 @@ export function untilRelative(value: string | Date | null | undefined): string {
 export const STATE_LABEL: Record<ConversationState, string> = {
   new: 'Yangi',
   contacted: 'Yozildi',
-  negotiating: 'Muzokara',
-  promised: 'Va\'da berdi',
-  agreed: 'Kelishildi',
-  refused: 'Rad etdi',
-  unreachable: 'Javob yo\'q',
-  escalated: 'Inson kerak',
+  active: 'Faol',
   closed: 'Yopilgan',
 };
 
 export const STATE_COLOR: Record<ConversationState, string> = {
   new: 'bg-ink-800 text-ink-300',
   contacted: 'bg-sky-500/15 text-sky-300',
-  negotiating: 'bg-amber-500/15 text-amber-300',
-  promised: 'bg-violet-500/15 text-violet-300',
-  agreed: 'bg-emerald-500/15 text-emerald-300',
-  refused: 'bg-red-500/15 text-red-300',
-  unreachable: 'bg-ink-800 text-ink-400',
-  escalated: 'bg-orange-500/20 text-orange-300',
+  active: 'bg-emerald-500/15 text-emerald-300',
   closed: 'bg-ink-800 text-ink-500',
-};
-
-export const STAGE_LABEL: Record<EscalationStage, string> = {
-  soft: 'Eslatma',
-  hard: 'Qat\'iy',
-  legal: 'Huquqiy',
-};
-
-export const STAGE_COLOR: Record<EscalationStage, string> = {
-  soft: 'bg-emerald-500/15 text-emerald-300',
-  hard: 'bg-amber-500/15 text-amber-300',
-  legal: 'bg-red-500/15 text-red-300',
 };
 
 export const TELEGRAM_STATUS_LABEL: Record<string, string> = {
@@ -130,22 +108,3 @@ export function initials(name: string): string {
     .map((p) => p[0]?.toUpperCase() ?? '')
     .join('');
 }
-
-/**
- * Shartnoma holatining rangi.
- *
- * Faqat RANG shu yerda: nomlar serverdan keladi
- * (`/clients/contract-statuses`), aks holda ikkita lug'at vaqt o'tib
- * bir-biridan ajrab ketardi.
- *
- * Agent "Сотилди", "К оплате" va "Проц. отказ" bo'yicha yozadi
- * (2026-10-13 dan). "Проц. отказ" baribir ajralib turadi — bekor
- * qilinayotgan shartnoma; "К возврату" — agent yozmaydi.
- */
-export const CONTRACT_STATUS_CLASS: Record<string, string> = {
-  sold: 'chip bg-emerald-500/15 text-emerald-300',
-  cancellation_process: 'chip bg-orange-500/15 text-orange-300',
-  for_return: 'chip bg-red-500/15 text-red-300',
-  for_payment: 'chip bg-amber-500/15 text-amber-300',
-  waiting: 'chip bg-ink-800 text-ink-400',
-};

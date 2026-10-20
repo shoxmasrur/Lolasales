@@ -9,7 +9,7 @@ import { canReply } from '@/domain/entities/TelegramAccount';
 import { chekTekshiruviFaolmi, type PaymentCheck } from '@/domain/entities/PaymentCheck';
 import { kutilganChekSummasi } from '@/domain/services/karta';
 import { NotFoundError, ValidationError } from '@/shared/errors';
-import { qamrov, qamrovParam, yopiqCheklanganga } from '@/presentation/http/middleware/qamrov';
+import { CONVERSATION_STATES, type ConversationState } from '@/domain/entities/Conversation';
 
 // Telegramning o'z chegarasi 2 GB, lekin dashboard uchun MEDIA_MAX_MB yetarli.
 const uploadMedia = multer({
@@ -19,15 +19,11 @@ const uploadMedia = multer({
 
 const listQuery = z.object({
   search: z.string().optional(),
-  state: z
-    .enum(['new', 'contacted', 'negotiating', 'promised', 'agreed', 'refused', 'unreachable', 'escalated', 'closed'])
-    .optional(),
-  stage: z.enum(['soft', 'hard', 'legal']).optional(),
+  state: z.enum(CONVERSATION_STATES as [ConversationState, ...ConversationState[]]).optional(),
   needsHuman: z.enum(['true', 'false']).optional(),
   unreadOnly: z.enum(['true', 'false']).optional(),
   blocked: z.enum(['true', 'false']).optional(),
   receiptPending: z.enum(['true', 'false']).optional(),
-  objectName: z.string().optional(),
   telegramAccountId: z.string().uuid().optional(),
   clientId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
@@ -63,9 +59,7 @@ const editMessageSchema = z.object({
 });
 
 const patchSchema = z.object({
-  state: z
-    .enum(['new', 'contacted', 'negotiating', 'promised', 'agreed', 'refused', 'unreachable', 'escalated', 'closed'])
-    .optional(),
+  state: z.enum(CONVERSATION_STATES as [ConversationState, ...ConversationState[]]).optional(),
   agentEnabled: z.boolean().optional(),
   needsHuman: z.boolean().optional(),
   humanReason: z.string().nullable().optional(),
@@ -81,7 +75,7 @@ const patchSchema = z.object({
 
 export function conversationRoutes(container: Container): Router {
   const router = Router();
-  const { conversations, messages, clients, contracts, promises, audit, paymentChecks } = container.repositories;
+  const { conversations, messages, clients, audit, paymentChecks } = container.repositories;
 
   /** Chek tasdig'i oynasidagi standart summa — chek bog'langan (yo'q bo'lsa faol) xariddan. */
   const kutilganSumma = async (check: PaymentCheck): Promise<number | null> => {
@@ -95,20 +89,12 @@ export function conversationRoutes(container: Container): Router {
   };
 
   /**
-   * Obyekt cheklovi: `/:id` va `/:id/*` — suhbat mijozi qamrovda bo'lmasa
-   * (yoki suhbat o'chirilgan bo'lsa) 404, amal bajarilmaydi. Xabar
-   * yo'llarida (`/:id/messages/:messageId`) xabarning shu suhbatniki
-   * ekanini use case o'zi tekshiradi. Cheklanmaganda hech narsa o'zgarmaydi.
-   */
-  router.param('id', qamrovParam((q, id) => container.services.qamrovTekshiruvchi.suhbat(q, id)));
-
-  /**
    * Barcha yozishmalarni tozalab, sinovni noldan boshlash.
    *
    * `/:id` yo'llaridan OLDIN turishi shart — aks holda "reset" suhbat id'si
    * sifatida o'qiladi.
    */
-  router.post('/reset', requirePermission('conversations.reset'), yopiqCheklanganga(), async (req, res) => {
+  router.post('/reset', requirePermission('conversations.reset'), async (req, res) => {
     const user = currentUser(req);
     const { resetCampaigns } = parseBody(resetSchema, req);
 
@@ -132,17 +118,15 @@ export function conversationRoutes(container: Container): Router {
     const page = await conversations.list({
       search: q.search,
       state: q.state,
-      stage: q.stage,
       needsHuman: q.needsHuman === 'true' ? true : undefined,
       unreadOnly: q.unreadOnly === 'true' ? true : undefined,
       blocked: q.blocked === 'true' ? true : undefined,
       receiptPending: q.receiptPending === 'true' ? true : undefined,
-      objectName: q.objectName,
       telegramAccountId: q.telegramAccountId,
       clientId: q.clientId,
       limit: q.limit,
       offset: q.offset,
-    }, qamrov(req));
+    });
     res.json(page);
   });
 
@@ -152,8 +136,8 @@ export function conversationRoutes(container: Container): Router {
   // Alohida endpoint kerak, chunki akkauntlar ro'yxati `/telegram/accounts`
   // da turadi va u `telegram.view` ruxsatini talab qiladi — faqat suhbatlar
   // bilan ishlaydigan operatorda bunday ruxsat bo'lmasligi mumkin.
-  router.get('/filters', async (req, res) => {
-    res.json(await conversations.filterOptions(qamrov(req)));
+  router.get('/filters', async (_req, res) => {
+    res.json(await conversations.filterOptions());
   });
 
   /**
@@ -200,10 +184,12 @@ export function conversationRoutes(container: Container): Router {
     const conversation = await conversations.findById(id);
     if (!conversation) throw new NotFoundError('Suhbat', id);
 
-    const [client, clientContracts, activePromise, allAccounts, openCheck] = await Promise.all([
+    const { purchases } = container.repositories;
+    const [client, purchase, allAccounts, openCheck] = await Promise.all([
       clients.findById(conversation.clientId),
-      contracts.findByClientId(conversation.clientId),
-      promises.findActiveByConversation(id),
+      purchases
+        .findActiveByClient(conversation.clientId)
+        .then(async (p) => p ?? (await purchases.findLatestByClient(conversation.clientId))),
       container.repositories.telegramAccounts.list(),
       paymentChecks.findOpenByConversation(id),
     ]);
@@ -221,8 +207,7 @@ export function conversationRoutes(container: Container): Router {
     res.json({
       conversation,
       client,
-      contracts: clientContracts,
-      activePromise,
+      purchase,
       accountOptions,
       // Ochiq chek tekshiruvi — "Tasdiqlash"/"Rad etish" tugmalari shunga qarab
       // ko'rinadi. `aniqlanmagan` ham kiradi: operator uni chek deb topishi mumkin.
@@ -237,11 +222,6 @@ export function conversationRoutes(container: Container): Router {
             }
           : null,
       linkPending,
-      // Operator va agent oyma-oy kechikish bilan ishlaydi; umumiy kechikish —
-      // faqat ma'lumot uchun.
-      debtMonthly: clientContracts.reduce((s, c) => s + c.debtMonthly, 0),
-      debtTotal: clientContracts.reduce((s, c) => s + c.debtTotal, 0),
-      daysOverdue: clientContracts.reduce((m, c) => Math.max(m, c.daysOverdue), 0),
     });
   });
 
@@ -384,7 +364,7 @@ export function conversationRoutes(container: Container): Router {
     const updated = await conversations.update(String(req.params.id), patch);
 
     // Yopilgan suhbatda ochiq to'lov tekshiruvi qolmasin: chek tekshiruvini
-    // endi hech kim tugma bilan yopmaydi, u esa sukut va agent qoidalariga
+    // endi hech kim tugma bilan yopmaydi, u esa eslatma va agent qoidalariga
     // ta'sir qilib turardi.
     if (patch.state === 'closed') {
       await container.services.paymentCheckService.cancel(updated.id);

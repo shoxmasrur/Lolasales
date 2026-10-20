@@ -25,7 +25,7 @@ export interface ICampaignRepository {
   findRunning(): Promise<Campaign[]>;
   setStatus(id: string, status: CampaignStatus): Promise<Campaign>;
 
-  addTargets(campaignId: string, targets: Array<{ clientId: string; contractId: string | null }>): Promise<number>;
+  addTargets(campaignId: string, clientIds: string[]): Promise<number>;
   listTargets(campaignId: string, pagination?: Pagination): Promise<Page<CampaignTarget>>;
   /** Navbatdagi yuborilmagan nishonlarni bandlab olish (FOR UPDATE SKIP LOCKED). */
   claimNextTargets(campaignId: string, limit: number): Promise<CampaignTarget[]>;

@@ -4,8 +4,7 @@ import type { IClientRepository } from '@/domain/repositories/IClientRepository'
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
-import type { IClock, IEventBus } from '@/domain/services/support';
-import type { ITalabnomaSukuti } from '@/domain/services/ITalabnomaSukuti';
+import type { IEventBus } from '@/domain/services/support';
 import type { AgentRunner } from '@/application/services/AgentRunner';
 import type { ClientTelegramResolver } from '@/application/services/ClientTelegramResolver';
 import type { ITelegramGateway } from '@/domain/services/ITelegramGateway';
@@ -16,23 +15,16 @@ import { childLogger } from '@/shared/logger';
 
 const log = childLogger('start-conversation');
 
-/**
- * O'tkazib yuborishning mashina o'qiydigan kodi. `reason` — operatorga
- * ko'rinadigan matn; kod faqat chaqiruvchi sababni ajratishi kerak bo'lgan
- * joylar uchun (hozircha bitta).
- */
-export type StartSkipCode = 'talabnoma_sukuti';
-
 export type StartConversationResult =
   | { status: 'started'; conversation: Conversation; reply: string | null }
-  | { status: 'skipped'; reason: string; conversation: Conversation | null; code?: StartSkipCode };
+  | { status: 'skipped'; reason: string; conversation: Conversation | null };
 
 export interface StartConversationOptions {
   /**
    * Telegramdagi ism mijozning ismiga mos kelmasa ham xabar yuborish.
    *
    * Sukut bo'yicha bunday mijozga YOZILMAYDI: raqam boshqa odamga o'tgan
-   * bo'lsa, to'lov haqidagi xabar begonaga ketadi. Bu bayroq faqat operator
+   * bo'lsa, xabar begonaga ketadi. Bu bayroq faqat operator
    * dashboardda ogohlantirishni va ro'yxatni ko'rib, ataylab tasdiqlaganda
    * keladi — va har bir bunday mijoz jurnalga alohida yoziladi.
    */
@@ -67,7 +59,7 @@ export interface StartConversationOptions {
  * Mijoz (lead) bilan birinchi aloqani boshlaydi:
  * telefon → Telegram profili (guruh/reklama leadida u allaqachon 'found' —
  * qidiruvsiz) → suhbat yozuvi → agentning birinchi xabari.
- * Shartnoma yoki qarz shartlari yo'q: sotuvda har bir lead yoziladi.
+ * Sotuvda har bir yaroqli lead yoziladi.
  */
 export class StartConversationUseCase {
   constructor(
@@ -80,12 +72,6 @@ export class StartConversationUseCase {
     private readonly telegram: ITelegramGateway,
     /** Takror birinchi xabardan himoya — suhbatda ketgan xabar bormi. */
     private readonly messages: IMessageRepository,
-    /**
-     * Talabnoma muddati ichida suhbat boshlanmaydi — bu agentning O'Z
-     * tashabbusi (ommaviy boshlash, kampaniya, bitta mijoz tugmasi).
-     */
-    private readonly talabnomaSukuti: ITalabnomaSukuti,
-    private readonly clock: Pick<IClock, 'todayIso'>,
   ) {}
 
   async execute(
@@ -102,13 +88,6 @@ export class StartConversationUseCase {
     }
 
     const existing = await this.conversations.findByClientId(clientId);
-
-    // Talabnoma muddati — sinx va Telegram qidiruvidan OLDIN: behuda HTTP va
-    // MTProto so'rovi ketmasin.
-    if (await this.talabnomaSukuti.sukutdami(clientId, this.clock.todayIso())) {
-      log.debug({ clientId }, 'Suhbat boshlanmadi — talabnoma muddati');
-      return { status: 'skipped', code: 'talabnoma_sukuti', reason: 'Talabnoma muddati tugamagan', conversation: existing };
-    }
 
     if (existing && existing.state !== 'new') {
       return { status: 'skipped', reason: 'Suhbat allaqachon boshlangan', conversation: existing };
@@ -196,8 +175,6 @@ export class StartConversationUseCase {
       (await this.conversations.create({
         clientId,
         telegramAccountId: resolved.value.accountId,
-        // Debitor eskalatsiya bosqichi sotuvda ishlatilmaydi (Task 14 olib tashlaydi).
-        stage: 'soft',
       }));
 
     const prepared = await this.conversations.update(conversation.id, {
@@ -232,7 +209,7 @@ export class StartConversationUseCase {
     //
     // Xato yutiladi: xabar allaqachon ketgan, kontakt esa ikkinchi
     // darajali. Keyingi suhbat boshlanganda o'zi qayta yoziladi.
-    const name = contactName(null, client.fullName, client.firstName);
+    const name = contactName(client.fullName, client.firstName);
     await this.telegram
       .saveContact(resolved.value.accountId, resolved.value.peer, name.first, name.last)
       .catch((err) => {

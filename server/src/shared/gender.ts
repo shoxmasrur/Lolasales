@@ -166,7 +166,7 @@ function firstName(parts: string[]): string | null {
  * Agent ishlatadigan iliq murojaat shakli: "Zokirjon aka", "Nargiza opa".
  * Jins aniqlanmasa null — bunda agent ismni umuman ishlatmaydi.
  *
- * `knownFirstName` — CRM'dan kelgan ANIQ ism (`first_name`). Berilgan bo'lsa
+ * `knownFirstName` — ANIQ ism (`first_name`, masalan Telegram profilidan). Berilgan bo'lsa
  * taxminiy ajratish umuman ishlatilmaydi. Jins esa baribir TO'LIQ ismdan
  * aniqlanadi: otasining ismi (-ovich / -ovna) eng ishonchli belgi va u
  * `first_name` da yo'q.

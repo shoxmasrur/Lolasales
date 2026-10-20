@@ -45,10 +45,6 @@ jobs:
           npm run test:spam-parser --workspace=server
           npm run test:telegram-errors --workspace=server
           npm run test:peer-selection --workspace=server
-          npm run test:tolov-kaliti --workspace=server
-          npm run test:minimal-qarz --workspace=server
-          npm run test:contract-mapper --workspace=server
-          npm run test:contract-upsert-guard --workspace=server
           # Agent promptidagi taqiqlangan so'zlar (qarz, qachonroq, -da, ajoyib).
           npm run test:lugat --workspace=server
           # Standart sotuv qoidalari: qarz so'zlari yo'q, brief bo'limlari, e'tirozlar, mijoz turlari.
@@ -60,19 +56,12 @@ jobs:
           npm run test:llm-narxi --workspace=server
           # Sof funksiya — `shared/config` ni tortmaydi, `.env` shart emas.
           npm run test:llm-tamgasi --workspace=server
-          npm run test:shartnoma-raqami --workspace=server
-          npm run test:boglash-qarori --workspace=server
-          # `mapClient` o'qiydigan har ustun `COLS` da bor — `nomalum` tanlanmasa himoya o'chadi. Statik.
+          # `mapClient` o'qiydigan har ustun `COLS` da bor. Statik.
           npm run test:client-cols --workspace=server
           npm run test:xarid-sharti --workspace=server
           npm run test:xarid-xizmati --workspace=server
-          # Obyekt cheklovi: qamrov yadrosi (admin/bo'sh — hammasi; trim, takrorsiz,
-          # tartib; kesh kaliti) va SQL sharti (cheklanmaganda `TRUE`, params tegilmaydi).
-          npm run test:mijoz-qamrovi --workspace=server
-          npm run test:qamrov-sharti --workspace=server
-          # Qamrov guard'i: cheklanmaganda repo chaqirilmaydi; begona → 404,
-          # yaroqsiz uuid SQL'ga yetmaydi; kesishda kirish tartibi saqlanadi.
-          npm run test:qamrov-tekshiruvchi --workspace=server
+          npm run test:mijoz-tartibi --workspace=server
+          npm run test:contact-name --workspace=server
 
       # Bular `AgentRunner` yoki `shared/datetime` orqali `shared/config` ni
       # tortadi, u esa ishga tushishda `.env` ni tekshiradi. CI'da `.env`
@@ -85,27 +74,18 @@ jobs:
           JWT_SECRET: ci-uchun-soxta-kalit-16+
           ENCRYPTION_KEY: ci-uchun-soxta-kalit-16+
         run: |
-          npm run test:minimal-qarz-sozlamasi --workspace=server
           # Mijozga XABAR YUBORADIGAN yo'lning darvozasi — ro'yxatda
           # bo'lmasa, qulf yo'q.
           npm run test:eskirgan-javob --workspace=server
           npm run test:uzilgan-navbat --workspace=server
-          # Sukutdan keyingi qayta murojaat. Bu testlar mijozga XABAR
+          # Jim qolgan mijozga eslatma. Bu testlar mijozga XABAR
           # YUBORADIGAN yo'lni qo'riqlaydi — ro'yxatda bo'lmasa, qulf yo'q.
-          npm run test:sukut --workspace=server
           npm run test:eslatma --workspace=server
           npm run test:eslatma-kuzatuvchi --workspace=server
           # Operator topshirig'i — mijozga XABAR YUBORADIGAN yo'l.
           npm run test:agent-topshirigi --workspace=server
           npm run test:operator-vazifasi --workspace=server
-          # CRM javob bermaganda debouncer buferi yo'qolmaydi (14-vazifagacha).
-          npm run test:debounce-crm --workspace=server
-          # Qayta aloqa ro'yxati — operator tanlaydi, agent mijozga YOZADI.
-          npm run test:qayta-aloqa --workspace=server
-          npm run test:mavzu-tekshiruvi --workspace=server
-          npm run test:recontact-topics --workspace=server
-          npm run test:bulk-recontact --workspace=server
-          # Chek operator tasdig'i (105). Rasm tasnifchisi obuna tokeni bilan.
+          # Chek operator tasdig'i. Rasm tasnifchisi obuna tokeni bilan.
           npm run test:chek-tasnif-auth --workspace=server
           npm run test:rasm-tasnifi --workspace=server
           # PDF chek tasnifi (2026-09-24) — tasnifchi `document` blokini yuboradi.
@@ -135,7 +115,6 @@ jobs:
           npm run test:bulk-lookup-resume --workspace=server
           npm run test:bulk-lookup-stop --workspace=server
           npm run test:bulk-start-resume --workspace=server
-          npm run test:bulk-recontact-resume --workspace=server
           npm run test:stt-xonzoda --workspace=server
           npm run test:stt-taqqoslash --workspace=server
           npm run test:start-takror-himoyasi --workspace=server
@@ -168,27 +147,8 @@ jobs:
           npm run test:llm-marshruti --workspace=server
           # Suhbatlar ro'yxati `clientId` filtri: UUID repoga, aks holda 422.
           npm run test:conversation-list-route --workspace=server
-          # Obyekt cheklovi: foydalanuvchi `objects` (qirqilgan, takrorsiz) saqlanadi,
-          # `/users` va `/auth/me` da qaytadi, tahrirdan keyin kesh tozalanadi;
-          # `/users/obyektlar` — `users.manage` siz 403.
-          npm run test:user-objects --workspace=server
-          # Obyekt cheklovi — `/clients`: ro'yxat/eksport/sonlar repoga qamrov bilan,
-          # begona `/:id` 404, `from-contract` CRM obyekti bo'yicha 404, ommaviy
-          # amallarda kesish + `chiqarildi`, boshqaning vazifasi ismsiz va to'xtatilmaydi.
-          npm run test:client-qamrov --workspace=server
-          # Obyekt cheklovi — suhbatlar: ro'yxat/filtrlar repoga qamrov bilan, begona
-          # `/:id` va `/:id/*` 404, reset va noma'lum amallari 403 OBYEKT_CHEKLOVI,
-          # begona media xabari va mijoz xotirasi 404.
-          npm run test:suhbat-qamrov --workspace=server
-          # Obyekt cheklovi — qayta aloqa va statistika: dashboard/period/promises va
-          # qayta aloqa ro'yxati repoga qamrov bilan, ommaviy yuborishda kesish +
-          # `chiqarildi`, boshqaning navbati ismsiz va to'xtatilmaydi.
-          npm run test:stats-qamrov --workspace=server
           # Fayl yetkazilgach yiqilgan hisob yozuvi xabarni "failed" qilmaydi.
           npm run test:dispatcher-fayl --workspace=server
-          # Bu shoxda tegilgan, `shared/config` ni tortadigan specs: shartnoma
-          # sinxi (avval CI'da umuman yo'q edi).
-          npm run test:contract-sync --workspace=server
           # Kiruvchi oqim: faqat shaxsiy chat va haqiqiy foydalanuvchi.
           npm run test:kiruvchi-filtr --workspace=server
           # To'lov kartasi xabari: tanlash, summa, tayyorlik, matn.
@@ -208,6 +168,16 @@ jobs:
           # Ketayotgan navbatni uzish va bloklagan mijozga eslatma yozmaslik.
           npm run test:agent-abort --workspace=server
           npm run test:blocked-reminder --workspace=server
+          # Ommaviy suhbat boshlash: o'tkazib yuborilganlar ismi bilan, parallel oqimlar.
+          npm run test:bulk-skip-details --workspace=server
+          npm run test:bulk-parallel --workspace=server
+          # Mijozlar Excel eksporti ustunlari (qarz ustunlarisiz).
+          npm run test:eksport-jadvali --workspace=server
+          npm run test:mijoz-qatori --workspace=server
+          # Kunlik sotuv xulosasi matni (bot orqali).
+          npm run test:kunlik-xulosa --workspace=server
+          npm run test:log-context --workspace=server
+          npm run test:log-entry --workspace=server
 
       - name: Build
         run: npm run build

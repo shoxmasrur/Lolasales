@@ -17,7 +17,7 @@ import { telegramRoutes } from '@/presentation/http/routes/telegramRoutes';
  * NEGA soxta foydalanuvchi shunday tuzilgan: `telegramRoutes` PATCH
  * yo'lini `requirePermission('telegram.manage')` bilan himoya qiladi —
  * u `req.user` dan o'qiydi (`AuthContext.require`, token yoki API
- * kalitdan mustaqil). Shuning uchun `recontactTopicRoutes.spec.ts` dagi
+ * kalitdan mustaqil). Shuning uchun boshqa marshrut testlaridagi
  * kabi haqiqiy avtorizatsiyani aylanib o'tib, `x-rol: admin`
  * sarlavhasini o'qiydigan soxta middleware bilan `req.user` to'g'ridan
  * to'g'ri o'rnatiladi.
@@ -38,7 +38,7 @@ const account: TelegramAccount = {
   dailyLimit: 40, sentToday: 0, lookupLimit: 50, lookupsToday: 0, counterDate: null,
   floodWaitUntil: null, floodWaitSince: null, peerFloodSince: null,
   spamStatus: 'clean', spamCheckedAt: null, spamMessage: null, spamUntil: null,
-  proxy: null, isEnabled: true, styleVersion: 'v1', llmModelId: null, premiumUntil: null, premiumEslatildi: null, createdAt: NOW, updatedAt: NOW,
+  proxy: null, isEnabled: true, styleVersion: 'v1', llmModelId: null, createdAt: NOW, updatedAt: NOW,
 };
 
 const yozilgan: unknown[] = [];
@@ -74,7 +74,7 @@ function foydalanuvchi(permissions: Permission[]): User {
     },
     isActive: true,
     failedLoginAttempts: 0,
-    lockedAt: null, objects: [],
+    lockedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -83,7 +83,7 @@ function foydalanuvchi(permissions: Permission[]): User {
 const app = express();
 app.use(express.json());
 // `x-rol: admin` — telegram.manage bor; aks holda oddiy operator
-// (recontactTopicRoutes.spec.ts dagi usul).
+// (boshqa marshrut testlaridagi usul).
 app.use((req, _res, next) => {
   req.user = foydalanuvchi(req.headers['x-rol'] === 'admin' ? ['telegram.manage'] : []);
   next();

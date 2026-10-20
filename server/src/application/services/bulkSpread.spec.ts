@@ -6,10 +6,8 @@ import type { StartConversationUseCase } from '@/application/usecases/messaging/
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 import type { BulkStartPlanner } from '@/application/services/BulkStartPlanner';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { AccountLabels } from '@/application/services/AccountLabels';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import type { IClock, IEventBus } from '@/domain/services/support';
 
 /**
@@ -93,9 +91,6 @@ function build(s: Sozlama = {}): BulkConversationStart {
     },
   } as unknown as IClientRepository;
 
-  const contracts = {
-    findPrimaryForClient: async (id: string) => ({ contractNo: `SH-${id}` }),
-  } as unknown as IContractRepository;
 
   const accounts = {
     listConnected: async () =>
@@ -121,9 +116,7 @@ function build(s: Sozlama = {}): BulkConversationStart {
     {} as unknown as BulkStartPlanner,
     clients,
     accounts,
-    contracts,
     { labelOf: () => null } as unknown as AccountLabels,
-    { list: async () => [] } as unknown as IHolidayRepository,
   );
 }
 

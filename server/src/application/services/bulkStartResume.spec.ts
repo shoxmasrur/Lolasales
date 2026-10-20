@@ -6,10 +6,8 @@ import type { StartConversationUseCase } from '@/application/usecases/messaging/
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 import type { BulkStartPlanner } from '@/application/services/BulkStartPlanner';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { AccountLabels } from '@/application/services/AccountLabels';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import type { IClock, IEventBus } from '@/domain/services/support';
 import { AbortedError, TelegramError } from '@/shared/errors';
 
@@ -99,7 +97,7 @@ function jarayon(repo: XotiradagiBulkJobRepo, o: JarayonOpts) {
       killSwitch: o.killSwitch ?? false,
       windowStart: '00:00', windowEnd: '23:59', weekdays: [1, 2, 3, 4, 5, 6, 7],
       minDelaySec: o.minDelaySec ?? 0, maxDelaySec: o.minDelaySec ?? 0,
-      outreachDailyLimit: 1000, personaName: 'Madina', minDebt: 0,
+      outreachDailyLimit: 1000, personaName: 'Madina',
     }),
   } as unknown as RuntimeSettings;
 
@@ -139,9 +137,7 @@ function jarayon(repo: XotiradagiBulkJobRepo, o: JarayonOpts) {
     startConversation, settings, { publish: () => undefined } as unknown as IEventBus,
     { now: () => new Date(SOAT), todayIso: () => BUGUN } as unknown as IClock,
     planner, clients, accounts,
-    { findPrimaryForClient: async (id: string) => ({ contractNo: `SH-${id}` }) } as unknown as IContractRepository,
     { labelOf: (id: string | null) => (id ? `Akkaunt ${id}` : null) } as unknown as AccountLabels,
-    { list: async () => [] } as unknown as IHolidayRepository,
     store,
   );
   return {

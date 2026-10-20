@@ -1,6 +1,5 @@
 import type { ISuhbatJavobchisi } from '@/domain/services/ISuhbatJavobchisi';
-import { config } from '@/shared/config';
-import { AbortedError, CrmUnavailableError, StaleTurnError, ValidationError } from '@/shared/errors';
+import { AbortedError, StaleTurnError, ValidationError } from '@/shared/errors';
 import { childLogger } from '@/shared/logger';
 
 const log = childLogger('debounce');
@@ -21,27 +20,11 @@ const log = childLogger('debounce');
  *
  * Bundan tashqari bir suhbat uchun bir vaqtda faqat bitta agent chaqiruvi
  * ketadi: ishlayotgan payt kelgan xabarlar navbatda kutadi.
- *
- * Uchinchi vazifa — CRM yiqilganda kutish. Mijozga aytiladigan summa faqat
- * CRM'dan olinadi, ya'ni CRM javob bermasa javob YOZILMAYDI. Bunday xato
- * odatda vaqtinchalik, shuning uchun bufer saqlanib turadi va taymer
- * `CRM_RETRY_MS` ga qayta qo'yiladi. `CRM_RETRY_MAX` urinishdan keyin
- * suhbat operatorga chiqariladi: mijoz javob kutib turibdi, cheksiz
- * kutdirish mumkin emas.
  */
 export class ReplyDebouncer {
   private readonly buffers = new Map<string, string[]>();
   private readonly timers = new Map<string, NodeJS.Timeout>();
   private readonly running = new Set<string>();
-  /**
-   * Suhbat → CRM javob bermagani uchun sarflangan urinishlar soni.
-   *
-   * Alohida `Map` kerak: qayta urinish suhbat bo'yicha sanaladi, jarayon
-   * bo'yicha emas — CRM bitta mijoz uchun yiqilgani boshqa mijozning
-   * urinishlarini yeb qo'ymasligi kerak. Muvaffaqiyatli javobdan keyin
-   * yozuv o'chiriladi, ya'ni ertaga CRM yana yiqilsa sanoq noldan boshlanadi.
-   */
-  private readonly crmUrinishlar = new Map<string, number>();
 
   constructor(
     private readonly agent: ISuhbatJavobchisi,
@@ -104,9 +87,6 @@ export class ReplyDebouncer {
       this.timers.delete(conversationId);
     }
     this.buffers.delete(conversationId);
-    // CRM sanog'i ham tozalanadi: bu boshqa navbat (masalan operatorning
-    // "Qayta urinish" tugmasi) va u o'z urinishlarini to'liq olishi kerak.
-    this.crmUrinishlar.delete(conversationId);
     try {
       return await fn();
     } finally {
@@ -118,21 +98,15 @@ export class ReplyDebouncer {
     }
   }
 
-  /**
-   * Taymerni qo'yadi (yoki qaytadan boshlaydi).
-   *
-   * `delayMs` sukut bo'yicha odatdagi debounce oynasi. CRM yiqilganda
-   * `config.CRM_RETRY_MS` beriladi: u yerda kutish mijozning yozishini
-   * emas, tashqi bazaning tiklanishini kutish.
-   */
-  private arm(conversationId: string, delayMs: number = this.delayMs): void {
+  /** Taymerni qo'yadi (yoki qaytadan boshlaydi). */
+  private arm(conversationId: string): void {
     const existing = this.timers.get(conversationId);
     if (existing) clearTimeout(existing);
 
     const timer = setTimeout(() => {
       this.timers.delete(conversationId);
       void this.flush(conversationId);
-    }, delayMs);
+    }, this.delayMs);
 
     // Taymer jarayonni tirik ushlab turmasin.
     timer.unref?.();
@@ -150,18 +124,11 @@ export class ReplyDebouncer {
     const text = buffer.join('\n');
     this.running.add(conversationId);
 
-    /** CRM tiklanishini kutamizmi — taymer odatdagidan boshqa oynaga qo'yiladi. */
-    let crmKutish = false;
-
     try {
       if (buffer.length > 1) {
         log.info({ conversationId, count: buffer.length }, 'Xabarlar bitta javobga birlashtirildi');
       }
       await this.agent.reply(conversationId, text);
-      // Javob ketdi — CRM sanog'i o'chadi. Aks holda bir hafta oldingi
-      // ikkita yiqilish bugungi bitta yiqilishni darhol operatorga
-      // chiqarib yuborardi.
-      this.crmUrinishlar.delete(conversationId);
     } catch (err) {
       // Operator "Agent" tugmasini o'chirgani uchun uzilish — NOSOZLIK
       // EMAS, QAROR. `onError` suhbatni odamga chiqarib, chatda "Agent
@@ -178,51 +145,12 @@ export class ReplyDebouncer {
         log.info({ conversationId, count: buffer.length }, 'Navbat eskirdi — yangi xabar bilan qayta beriladi');
       } else if (err instanceof AbortedError) {
         log.info({ conversationId }, 'Agent navbati to\'xtatildi — javob yuborilmadi');
-      } else if (err instanceof CrmUnavailableError) {
-        // CRM javob bermadi — javob YOZILMAGAN. Bufer `StaleTurnError`
-        // dagidek BOSHGA qaytariladi: mijozning gapi hali javob olmagan
-        // va keyingi urinish uni butunligicha ko'rishi kerak.
-        //
-        // Navbat davomida yangi xabar kelgan bo'lsa, `push` allaqachon
-        // odatdagi debounce taymerini qo'ygan — uni 5 daqiqalik kutish
-        // bilan almashtirmaymiz: mijoz hozir yozib turibdi, javobni
-        // uzoqqa surish uni bekorga kuttirardi.
-        const yangiXabar = Boolean(this.buffers.get(conversationId)?.length);
-        this.buffers.set(conversationId, [...buffer, ...(this.buffers.get(conversationId) ?? [])]);
-
-        const urinish = (this.crmUrinishlar.get(conversationId) ?? 0) + 1;
-        if (urinish >= config.CRM_RETRY_MAX) {
-          // Chegaraga yetdi. Bufer TASHLANADI: aks holda pastdagi taymer
-          // qayta qo'yilib, operator suhbatni olgandan keyin ham agent
-          // cheksiz urinaverardi. Xabarlarning o'zi bazada turibdi —
-          // operator ularni suhbatda ko'radi.
-          this.crmUrinishlar.delete(conversationId);
-          this.buffers.delete(conversationId);
-          log.error(
-            { conversationId, urinish },
-            'CRM javob bermadi — suhbat operatorga chiqarildi',
-          );
-          await this.onError(conversationId, err).catch(() => undefined);
-        } else {
-          this.crmUrinishlar.set(conversationId, urinish);
-          crmKutish = !yangiXabar;
-          log.warn(
-            { conversationId, urinish, retryMs: config.CRM_RETRY_MS },
-            'CRM javob bermadi — javob keyinga qoldirildi',
-          );
-        }
       } else {
         log.error({ conversationId, err }, 'Agent javobida xato');
-        this.crmUrinishlar.delete(conversationId);
         await this.onError(conversationId, err).catch(() => undefined);
       }
     } finally {
       this.running.delete(conversationId);
-    }
-
-    if (crmKutish) {
-      this.arm(conversationId, config.CRM_RETRY_MS);
-      return;
     }
 
     // Agent ishlayotgan payt yangi xabar kelgan bo'lsa — yana bir navbat.

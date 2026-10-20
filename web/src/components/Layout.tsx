@@ -184,7 +184,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               136px joy yer edi va uzun sarlavhalarni ("Foydalanuvchilar",
               "Telegram qutisi") siqib qo'yardi. */}
           <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {current?.label ?? 'Debitor'}
+            {current?.label ?? 'LolaSales'}
           </span>
         </header>
 

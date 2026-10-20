@@ -2,11 +2,11 @@ import { closePool, query, withTransaction } from '@/infrastructure/db/pool';
 import { logger } from '@/shared/logger';
 
 /**
- * Mijozlar, shartnomalar va suhbatlarni tozalaydi (sinov ma'lumotlarini olib tashlash).
+ * Mijozlar va suhbatlarni tozalaydi (sinov ma'lumotlarini olib tashlash).
  *
- * O'CHIRISH YUMSHOQ: hech narsa bazadan yo'qolmaydi — clients, contracts,
- * conversations, messages, client_profiles, payment_promises va
- * campaign_targets jadvallarida `deleted_at` qo'yiladi (032-migratsiya).
+ * O'CHIRISH YUMSHOQ: hech narsa bazadan yo'qolmaydi — clients,
+ * conversations, messages, client_profiles va campaign_targets
+ * jadvallarida `deleted_at` qo'yiladi.
  * Ro'yxatlar bo'shaydi, tarix esa joyida qoladi va dashboarddagi
  * "O'chirilgan" tabidan qaytarish mumkin.
  *
@@ -22,30 +22,24 @@ import { logger } from '@/shared/logger';
 
 interface Counts {
   clients: number;
-  contracts: number;
   conversations: number;
   messages: number;
   profiles: number;
-  promises: number;
 }
 
 async function counts(): Promise<Counts> {
   const { rows } = await query<Record<keyof Counts, string>>(`
     SELECT (SELECT COUNT(*) FROM clients          WHERE deleted_at IS NULL) AS clients,
-           (SELECT COUNT(*) FROM contracts        WHERE deleted_at IS NULL) AS contracts,
            (SELECT COUNT(*) FROM conversations    WHERE deleted_at IS NULL) AS conversations,
            (SELECT COUNT(*) FROM messages         WHERE deleted_at IS NULL) AS messages,
-           (SELECT COUNT(*) FROM client_profiles  WHERE deleted_at IS NULL) AS profiles,
-           (SELECT COUNT(*) FROM payment_promises WHERE deleted_at IS NULL) AS promises
+           (SELECT COUNT(*) FROM client_profiles  WHERE deleted_at IS NULL) AS profiles
   `);
   const r = rows[0]!;
   return {
     clients: Number(r.clients),
-    contracts: Number(r.contracts),
     conversations: Number(r.conversations),
     messages: Number(r.messages),
     profiles: Number(r.profiles),
-    promises: Number(r.promises),
   };
 }
 
@@ -94,8 +88,7 @@ async function clearClients(): Promise<void> {
       [],
       tx,
     );
-    for (const table of ['payment_promises', 'campaign_targets', 'client_profiles',
-                         'conversations', 'contracts', 'clients']) {
+    for (const table of ['campaign_targets', 'client_profiles', 'conversations', 'clients']) {
       await query(`UPDATE ${table} SET deleted_at = now() WHERE deleted_at IS NULL`, [], tx);
     }
     await query(

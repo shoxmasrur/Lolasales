@@ -15,8 +15,10 @@ import { toIsoDate } from '@/shared/datetime';
 const REJIM_NOMI: Record<string, string> = {
   first: 'Birinchi murojaat',
   reply: 'Mijozga javob',
-  reminder: "Va'da eslatmasi",
-  thanks: "To'lov uchun rahmat",
+  nudge: 'Eslatma',
+  operator: 'Operator topshirig\'i',
+  receipt_confirmed: 'Chek tasdiqlandi (rahmat)',
+  receipt_rejected: 'Chek rad etildi',
 };
 
 const from = process.argv[2] ?? '2026-01-01';

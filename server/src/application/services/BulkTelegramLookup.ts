@@ -53,7 +53,7 @@ export interface BulkLookupInput {
  * NEGA KETMA-KET VA PAUZA BILAN: Telegram telefon qidiruvini qattiq
  * cheklaydi. Bir zumda o'nlab so'rov yuborilsa akkaunt FLOOD_WAIT ga
  * tushadi va bir necha soat (ba'zan kun) hech narsa yubora olmaydi —
- * bu butun undirish ishini to'xtatadi.
+ * bu butun sotuv ishini to'xtatadi.
  *
  * Shuning uchun: bitta-bitta, orasida pauza bilan. FLOOD_WAIT kelsa
  * vazifa DARHOL to'xtaydi — davom etish cheklovni faqat uzaytiradi.

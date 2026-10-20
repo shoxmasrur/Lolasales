@@ -23,7 +23,7 @@ function account(patch: Partial<TelegramAccount> = {}): TelegramAccount {
     dailyLimit: 40, sentToday: 0, lookupLimit: 50, lookupsToday: 0, counterDate: null,
     floodWaitUntil: null, floodWaitSince: null, peerFloodSince: null,
     spamStatus: 'clean', spamCheckedAt: null, spamMessage: null, spamUntil: null,
-    proxy: null, isEnabled: true, styleVersion: 'v1', llmModelId: null, premiumUntil: null, premiumEslatildi: null,
+    proxy: null, isEnabled: true, styleVersion: 'v1', llmModelId: null,
     createdAt: NOW, updatedAt: NOW, ...patch,
   };
 }

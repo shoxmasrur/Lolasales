@@ -1,5 +1,5 @@
 [Unit]
-Description=Debitor bazasining soatlik zaxirasi
+Description=LolaSales bazasining soatlik zaxirasi
 After=network-online.target postgresql.service
 
 [Service]
@@ -7,8 +7,8 @@ Type=oneshot
 # `sudo` emas: deploy.sh `sudo -u postgres` ishlatadi, chunki u root
 # nomidan yuradi. Timer uchun bu keraksiz imtiyoz — DATABASE_URL ichida
 # parol bor va pg_dump o'sha bilan ishlaydi.
-User=debitor
-WorkingDirectory=/opt/debitor-agent
-ExecStart=/opt/debitor-agent/scripts/backup.sh
+User=lolasales
+WorkingDirectory=/opt/lolasales
+ExecStart=/opt/lolasales/scripts/backup.sh
 # Zaxira 1-2 daqiqa oladi; osilib qolsa keyingi soatga cho'zilmasin.
 TimeoutStartSec=900

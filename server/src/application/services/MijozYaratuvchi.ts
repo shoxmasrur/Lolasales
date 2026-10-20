@@ -103,6 +103,21 @@ export class MijozYaratuvchi {
     return { client, created: true };
   }
 
+  /** Menejer qo'lda qo'shgan mijoz. Takrorlanish `findByPhone` bo'yicha. */
+  async qoldan(i: {
+    fullName: string;
+    phone: string;
+    courseId: string | null;
+  }): Promise<{ client: Client; created: boolean }> {
+    const phone = normalizePhone(i.phone) ?? i.phone;
+    const mavjud = await this.clients.findByPhone(phone);
+    if (mavjud) return { client: mavjud, created: false };
+
+    const client = await this.clients.create({ fullName: i.fullName.trim() || phone, phone, source: 'qolda' });
+    await this.yangiMijoz(client, 'qolda', i.courseId);
+    return { client, created: true };
+  }
+
   private async yarat(
     telegramUserId: string,
     data: NewClient,

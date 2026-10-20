@@ -41,13 +41,11 @@ eq('fatal (60)', logEntryToRow({ ...ASOS, level: 60, msg: 'x' })?.level, 'error'
     level: 50,
     scope: 'dispatcher',
     msg: 'Xabar yuborilmadi',
-    shartnoma: '3090MSO25A5',
     akkaunt: 'Madina',
     mijoz: 'Aziz Karimov',
     conversationId: '21c2483b',
     err: { message: 'PEER_ID_INVALID' },
   });
-  eq('shartnoma ustunda', row?.shartnoma, '3090MSO25A5');
   eq('akkaunt ustunda', row?.akkaunt, 'Madina');
   eq('mijoz ustunda', row?.mijoz, 'Aziz Karimov');
   eq('scope ustunda', row?.scope, 'dispatcher');
@@ -64,7 +62,7 @@ eq('fatal (60)', logEntryToRow({ ...ASOS, level: 60, msg: 'x' })?.level, 'error'
 {
   const row = logEntryToRow({ ...ASOS, level: 40, msg: 'x' });
   eq('scope yo\'q', row?.scope, null);
-  eq('shartnoma yo\'q', row?.shartnoma, null);
+  eq('mijoz yo\'q', row?.mijoz, null);
   eq('payload bo\'sh', row?.payload, {});
 }
 

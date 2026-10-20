@@ -1,18 +1,9 @@
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import { EslatmaKuzatuvchi } from '@/application/services/EslatmaKuzatuvchi';
-import type { ITalabnomaSukuti } from '@/domain/services/ITalabnomaSukuti';
-import { PgQamrovRepository } from '@/infrastructure/db/repositories/PgQamrovRepository';
 import { PgClientRepository } from '@/infrastructure/db/repositories/PgClientRepository';
-import { PgContractRepository } from '@/infrastructure/db/repositories/PgContractRepository';
-import { PgContractSyncRepository } from '@/infrastructure/db/repositories/PgContractSyncRepository';
-import { PgContractPaymentRepository } from '@/infrastructure/db/repositories/PgContractPaymentRepository';
-import { XonsaroyContractGateway } from '@/infrastructure/contracts/XonsaroyContractGateway';
-import { ContractSyncService } from '@/application/services/ContractSyncService';
 import { AppLogCleaner } from '@/application/services/AppLogCleaner';
 import { agentFailureReason } from '@/application/services/agentFailure';
 import { PgConversationRepository } from '@/infrastructure/db/repositories/PgConversationRepository';
 import { PgMessageRepository } from '@/infrastructure/db/repositories/PgMessageRepository';
-import { PgPaymentPromiseRepository } from '@/infrastructure/db/repositories/PgPaymentPromiseRepository';
 import { PgCourseRepository } from '@/infrastructure/db/repositories/PgCourseRepository';
 import { PgPurchaseRepository } from '@/infrastructure/db/repositories/PgPurchaseRepository';
 import { XaridXizmati } from '@/application/services/XaridXizmati';
@@ -33,7 +24,6 @@ import {
 import { PgAppLogRepository } from '@/infrastructure/db/repositories/PgAppLogRepository';
 import { PgAgentUsageRepository } from '@/infrastructure/db/repositories/PgAgentUsageRepository';
 import { PgClientPhoneBlockRepository } from '@/infrastructure/db/repositories/PgClientPhoneBlockRepository';
-import { QamrovTekshiruvchi } from '@/application/services/QamrovTekshiruvchi';
 import { BlockClientPhoneUseCase } from '@/application/usecases/clients/BlockClientPhone';
 import { PromptComposer } from '@/application/services/PromptComposer';
 import { AuthContext } from '@/presentation/http/middleware/auth';
@@ -76,7 +66,6 @@ import { BulkJobResumer } from '@/application/services/BulkJobResumer';
 import { BulkConversationStart } from '@/application/services/BulkConversationStart';
 import { BulkStartPlanner } from '@/application/services/BulkStartPlanner';
 import { config } from '@/shared/config';
-import { CrmUnavailableError } from '@/shared/errors';
 import { IncomingMediaProcessor } from '@/application/services/IncomingMediaProcessor';
 import { OutreachScheduler } from '@/application/services/OutreachScheduler';
 import { AccountAssigner } from '@/application/services/AccountAssigner';
@@ -97,11 +86,7 @@ import { EditMessageUseCase } from '@/application/usecases/messaging/EditMessage
 import { DeleteMessageUseCase } from '@/application/usecases/messaging/DeleteMessageUseCase';
 import { RetryAgentTurnUseCase } from '@/application/usecases/messaging/RetryAgentTurnUseCase';
 import { InstructAgentUseCase } from '@/application/usecases/messaging/InstructAgentUseCase';
-import { BulkRecontact } from '@/application/services/BulkRecontact';
-import { PgRecontactRepository } from '@/infrastructure/db/repositories/PgRecontactRepository';
-import { PgRecontactTopicRepository } from '@/infrastructure/db/repositories/PgRecontactTopicRepository';
 import { CreateCampaignUseCase } from '@/application/usecases/campaigns/CreateCampaignUseCase';
-import { CreateClientFromContract } from '@/application/usecases/clients/CreateClientFromContract';
 
 /**
  * Yagona kompozitsiya ildizi (composition root).
@@ -120,12 +105,8 @@ export function createContainer() {
 
   // ─── Repozitoriylar ─────────────────────────────────────────────────────
   const clients = new PgClientRepository();
-  const contracts = new PgContractRepository();
-  const contractSyncRepo = new PgContractSyncRepository();
-  const contractPayments = new PgContractPaymentRepository();
   const conversations = new PgConversationRepository();
   const messages = new PgMessageRepository();
-  const promises = new PgPaymentPromiseRepository();
   const paymentChecks = new PgPaymentCheckRepository();
   const courses = new PgCourseRepository();
   const purchases = new PgPurchaseRepository();
@@ -207,27 +188,10 @@ export function createContainer() {
     clients, audit,
   );
   const kartaYuboruvchi = new KartaYuboruvchi(settings, courses, xaridXizmati, conversations, dispatcher, audit, events);
-  // Tashqi shartnomalar bazasi — kechikkan to'lov, to'lov grafigi va
-  // telefon raqamlarining manbai. Implementatsiyani almashtirish uchun
-  // faqat shu qator o'zgaradi.
-  // Mijozdan uzilgan raqamlar. Sinxronizatsiya ham, import ham shu
-  // ro'yxatga qarab ishlaydi: uzilgan raqam qayta bog'lanmaydi.
+  // Mijozdan uzilgan raqamlar. Import shu ro'yxatga qarab ishlaydi:
+  // uzilgan raqam qayta bog'lanmaydi.
   const phoneBlocks = new PgClientPhoneBlockRepository();
-  // Bayramlar bazasi olib tashlangan: `evaluateWindow` har doim bo'sh ro'yxat oladi.
-  const holidays: IHolidayRepository = { list: async () => [] };
-  // Elektron talabnoma moduli olib tashlangan: hech qachon sukut qilmaydi.
-  const talabnomaSukuti: ITalabnomaSukuti = { sukutdami: async () => false };
-  const contractGateway = new XonsaroyContractGateway();
-  const contractSync = new ContractSyncService(
-    contractGateway, contractSyncRepo, clients, clock, config.CONTRACTS_SYNC_ENABLED,
-    phoneBlocks,
-  );
 
-  // Obyekt cheklovi guard'i: bitta yozuv bo'yicha amallarda ko'rinmasa 404.
-  const qamrovTekshiruvchi = new QamrovTekshiruvchi(new PgQamrovRepository());
-
-  // Operator tanlagan mijozlarni CRM'dan darhol yangilash. Kechasigi
-  // to'liq sinxronizatsiya bilan bir xil servisdan foydalanadi.
   // Ommaviy vazifalar holati bazada: deploy ularni yo'qotmaydi.
   const bulkJobs = new PgBulkJobRepository();
   const bulkJobStore = new BulkJobStore(bulkJobs, clock);
@@ -241,30 +205,16 @@ export function createContainer() {
     agentUsage, courses, xaridXizmati, kartaYuboruvchi,
   );
 
-  // Shartnoma raqami bo'yicha mijoz yaratish — operator tugmasi ham, noma'lum
-  // suhbatni bog'lash ham shundan foydalanadi (shuning uchun agentdan oldin).
-  const createClientFromContract = new CreateClientFromContract(
-    clients, contracts, contractGateway, contractSync, audit, clock, config.CONTRACTS_SYNC_ENABLED,
-  );
-
   // Mijozning ketma-ket xabarlarini bitta javobga birlashtiradi va bir suhbat
   // uchun ikkita agent chaqiruvi bir vaqtda ketishiga yo'l qo'ymaydi.
   const replyDebouncer = new ReplyDebouncer(
     agent,
     config.AGENT_REPLY_DEBOUNCE_MS,
     async (conversationId, err) => {
-      // CRM yiqilishi AGENT xatosi emas: model ham, Telegram ham joyida,
-      // javob esa faqat aytiladigan summa tekshirilmagani uchun
-      // yozilmadi. Turi ajratiladi, chunki operatorning ishi boshqacha —
-      // "qayta urinish" emas, summani CRM'dan o'zi ko'rib javob yozish.
-      const crm = err instanceof CrmUnavailableError;
       await conversations.update(conversationId, {
         needsHuman: true,
-        humanKind: crm ? 'crm_xato' : 'agent_error',
-        humanReason: crm
-          ? `Shartnomalar bazasi javob bermadi (${config.CRM_RETRY_MAX} marta urinildi) — ` +
-            'summani tekshirib, javobni qo\'lda yozing'
-          : agentFailureReason(err, clock.now()),
+        humanKind: 'agent_error',
+        humanReason: agentFailureReason(err, clock.now()),
       });
       events.publish({ type: 'conversation.updated', conversationId });
     },
@@ -290,8 +240,7 @@ export function createContainer() {
   // "Bu raqam mijozniki emas" tugmasi ortidagi amal.
   const blockClientPhone = new BlockClientPhoneUseCase(clients, phoneBlocks, conversations, audit, paymentChecks);
   const startConversation = new StartConversationUseCase(
-    clients, conversations, resolver, agent, audit, events, telegram,
-    messages, talabnomaSukuti, clock,
+    clients, conversations, resolver, agent, audit, events, telegram, messages,
   );
   // Chek tekshiruvi: menejer summani tasdiqlaydi yoki rad etadi; tasdiqda
   // xarid bosqichi va (qoida bajarilsa) guruh havolasi tizim tomonidan.
@@ -302,7 +251,7 @@ export function createContainer() {
   // Ovozli xabarni XonzodaAI'ga ham yuboradi — faqat Aisha bilan solishtirish.
   const sttTaqqoslash = new SttTaqqoslash(xonzodaStt, mediaStorage, messages, events);
   const handleIncoming = new HandleIncomingMessageUseCase(
-    clients, contracts, conversations, messages, replyDebouncer, settings, mediaProcessor, events,
+    clients, conversations, messages, replyDebouncer, settings, mediaProcessor, events,
     paymentCheckService, sttTaqqoslash,
     // Notanish yozuvchi — reklama leadi.
     mijozYaratuvchi,
@@ -315,7 +264,7 @@ export function createContainer() {
   const bulkStartPlanner = new BulkStartPlanner(clients, telegramAccounts, settings, clock);
   const bulkStart = new BulkConversationStart(
     startConversation, settings, events, clock, bulkStartPlanner, clients, telegramAccounts,
-    contracts, accountLabels, holidays, bulkJobStore,
+    accountLabels, bulkJobStore,
   );
 
   const sendManual = new SendManualMessageUseCase(conversations, messages, dispatcher, audit);
@@ -328,26 +277,15 @@ export function createContainer() {
     conversations, messages, clients, agent, replyDebouncer, settings, audit, events, clock,
   );
 
-  // Qayta aloqa ro'yxati: operator jim qolgan suhbatlarni tanlaydi, agent
-  // har biriga mavzu bo'yicha yozadi. Har mijoz uchun `instructAgent`
-  // ishlatiladi — chatdagi 🤖 tugmasi bilan AYNAN bir yo'l.
-  const recontactList = new PgRecontactRepository();
-  const recontactTopics = new PgRecontactTopicRepository();
-  const bulkRecontact = new BulkRecontact(
-    instructAgent, recontactList, settings, holidays, events, clock, conversations, clients,
-    talabnomaSukuti, undefined, bulkJobStore,
-  );
-  // Uchta ommaviy vazifa deploydan keyin davom etadi.
-  const bulkJobResumer = new BulkJobResumer(
-    bulkJobs, clock, [bulkLookup, bulkStart, bulkRecontact], bulkJobStore,
-  );
+  // Ikkala ommaviy vazifa deploydan keyin davom etadi.
+  const bulkJobResumer = new BulkJobResumer(bulkJobs, clock, [bulkLookup, bulkStart], bulkJobStore);
   const createCampaign = new CreateCampaignUseCase(campaigns, clients, settings, audit, events);
   // Kanal izohlaridan lead: faqat o'qiydi, birinchi xabar kampaniya orqali.
   const izohYiguvchi = new IzohYiguvchi(telegram, clients, mijozYaratuvchi, createCampaign, settings, audit, clock);
 
   // ─── Fon jarayonlari ────────────────────────────────────────────────────
   const scheduler = new OutreachScheduler(
-    campaigns, telegramAccounts, startConversation, settings, audit, events, clock, holidays,
+    campaigns, telegramAccounts, startConversation, settings, audit, events, clock,
   );
   // Jim qolgan mijozga bosqichiga bitta eslatma.
   const eslatmaKuzatuvchi = new EslatmaKuzatuvchi(
@@ -371,25 +309,25 @@ export function createContainer() {
   return {
     clock, events, hasher, tokens, settings, auth,
     repositories: {
-      clients, contracts, contractSyncRepo, contractPayments, conversations, messages, promises, campaigns,
+      clients, conversations, messages, campaigns,
       telegramAccounts, users, roles, apiTokens, importBatches, settingsRepo, audit, stats,
-      agentRules, lessons, clientProfiles, appLog, paymentChecks, agentUsage, phoneBlocks, holidays,
-      recontactList, recontactTopics, llmModels, bulkJobs, courses, purchases,
+      agentRules, lessons, clientProfiles, appLog, paymentChecks, agentUsage, phoneBlocks,
+      llmModels, bulkJobs, courses, purchases,
     },
     services: {
       telegram, resolver, dispatcher, agent, scheduler, accountLabels,
       speechToText, sttTaqqoslash, mediaStorage, mediaProcessor, assigner, spamWatcher, accountChecker, connectionWatcher, promptComposer,
-      bulkLookup, bulkStart, bulkStartPlanner, contractGateway, contractSync,
+      bulkLookup, bulkStart, bulkStartPlanner,
       appLogCleaner,
-      paymentCheckService, missedSync, bulkRecontact, xulosaBoti, llmKaliti,
+      paymentCheckService, missedSync, xulosaBoti, llmKaliti,
       bulkJobStore, bulkJobResumer,
       mijozYaratuvchi, izohYiguvchi,
-      qamrovTekshiruvchi, xaridXizmati, kartaYuboruvchi, eslatmaKuzatuvchi,
+      xaridXizmati, kartaYuboruvchi, eslatmaKuzatuvchi,
     },
     useCases: {
       login, importLeads, startConversation,
       handleIncoming, sendManual, editMessage, deleteMessage, retryAgentTurn, instructAgent, createCampaign,
-      createClientFromContract, blockClientPhone,
+      blockClientPhone,
     },
   };
 }

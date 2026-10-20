@@ -272,7 +272,7 @@ export class MessageDispatcher {
       if (yetkazildi) {
         // Fayl mijozda — faqat bizning hisob yozuvimiz yiqildi. "failed"
         // deyish yolg'on bo'lardi: chatda xato ko'rinardi va qayta
-        // urinish (masalan talabnoma) mijozga ikkinchi nusxani yuborardi.
+        // urinish mijozga ikkinchi nusxani yuborardi.
         log.error(
           { ...kontekst({ akkaunt: account.label }), conversationId: conversation.id, accountId, err },
           'Fayl yuborildi, lekin keyingi yozuv yiqildi',

@@ -44,7 +44,7 @@ export const TELEGRAM_FLAG = 'telegram';
  * aks holda har qator ikki marta saqlanardi.
  */
 const USTUNLAR = new Set([
-  'level', 'time', 'msg', 'scope', 'flag', 'shartnoma', 'akkaunt', 'mijoz', 'pid', 'hostname',
+  'level', 'time', 'msg', 'scope', 'flag', 'akkaunt', 'mijoz', 'pid', 'hostname',
 ]);
 
 function satr(v: unknown): string | null {
@@ -80,7 +80,6 @@ export function logEntryToRow(entry: LogEntry): AppLogRow | null {
     flag,
     scope: satr(entry.scope),
     msg: msg.length > MSG_MAX_LENGTH ? msg.slice(0, MSG_MAX_LENGTH) : msg,
-    shartnoma: satr(entry.shartnoma),
     akkaunt: satr(entry.akkaunt),
     mijoz: satr(entry.mijoz),
     payload,

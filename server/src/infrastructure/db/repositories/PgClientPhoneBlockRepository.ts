@@ -3,8 +3,6 @@ import type {
   PhoneBlockReportRow,
 } from '@/domain/repositories/IClientPhoneBlockRepository';
 import { query } from '@/infrastructure/db/pool';
-import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
-import { mijozQamroviSharti } from '@/infrastructure/db/qamrovSharti';
 
 type Row = Record<string, any>;
 
@@ -65,32 +63,16 @@ export class PgClientPhoneBlockRepository implements IClientPhoneBlockRepository
     return out;
   }
 
-  /**
-   * Shartnoma raqamlari ham qaytadi: CRM jamoasi mijozni ism bilan emas,
-   * shartnoma raqami bilan topadi.
-   */
-  async report(qamrov: MijozQamrovi = HAMMASI): Promise<PhoneBlockReportRow[]> {
-    // Obyekt cheklovi: cheklanmaganda shart va parametr yo'q — SQL avvalgidek.
-    const params: unknown[] = [];
-    const qamrovSharti = qamrov.cheklangan ? ` AND ${mijozQamroviSharti(qamrov, 'c', params)}` : '';
+  async report(): Promise<PhoneBlockReportRow[]> {
     const { rows } = await query<Row>(
       `SELECT b.client_id, b.phone, b.reason, b.blocked_by, b.blocked_at,
               c.full_name,
-              u.full_name AS blocked_by_name,
-              COALESCE(
-                ARRAY(
-                  SELECT ct.contract_no FROM contracts ct
-                  WHERE ct.client_id = b.client_id AND ct.deleted_at IS NULL
-                  ORDER BY ct.contract_no
-                ),
-                '{}'
-              ) AS contract_nos
+              u.full_name AS blocked_by_name
          FROM client_phone_blocks b
          JOIN clients c ON c.id = b.client_id
          LEFT JOIN users u ON u.id = b.blocked_by
-        WHERE c.deleted_at IS NULL${qamrovSharti}
+        WHERE c.deleted_at IS NULL
         ORDER BY b.blocked_at DESC`,
-      params,
     );
 
     return rows.map((r) => ({
@@ -100,7 +82,6 @@ export class PgClientPhoneBlockRepository implements IClientPhoneBlockRepository
       blockedBy: r.blocked_by ?? null,
       blockedAt: new Date(r.blocked_at),
       clientName: String(r.full_name),
-      contractNos: (r.contract_nos ?? []) as string[],
       blockedByName: r.blocked_by_name ?? null,
     }));
   }

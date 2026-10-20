@@ -7,10 +7,8 @@ import type { StartConversationUseCase } from '@/application/usecases/messaging/
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 import type { BulkStartPlanner } from '@/application/services/BulkStartPlanner';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { AccountLabels } from '@/application/services/AccountLabels';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import type { IClock, IEventBus } from '@/domain/services/support';
 
 /**
@@ -18,10 +16,9 @@ import type { IClock, IEventBus } from '@/domain/services/support';
  *
  * Telegramga ham, bazaga ham chiqmaydi.
  *
- * NEGA KERAK: progressda "9 tasi Сотилди emas" degan qator ko'rinardi,
- * lekin QAYSI shartnomalar ekani hech qayerda yo'q edi va operator uni
- * CRM bilan solishtira olmasdi. Endi har bir o'tkazib yuborilgan mijoz
- * ism va shartnoma raqami bilan yoziladi.
+ * NEGA KERAK: progressda "9 tasi o'tkazib yuborildi" degan qator
+ * ko'rinardi, lekin QAYSI mijozlar ekani hech qayerda yo'q edi. Endi har
+ * bir o'tkazib yuborilgan mijoz ismi va sababi bilan yoziladi.
  */
 let failed = 0;
 const check = (name: string, ok: boolean, izoh = ''): void => {
@@ -44,8 +41,6 @@ async function tugashiniKut(bulk: BulkConversationStart): Promise<BulkStartJob> 
 function build(opts: {
   /** clientId → o'tkazib yuborish sababi (null — muvaffaqiyatli). */
   natija: (id: string) => string | null;
-  /** Shartnoma topilmaydigan holat. */
-  shartnomasiz?: boolean;
 }): BulkConversationStart {
   const startConversation = {
     execute: async (id: string) => {
@@ -71,10 +66,6 @@ function build(opts: {
     findById: async (id: string) => ({ id, fullName: `Mijoz ${id}`, telegramAccountId: null }),
   } as unknown as IClientRepository;
 
-  const contracts = {
-    findPrimaryForClient: async (id: string) =>
-      opts.shartnomasiz ? null : { contractNo: `SH-${id}` },
-  } as unknown as IContractRepository;
 
   return new BulkConversationStart(
     startConversation,
@@ -90,16 +81,14 @@ function build(opts: {
       listConnected: async () => [],
       list: async () => [],
     } as unknown as ITelegramAccountRepository,
-    contracts,
     { labelOf: () => null } as unknown as AccountLabels,
-    { list: async () => [] } as unknown as IHolidayRepository,
   );
 }
 
 // ─── Sabab bilan birga KIM ekani ham yoziladi ────────────────────────────
 {
   const bulk = build({
-    natija: (id) => (id === 'c2' ? null : 'Shartnoma holati "Сотилди" emas'),
+    natija: (id) => (id === 'c2' ? null : 'Telegramda topilmadi'),
   });
   bulk.start(['c1', 'c2', 'c3'], 'j1');
   const job = await tugashiniKut(bulk);
@@ -108,15 +97,10 @@ function build(opts: {
   check('ikkitasi o\'tkazib yuborildi', job.skipped === 2, String(job.skipped));
   check(
     'sabab bo\'yicha son o\'zgarmadi',
-    job.skipReasons['Shartnoma holati "Сотилди" emas'] === 2,
+    job.skipReasons['Telegramda topilmadi'] === 2,
     JSON.stringify(job.skipReasons),
   );
   check('tafsilotlar yozildi', job.skippedItems.length === 2, String(job.skippedItems.length));
-  check(
-    'shartnoma raqami bor',
-    job.skippedItems.every((x) => x.contractNo?.startsWith('SH-')),
-    JSON.stringify(job.skippedItems),
-  );
   check('ism bor', job.skippedItems.every((x) => x.fullName.startsWith('Mijoz')));
   check(
     'faqat o\'tkazib yuborilganlar — boshlangani ro\'yxatda yo\'q',
@@ -124,7 +108,7 @@ function build(opts: {
   );
   check(
     'har biriga o\'z sababi biriktirilgan',
-    job.skippedItems.every((x) => x.reason === 'Shartnoma holati "Сотилди" emas'),
+    job.skippedItems.every((x) => x.reason === 'Telegramda topilmadi'),
   );
 }
 
@@ -132,24 +116,15 @@ function build(opts: {
 // Interfeys sabab bo'yicha ochadi, ya'ni har yozuv o'z sababida turishi shart.
 {
   const bulk = build({
-    natija: (id) => (id === 'c1' ? 'Сотилди emas' : 'Ism mos kelmadi'),
+    natija: (id) => (id === 'c1' ? 'Telegramda topilmadi' : 'Ism mos kelmadi'),
   });
   bulk.start(['c1', 'c2'], 'j2');
   const job = await tugashiniKut(bulk);
 
-  const sotilmagan = job.skippedItems.filter((x) => x.reason === 'Сотилди emas');
+  const topilmagan = job.skippedItems.filter((x) => x.reason === 'Telegramda topilmadi');
   const ism = job.skippedItems.filter((x) => x.reason === 'Ism mos kelmadi');
-  check('birinchi sabab bitta', sotilmagan.length === 1 && sotilmagan[0]?.clientId === 'c1');
+  check('birinchi sabab bitta', topilmagan.length === 1 && topilmagan[0]?.clientId === 'c1');
   check('ikkinchi sabab bitta', ism.length === 1 && ism[0]?.clientId === 'c2');
-}
-
-// ─── Shartnoma topilmasa ham ish buzilmaydi ──────────────────────────────
-{
-  const bulk = build({ natija: () => 'Sabab', shartnomasiz: true });
-  bulk.start(['c1'], 'j3');
-  const job = await tugashiniKut(bulk);
-  check('shartnomasiz mijoz ham yozildi', job.skippedItems.length === 1);
-  check('shartnoma raqami null', job.skippedItems[0]?.contractNo === null);
 }
 
 // ─── Ro'yxat cheklangan ──────────────────────────────────────────────────

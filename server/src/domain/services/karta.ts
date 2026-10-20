@@ -68,7 +68,7 @@ export function agentKartaYuborsinmi(stage: XaridBosqichi | null): boolean {
  * Chek tasdig'i oynasidagi standart summa (menejer tahrirlay oladi).
  * Bo'lib to'lashning birinchi qismi — kursning minimal birinchi qismi;
  * aks holda qolgan summa (`total - paid`, total yo'q bo'lsa kurs narxi).
- * Hisoblab bo'lmasa yoki qarz qolmagan bo'lsa — `null`.
+ * Hisoblab bo'lmasa yoki to'lanadigan qoldiq qolmagan bo'lsa — `null`.
  */
 export function kutilganChekSummasi(course: Course | null, purchase: Purchase): number | null {
   if (purchase.installment && purchase.paidAmount === 0 && course?.installmentFirstMin) return course.installmentFirstMin;

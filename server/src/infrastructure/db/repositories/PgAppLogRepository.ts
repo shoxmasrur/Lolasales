@@ -28,7 +28,6 @@ function mapItem(r: Row): AppLogItem {
     flag: mapFlag(r.flag),
     scope: r.scope ?? null,
     msg: r.msg,
-    shartnoma: r.shartnoma ?? null,
     akkaunt: r.akkaunt ?? null,
     mijoz: r.mijoz ?? null,
     payload: r.payload ?? {},
@@ -55,9 +54,9 @@ function mapItem(r: Row): AppLogItem {
 export class PgAppLogRepository implements IAppLogRepository {
   async append(row: AppLogRow): Promise<AppLogItem> {
     const { rows } = await query(
-      `INSERT INTO app_log (level, flag, scope, msg, shartnoma, akkaunt, mijoz, payload)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [row.level, row.flag, row.scope, row.msg, row.shartnoma, row.akkaunt, row.mijoz, JSON.stringify(row.payload)],
+      `INSERT INTO app_log (level, flag, scope, msg, akkaunt, mijoz, payload)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [row.level, row.flag, row.scope, row.msg, row.akkaunt, row.mijoz, JSON.stringify(row.payload)],
       // Jurnalning o'z yozuvi — sekin bo'lsa ham ogohlantirish
       // chiqarmaydi, aks holda ogohlantirishning o'zi yana shu yerga
       // yozuv qo'shib, poolni band qilib boraveradi (pool.ts'dagi izoh).
@@ -88,7 +87,7 @@ export class PgAppLogRepository implements IAppLogRepository {
       params.push(`%${q.q.trim()}%`);
       const i = params.length;
       where.push(
-        `(shartnoma ILIKE $${i} OR akkaunt ILIKE $${i} OR mijoz ILIKE $${i} OR msg ILIKE $${i})`,
+        `(akkaunt ILIKE $${i} OR mijoz ILIKE $${i} OR msg ILIKE $${i})`,
       );
     }
 

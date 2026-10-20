@@ -34,7 +34,7 @@ export interface LogsRoomAccess {
  * hisobini bloklashi yoki o'chirishi mumkin. `GET /api/logs` bunday
  * o'zgarishni `AuthContext` keshi (15s) tugaganidan keyin darhol ko'radi,
  * lekin xonaga bir marta qo'shilib qolgan socket bundan mutlaqo ta'sirlanmas
- * edi — mijoz ismi, shartnoma raqami va telefon raqamini o'z ichiga olgan
+ * edi — mijoz ismi va telefon raqamini o'z ichiga olgan
  * qatorlar soatlab kelib turaverardi. `loadUser` sifatida `AuthContext.
  * loadUser` beriladi — u ham xuddi shu qisqa muddatli keshdan foydalanadi,
  * shuning uchun bu tekshiruv har bir hodisada bazaga urmaydi.

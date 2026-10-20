@@ -38,7 +38,7 @@ check('RASM_MIMES ichida pdf yo\'q', RASM_MIMES.has(PDF_MIME) === false);
 
 const API: AgentAuth = { mode: 'api', env: { ANTHROPIC_API_KEY: 'sk-ant-test' } };
 const OBUNA: AgentAuth = { mode: 'subscription', env: { CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat-test' } };
-const JAVOB = '{"tur":"tolov","tavsif":"Xonsaroy Pay, 5 000 000 so\'m"}';
+const JAVOB = '{"tur":"tolov","tavsif":"Payme, 5 000 000 so\'m"}';
 const fayl = Buffer.from('soxta-pdf');
 
 type Blok = { type: string; source?: { media_type: string; data: string } };

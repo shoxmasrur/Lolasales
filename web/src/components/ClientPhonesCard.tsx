@@ -8,29 +8,24 @@ import { ErrorNote, Spinner } from '@/components/ui';
  *
  * NEGA KERAK: mijozga yozdik, javob bergan odam boshqa kishi bo'lib chiqdi —
  * raqam eski egasidan chiqib, yangi odamga berilgan. Agent bunday holatda
- * uzr aytadi va begona odamga "boshqa yozilmaydi" deb VA'DA beradi, lekin
- * operatorda o'sha va'dani bajaradigan tugma yo'q edi: raqam faqat matn
- * bo'lib ko'rinardi.
+ * uzr aytadi va begona odamga "boshqa yozilmaydi" deydi, lekin operatorda
+ * o'sha so'zni bajaradigan tugma yo'q edi: raqam faqat matn bo'lib
+ * ko'rinardi.
  *
  * Uzilgan raqam ham ko'rsatiladi. Aks holda operator xato uzganini
  * qaytara olmasdi va raqam izsiz yo'qolardi.
- *
- * "Ovozli agent: raqam noto'g'ri" belgisi faqat ogohlantirish: raqam
- * avtomatik uzilmaydi, qarorni operator qabul qiladi.
  */
 export function ClientPhonesCard({
   clientId,
   phone,
   extraPhones,
   blockedPhones,
-  wrongNumbers = [],
   writable,
 }: {
   clientId: string;
   phone: string | null;
   extraPhones: string[];
   blockedPhones: string[];
-  wrongNumbers?: string[];
   writable: boolean;
 }) {
   const qc = useQueryClient();
@@ -91,14 +86,6 @@ export function ClientPhonesCard({
               <span className="font-mono text-xs">
                 {p}
                 {i === 0 ? <span className="ml-1 text-[10px] text-ink-600">asosiy</span> : null}
-                {wrongNumbers.includes(p) ? (
-                  <span
-                    className="chip ml-1 bg-red-500/15 text-red-300"
-                    title="Ovozli agent qo'ng'iroqda shu raqam boshqa odamniki ekanini aytgan. Tekshirib, kerak bo'lsa «mijozniki emas» tugmasi bilan uzing."
-                  >
-                    Ovozli agent: raqam noto'g'ri
-                  </span>
-                ) : null}
               </span>
               {writable ? (
                 <button

@@ -1,18 +1,13 @@
 import type { Client, NewClient, TelegramLookupStatus } from '@/domain/entities/Client';
 import { aloqaSharti } from '@/domain/entities/aloqaHolati';
-import {
-  holatniAniqla,
-  holatSqlQiymatlari,
-} from '@/domain/entities/shartnomaHolati';
 import type {
   BulkStartMismatch,
   BulkStartOutlook,
   BulkStartPreview,
   ClientDeletionSummary,
   ClientQuery,
+  ClientListItem,
   ClientTabCounts,
-  ClientWithDebt,
-  ContractStatusOption,
   IClientRepository,
   TelegramIdentity,
 } from '@/domain/repositories/IClientRepository';
@@ -21,26 +16,23 @@ import { pool, query, withTransaction } from '@/infrastructure/db/pool';
 import { mapClient } from '@/infrastructure/db/mappers';
 import { mijozQatori } from '@/infrastructure/db/repositories/mijozQatori';
 import { mijozTartibi } from '@/infrastructure/db/repositories/mijozTartibi';
-import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 import { xaridShartlari } from '@/infrastructure/db/xaridSharti';
 import { bulkOldindanSql } from '@/infrastructure/db/bulkOldindan';
 import { kampaniyaNishonSql } from '@/infrastructure/db/kampaniyaSharti';
 import type { CampaignFilters } from '@/domain/entities/Campaign';
-import { mijozQamroviSharti } from '@/infrastructure/db/qamrovSharti';
 import { NotFoundError, ValidationError } from '@/shared/errors';
 
 // DIQQAT: yangi ustun qo'shilganda SHU RO'YXATGA ham qo'shish kerak — aks
 // holda u bazada bo'lsa ham API'ga yetib bormaydi va `null` bo'lib ko'rinadi.
-// `nomalum` shu yerda yo'qligi butun himoyani o'chirib qo'ygan edi (har qidiruv
-// `nomalum:false` qaytargan) — endi `clientCols.spec.ts` `mapClient` o'qiydigan
-// har bir ustun shu ro'yxatda borligini tekshiradi.
-const COLS = `c.id, c.external_id, c.full_name, c.first_name, c.phone, c.extra_phones, c.telegram_user_id,
+// `clientCols.spec.ts` `mapClient` o'qiydigan har bir ustun shu ro'yxatda
+// borligini tekshiradi.
+const COLS = `c.id, c.full_name, c.first_name, c.phone, c.extra_phones, c.telegram_user_id,
               c.telegram_username, c.telegram_name, c.telegram_access_hash,
               c.telegram_hash_account_id,
               c.telegram_status, c.telegram_checked_at,
               c.telegram_account_id, c.account_assigned_at,
               c.do_not_contact, c.notes, c.created_at, c.updated_at,
-              c.deleted_at, c.deleted_by, c.nomalum,
+              c.deleted_at, c.deleted_by,
               c.source, c.source_group, c.source_comment`;
 
 /**
@@ -54,8 +46,7 @@ const ALIVE = 'c.deleted_at IS NULL';
  * `search` va `searchAll` uchun ustunlar — ikkalasi bir xil qatorni
  * qaytarishi shart, aks holda `mijozQatori` biriga to'g'ri kelmay qoladi.
  */
-const SEARCH_COLS = `${COLS}, agg.debt_monthly, agg.debt_total, agg.days_overdue, agg.contracts_count,
-                agg.virtual_statuses,
+const SEARCH_COLS = `${COLS},
                 (SELECT COALESCE(NULLIF(btrim(ta.persona_name), ''), ta.label)
                    FROM telegram_accounts ta
                   WHERE ta.id = c.telegram_account_id) AS account_name`;
@@ -65,14 +56,6 @@ export class PgClientRepository implements IClientRepository {
     const { rows } = await query(
       `SELECT ${COLS} FROM clients c WHERE c.id = $1 ${options?.includeDeleted ? '' : `AND ${ALIVE}`}`,
       [id],
-    );
-    return rows[0] ? mapClient(rows[0]) : null;
-  }
-
-  async findByExternalId(externalId: string): Promise<Client | null> {
-    const { rows } = await query(
-      `SELECT ${COLS} FROM clients c WHERE c.external_id = $1 AND ${ALIVE}`,
-      [externalId],
     );
     return rows[0] ? mapClient(rows[0]) : null;
   }
@@ -111,21 +94,16 @@ export class PgClientRepository implements IClientRepository {
    * mijozlarni belgilab qo'ysa, operator o'zi ko'rmagan odamlarga
    * xabar yuborib yuborardi.
    */
-  private buildSearchBase(q: ClientQuery, qamrov: MijozQamrovi = HAMMASI): { base: string; params: unknown[] } {
+  private buildSearchBase(q: ClientQuery): { base: string; params: unknown[] } {
     // "deleted" tabi — savat: faqat o'chirilganlar. Qolgan hamma tab
     // faqat tirik mijozlarni ko'rsatadi.
-    // Noma'lum mijoz — shartnomasiz, unga ommaviy/eslatma yozilmaydi.
-    const where: string[] = [q.tab === 'deleted' ? 'c.deleted_at IS NOT NULL' : ALIVE, 'NOT c.nomalum'];
+    const where: string[] = [q.tab === 'deleted' ? 'c.deleted_at IS NOT NULL' : ALIVE];
     const params: unknown[] = [];
-    // Obyekt cheklovi. Cheklanmaganda shart QO'SHILMAYDI — SQL aynan avvalgidek.
-    if (qamrov.cheklangan) where.push(mijozQamroviSharti(qamrov, 'c', params));
 
     if (q.search) {
       params.push(`%${q.search.trim()}%`);
       where.push(`(c.full_name ILIKE $${params.length} OR c.phone ILIKE $${params.length}
-                   OR c.external_id ILIKE $${params.length}
-                   OR EXISTS (SELECT 1 FROM contracts ct WHERE ct.client_id = c.id
-                              AND ct.deleted_at IS NULL AND ct.contract_no ILIKE $${params.length}))`);
+                   OR c.telegram_username ILIKE $${params.length})`);
     }
     // Bir nechta holat tanlansa — "yoki". Bo'sh ro'yxat filtr emas.
     if (q.telegramStatus?.length) {
@@ -144,23 +122,6 @@ export class PgClientRepository implements IClientRepository {
 
     if (q.hasPhone === true) where.push(`c.phone IS NOT NULL`);
     if (q.hasPhone === false) where.push(`c.phone IS NULL`);
-    if (q.objectName) {
-      params.push(q.objectName);
-      where.push(`EXISTS (SELECT 1 FROM contracts ct
-                           WHERE ct.client_id = c.id AND ct.deleted_at IS NULL
-                             AND ct.object_name = $${params.length})`);
-    }
-    if (q.virtualStatus?.length) {
-      // Bitta holat bazada ikki xil yozilgan bo'lishi mumkin (kalit va
-      // ko'rinadigan nom), shuning uchun kalit barcha yozilishlariga
-      // yoyiladi va solishtirish kichik harfda ketadi.
-      // Bir nechta holat tanlansa ularning yozilishlari bitta ro'yxatga
-      // qo'shiladi — mijozning biror shartnomasi shulardan birida bo'lsa kifoya.
-      params.push([...new Set(q.virtualStatus.flatMap(holatSqlQiymatlari))]);
-      where.push(`EXISTS (SELECT 1 FROM contracts ct
-                           WHERE ct.client_id = c.id AND ct.deleted_at IS NULL
-                             AND trim(ct.virtual_status) = ANY($${params.length}::text[]))`);
-    }
     // Shart parametrsiz: ichida faqat koddagi konstanta bor
     // (`aloqaHolati.ts` izohiga qarang).
     //
@@ -174,38 +135,16 @@ export class PgClientRepository implements IClientRepository {
 
     where.push(...xaridShartlari(q, params));
 
-    if (q.hasDebt) where.push(`agg.debt_total > 0`);
-    if (q.minDaysOverdue !== undefined) {
-      params.push(q.minDaysOverdue);
-      where.push(`agg.days_overdue >= $${params.length}`);
-    }
-
     const base = `
       FROM clients c
-      LEFT JOIN LATERAL (
-        SELECT COALESCE(SUM(ct.debt_monthly), 0) AS debt_monthly,
-               COALESCE(SUM(ct.debt_total), 0) AS debt_total,
-               COALESCE(MAX(ct.days_overdue), 0) AS days_overdue,
-               COUNT(*)::int AS contracts_count,
-               -- Xom qiymatlar; kanonik kalitga JS'da keltiriladi, chunki
-               -- kirillni tushira oladigan lower() bu bazada yo'q.
-               array_remove(array_agg(DISTINCT trim(ct.virtual_status)), NULL)
-                 AS virtual_statuses
-        FROM contracts ct
-        WHERE ct.client_id = c.id
-          -- Mijoz o'chirilganda shartnomalari ham o'sha payt belgilanadi.
-          -- Savatda to'lov summasi ko'rinib turishi kerak, shuning uchun
-          -- aynan shu partiyani hisobga qo'shamiz.
-          AND (ct.deleted_at IS NULL OR ct.deleted_at = c.deleted_at)
-      ) agg ON TRUE
       WHERE ${where.join(' AND ')}
     `;
 
     return { base, params };
   }
 
-  async search(q: ClientQuery, qamrov: MijozQamrovi = HAMMASI): Promise<Page<ClientWithDebt>> {
-    const { base, params } = this.buildSearchBase(q, qamrov);
+  async search(q: ClientQuery): Promise<Page<ClientListItem>> {
+    const { base, params } = this.buildSearchBase(q);
 
     const order = mijozTartibi(q.sort);
 
@@ -220,22 +159,20 @@ export class PgClientRepository implements IClientRepository {
       ),
     ]);
 
-    const items: ClientWithDebt[] = rows.map(mijozQatori);
+    const items: ClientListItem[] = rows.map(mijozQatori);
 
     return { items, total: countRows[0]?.count ?? 0, limit, offset };
   }
 
-  /** Tab tugmalari yonidagi sonlar — bitta so'rovda. */
   /**
    * Filtrga tushgan HAMMA mijozning id'lari — sahifalashsiz.
    *
    * "Filtrdagi hammasini belgilash" uchun. Ro'yxat so'rovi 200 tagacha
    * qaytaradi (u ekran uchun), bu esa to'liq to'plamni beradi. Faqat
-   * id'lar olinadi — to'lov, shartnoma va boshqa maydonlar kerak emas,
-   * shuning uchun javob minglab mijozda ham yengil qoladi.
+   * id'lar olinadi, shuning uchun javob minglab mijozda ham yengil qoladi.
    */
-  async searchIds(q: ClientQuery, qamrov: MijozQamrovi = HAMMASI): Promise<string[]> {
-    const { base, params } = this.buildSearchBase(q, qamrov);
+  async searchIds(q: ClientQuery): Promise<string[]> {
+    const { base, params } = this.buildSearchBase(q);
     const { rows } = await query<{ id: string }>(`SELECT c.id ${base} ORDER BY c.id`, params);
     return rows.map((r) => r.id);
   }
@@ -245,22 +182,16 @@ export class PgClientRepository implements IClientRepository {
    *
    * NEGA ODDIY `LIMIT/OFFSET` YETARLI EMAS: har bo'lak alohida so'rov
    * bo'lsa (READ COMMITTED), ikkita muammo chiqadi. Birinchi — har
-   * bo'lak butun agregatsiya + saralashni QAYTADAN hisoblab, `OFFSET`
-   * qatorlarini tashlab yuboradi (O(n²)), va katta eksportda bu
-   * `pool.ts`dagi 500ms chegarasidan oshib "Sekin so'rov" ogohlantirishi
-   * beradi — bu esa xuddi shu faylning boshqa joyida (`jurnalPool`
-   * izohi) hujjatlashtirilgan o'z-o'zini kuchaytiruvchi halqaga ozuqa
-   * bo'ladi. Ikkinchi — bo'laklar orasida ma'lumot o'zgarishi mumkin:
-   * saralash ustuni bo'lgan `agg.debt_monthly`ni `ContractSyncScheduler`
-   * (yoki qo'lda "Shartnomani yangilash") aynan shu payt qayta yozishi
-   * mumkin, mijoz o'chirilsa esa keyingi `OFFSET`lar bir pog'ona siljib,
+   * bo'lak saralashni QAYTADAN hisoblab, `OFFSET` qatorlarini tashlab
+   * yuboradi (O(n²)). Ikkinchi — bo'laklar orasida ma'lumot o'zgarishi
+   * mumkin: mijoz o'chirilsa keyingi `OFFSET`lar bir pog'ona siljib,
    * o'rtadagi bittasi faylga umuman tushmay qoladi.
    *
    * YECHIM: `REPEATABLE READ` tranzaksiyasi ichida server tomonidagi
    * kursor (`DECLARE ... CURSOR` + `FETCH FORWARD`). BITTA so'rov rejasi,
    * BITTA saralash, BITTA baza suratiga (snapshot) qarab o'qiladi —
    * tranzaksiya boshlangandan keyingi har qanday yozish (qo'shish,
-   * o'chirish, qayta sinxronlash) shu faylga ta'sir qilmaydi.
+   * o'chirish) shu faylga ta'sir qilmaydi.
    *
    * Ulanish (`client`) ATAYLAB `pool`dan qo'lda olinadi (`withTransaction`
    * faqat oddiy `BEGIN` beradi, bizga esa izolyatsiya darajasi kerak) va
@@ -271,9 +202,8 @@ export class PgClientRepository implements IClientRepository {
   async *searchAll(
     q: ClientQuery,
     batchSize = 500,
-    qamrov: MijozQamrovi = HAMMASI,
-  ): AsyncGenerator<ClientWithDebt[]> {
-    const { base, params } = this.buildSearchBase(q, qamrov);
+  ): AsyncGenerator<ClientListItem[]> {
+    const { base, params } = this.buildSearchBase(q);
     const order = mijozTartibi(q.sort);
 
     const client = await pool.connect();
@@ -306,55 +236,11 @@ export class PgClientRepository implements IClientRepository {
     }
   }
 
-  async contractStatuses(qamrov: MijozQamrovi = HAMMASI): Promise<ContractStatusOption[]> {
-    // Xom qiymat + mijoz juftliklari olinadi va guruhlash JS'da bo'ladi.
-    //
-    // NEGA SQL'DA EMAS: bitta holat bazada ikki xil yozilgan bo'lishi
-    // mumkin ("sold" va "Сотилди"), ularni kalitga keltirish uchun esa
-    // kirillni tushira oladigan `lower()` kerak — baza `lc_collate = C`
-    // bilan yaratilgani uchun u ishlamaydi. JS'dagi `toLowerCase()`
-    // ishlaydi va natija bazaning kollatsiyasiga bog'liq bo'lmaydi.
-    //
-    // Mijozlar sonini SHU YERDA sanaymiz: har bir yozilish bo'yicha
-    // alohida sanab keyin qo'shsak, ikkala yozilishda ham shartnomasi bor
-    // mijoz IKKI MARTA sanalardi va son filtr natijasidan katta chiqardi.
-    // Obyekt cheklovi: cheklanmaganda shart va parametr yo'q — SQL avvalgidek.
-    const params: unknown[] = [];
-    const qamrovSharti = qamrov.cheklangan ? ` AND ${mijozQamroviSharti(qamrov, 'c', params)}` : '';
-    const { rows } = await query<{ raw: string; client_id: string }>(
-      `SELECT DISTINCT trim(ct.virtual_status) AS raw, ct.client_id
-         FROM contracts ct
-         JOIN clients c ON c.id = ct.client_id AND c.deleted_at IS NULL
-        WHERE ct.deleted_at IS NULL AND trim(coalesce(ct.virtual_status, '')) <> ''${qamrovSharti}`,
-      params,
-    );
-
-    const byKey = new Map<string, { label: string; clients: Set<string> }>();
-    for (const r of rows) {
-      const holat = holatniAniqla(r.raw);
-      // Tanilmagan qiymat ham ro'yxatda qoladi: CRM yangi holat qo'shsa,
-      // u xom nomi bilan ko'rinadi va filtr baribir ishlaydi.
-      const key = holat?.key ?? r.raw;
-      const entry = byKey.get(key) ?? { label: holat?.label ?? r.raw, clients: new Set<string>() };
-      entry.clients.add(r.client_id);
-      byKey.set(key, entry);
-    }
-
-    return [...byKey.entries()]
-      .map(([key, v]) => ({ key, label: v.label, clients: v.clients.size }))
-      .sort((a, b) => b.clients - a.clients);
-  }
-
-  async tabCounts(qamrov: MijozQamrovi = HAMMASI): Promise<ClientTabCounts> {
-    // Noma'lum mijoz — shartnomasiz, unga ommaviy/eslatma yozilmaydi.
-    const alive = `c.deleted_at IS NULL AND NOT c.nomalum`;
+  /** Tab tugmalari yonidagi sonlar — bitta so'rovda. */
+  async tabCounts(): Promise<ClientTabCounts> {
+    const alive = `c.deleted_at IS NULL`;
     const hasConv = `EXISTS (SELECT 1 FROM conversations cv WHERE cv.client_id = c.id AND cv.deleted_at IS NULL)`;
 
-    // Obyekt cheklovi: cheklanmaganda `WHERE` va parametr yo'q — SQL avvalgidek.
-    // Cheklanganda o'chirilganlar soni 0: savat ko'rinmaydi (shartnomalari ham
-    // o'chirilgan, qamrov sharti tirik shartnoma talab qiladi).
-    const params: unknown[] = [];
-    const qamrovSharti = qamrov.cheklangan ? ` WHERE ${mijozQamroviSharti(qamrov, 'c', params)}` : '';
     const { rows } = await query<Record<string, number>>(`
       SELECT COUNT(*) FILTER (WHERE ${alive})::int AS all,
              COUNT(*) FILTER (WHERE ${alive} AND NOT ${hasConv})::int AS new,
@@ -363,9 +249,9 @@ export class PgClientRepository implements IClientRepository {
                WHERE ${alive} AND c.telegram_status IN ('not_found', 'privacy_restricted', 'blocked', 'deactivated')
              )::int AS no_telegram,
              COUNT(*) FILTER (WHERE ${alive} AND c.telegram_status = 'name_mismatch')::int AS needs_review,
-             COUNT(*) FILTER (WHERE c.deleted_at IS NOT NULL AND NOT c.nomalum)::int AS deleted
-        FROM clients c${qamrovSharti}
-    `, params);
+             COUNT(*) FILTER (WHERE c.deleted_at IS NOT NULL)::int AS deleted
+        FROM clients c
+    `);
 
     const r = rows[0] ?? {};
     return {
@@ -406,9 +292,7 @@ export class PgClientRepository implements IClientRepository {
         return rowCount ?? 0;
       };
 
-      const contracts = await stamp('contracts', 'client_id');
       const conversations = await stamp('conversations', 'client_id');
-      const promises = await stamp('payment_promises', 'client_id');
       const campaignTargets = await stamp('campaign_targets', 'client_id');
       const profiles = await stamp('client_profiles', 'client_id');
 
@@ -434,10 +318,8 @@ export class PgClientRepository implements IClientRepository {
 
       return {
         deletedAt: at,
-        contracts,
         conversations,
         messages: messages ?? 0,
-        promises,
         campaignTargets,
         profiles,
       };
@@ -448,8 +330,8 @@ export class PgClientRepository implements IClientRepository {
    * O'chirishni bekor qilish — o'sha partiyadagi qatorlar qaytariladi.
    *
    * Tiklash muvaffaqiyatsiz bo'lishi mumkin: mijoz o'chirilgandan keyin
-   * o'sha eksport ID yoki shartnoma raqami bilan YANGI yozuv import
-   * qilingan bo'lsa, unique indeks tiklashga yo'l bermaydi. Bu holatda
+   * o'sha Telegram profili bilan YANGI mijoz yaratilgan bo'lsa, unique
+   * indeks tiklashga yo'l bermaydi. Bu holatda
    * tushunarli xato beramiz — bazani jimgina buzib qo'ymaymiz.
    */
   async restore(id: string): Promise<ClientDeletionSummary> {
@@ -458,8 +340,8 @@ export class PgClientRepository implements IClientRepository {
     } catch (err) {
       if ((err as { code?: string }).code === '23505') {
         throw new ValidationError(
-          'Tiklab bo\'lmadi: bu mijozning eksport ID si yoki shartnoma raqami '
-          + 'boshqa (yangi import qilingan) yozuvda band. Avval o\'sha yozuvni tekshiring.',
+          'Tiklab bo\'lmadi: bu mijozning Telegram profili boshqa (yangi) mijozda band. '
+          + 'Avval o\'sha yozuvni tekshiring.',
         );
       }
       throw err;
@@ -499,9 +381,7 @@ export class PgClientRepository implements IClientRepository {
         tx,
       );
 
-      const contracts = await unstamp('contracts', 'client_id');
       const conversations = await unstamp('conversations', 'client_id');
-      const promises = await unstamp('payment_promises', 'client_id');
       const campaignTargets = await unstamp('campaign_targets', 'client_id');
       const profiles = await unstamp('client_profiles', 'client_id');
 
@@ -509,18 +389,16 @@ export class PgClientRepository implements IClientRepository {
 
       return {
         deletedAt: at,
-        contracts,
         conversations,
         messages: messages ?? 0,
-        promises,
         campaignTargets,
         profiles,
       };
     });
   }
 
-  async findCampaignTargets(filters: CampaignFilters, qamrov: MijozQamrovi = HAMMASI): Promise<string[]> {
-    const { sql, params } = kampaniyaNishonSql(filters, qamrov);
+  async findCampaignTargets(filters: CampaignFilters): Promise<string[]> {
+    const { sql, params } = kampaniyaNishonSql(filters);
     const { rows } = await query<{ client_id: string }>(sql, params);
     return rows.map((r) => r.client_id);
   }
@@ -528,18 +406,18 @@ export class PgClientRepository implements IClientRepository {
   async create(data: NewClient): Promise<Client> {
     const tg = data.telegram;
     const { rows } = await query(
-      `INSERT INTO clients (external_id, full_name, first_name, phone, extra_phones, notes,
+      `INSERT INTO clients (full_name, first_name, phone, extra_phones, notes,
                             created_import_batch_id, source, source_group, source_comment,
                             telegram_user_id, telegram_username, telegram_access_hash,
                             telegram_hash_account_id, telegram_name, telegram_status,
                             telegram_checked_at, telegram_account_id, account_assigned_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 'qolda'), $9, $10,
-               $11, $12, $13, $14, $15, CASE WHEN $11::text IS NULL THEN 'unknown' ELSE 'found' END,
-               CASE WHEN $11::text IS NULL THEN NULL ELSE now() END, $16,
-               CASE WHEN $16::uuid IS NULL THEN NULL ELSE now() END)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, 'qolda'), $8, $9,
+               $10, $11, $12, $13, $14, CASE WHEN $10::text IS NULL THEN 'unknown' ELSE 'found' END,
+               CASE WHEN $10::text IS NULL THEN NULL ELSE now() END, $15,
+               CASE WHEN $15::uuid IS NULL THEN NULL ELSE now() END)
        RETURNING *`,
       [
-        data.externalId ?? null, data.fullName, data.firstName ?? null, data.phone ?? null,
+        data.fullName, data.firstName ?? null, data.phone ?? null,
         data.extraPhones ?? [], data.notes ?? null, data.createdImportBatchId ?? null,
         data.source ?? null, data.sourceGroup ?? null, data.sourceComment ?? null,
         tg?.telegramUserId ?? null, tg?.telegramUsername ?? null, tg?.telegramAccessHash ?? null,
@@ -547,18 +425,6 @@ export class PgClientRepository implements IClientRepository {
       ],
     );
     return mapClient(rows[0]!);
-  }
-
-  async nomalumniYopish(clientId: string): Promise<void> {
-    // Faqat noma'lum mijoz qatorini yopadi. `softDelete` dan farqi: suhbat va
-    // xabarlarga tegmaydi — suhbat allaqachon haqiqiy mijozga ko'chirilgan.
-    // Telegram id tozalanadi, shunda haqiqiy mijoz yagona egasi bo'lib qoladi.
-    await query(
-      `UPDATE clients
-          SET deleted_at = now(), telegram_user_id = NULL, telegram_access_hash = NULL, updated_at = now()
-        WHERE id = $1 AND nomalum AND deleted_at IS NULL`,
-      [clientId],
-    );
   }
 
   async update(id: string, patch: Partial<NewClient> & { doNotContact?: boolean }): Promise<Client> {
@@ -574,7 +440,6 @@ export class PgClientRepository implements IClientRepository {
     if (patch.phone !== undefined) push('phone', patch.phone);
     if (patch.extraPhones !== undefined) push('extra_phones', patch.extraPhones);
     if (patch.notes !== undefined) push('notes', patch.notes);
-    if (patch.externalId !== undefined) push('external_id', patch.externalId);
     if (patch.doNotContact !== undefined) push('do_not_contact', patch.doNotContact);
     if (!sets.length) {
       const current = await this.findById(id);
@@ -692,10 +557,8 @@ export class PgClientRepository implements IClientRepository {
 
   async findUnassigned(limit: number): Promise<string[]> {
     const { rows } = await query<{ id: string }>(
-      // Noma'lum mijoz — shartnomasiz, unga ommaviy/eslatma yozilmaydi.
       `SELECT id FROM clients c
         WHERE telegram_account_id IS NULL AND do_not_contact = FALSE AND deleted_at IS NULL
-          AND NOT c.nomalum
         ORDER BY created_at ASC LIMIT $1`,
       [limit],
     );
@@ -752,7 +615,6 @@ export class PgClientRepository implements IClientRepository {
           AND c.do_not_contact = FALSE
           AND c.telegram_status = 'unknown'
           AND ${ALIVE}
-          AND NOT c.nomalum -- Noma'lum mijoz — shartnomasiz, unga ommaviy/eslatma yozilmaydi.
         ORDER BY c.created_at ASC
         LIMIT $1`,
       [limit],
@@ -822,7 +684,6 @@ export class PgClientRepository implements IClientRepository {
          FROM clients c
         WHERE c.id = ANY($1::uuid[])
           AND c.deleted_at IS NULL
-          AND NOT c.nomalum -- Noma'lum mijoz — shartnomasiz, unga ommaviy/eslatma yozilmaydi.
           AND c.do_not_contact = FALSE
           AND c.telegram_status NOT IN ('blocked', 'deactivated')
           AND (c.phone IS NOT NULL OR c.telegram_user_id IS NOT NULL)

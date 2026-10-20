@@ -1,13 +1,13 @@
 /**
- * Ommaviy vazifalarning (suhbat boshlash, qayta aloqa, Telegram qidiruvi,
- * CRM sinxronlash) bazadagi holati.
+ * Ommaviy vazifalarning (suhbat boshlash, Telegram qidiruvi) bazadagi
+ * holati.
  *
  * NEGA KERAK: vazifalar faqat xotirada yashardi va har deploy
  * (`systemctl restart`) ularni yo'qotardi. Qator `running` bo'lib qolsa,
  * server ko'tarilgach vazifa shu yerdan davom ettiriladi
  * (`BulkJobResumer`).
  */
-export type BulkJobKind = 'start' | 'recontact' | 'lookup' | 'contract_sync';
+export type BulkJobKind = 'start' | 'lookup';
 export type BulkJobStatus = 'running' | 'done' | 'stopped' | 'failed';
 
 export interface BulkJobRow {

@@ -54,13 +54,13 @@ function media(patch: Partial<IncomingMedia> = {}): IncomingMedia {
 
 // ─── 1. To'lov — tekshiruv ochiladi ──────────────────────────────────────
 {
-  const { c } = tasnifchi({ kind: 'tolov', note: 'Xonsaroy Pay', failed: false });
+  const { c } = tasnifchi({ kind: 'tolov', note: 'Payme', failed: false });
   const p = new IncomingMediaProcessor(storage, stt, c);
   const r = await p.process(media(), '');
   check('tolov: needsReview rost', r.needsReview === true, String(r.needsReview));
   check('tolov: manba tolov', r.receiptSource === 'tolov', String(r.receiptSource));
   check('tolov: imageKind yoziladi', r.imageKind === 'tolov', String(r.imageKind));
-  check('tolov: tavsif saqlanadi', r.imageNote === 'Xonsaroy Pay', String(r.imageNote));
+  check('tolov: tavsif saqlanadi', r.imageNote === 'Payme', String(r.imageNote));
   check('tolov: belgi chek deydi', r.agentText.includes('to\'lov cheki'), r.agentText);
 }
 

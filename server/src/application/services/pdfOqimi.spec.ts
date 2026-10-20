@@ -73,14 +73,14 @@ check('belgida "rasm" so\'zi yo\'q', !faylBelgisi('hujjat').includes('rasm'), fa
 
 // ─── 3. PDF chek — rasm chek bilan bir xil yo'l ──────────────────────────
 {
-  const { c, chaqiruv } = tasnifchi({ kind: 'tolov', note: 'Xonsaroy Pay', failed: false });
+  const { c, chaqiruv } = tasnifchi({ kind: 'tolov', note: 'Payme', failed: false });
   const p = new IncomingMediaProcessor(storage, stt, c);
   const r = await p.process(pdf(), '');
   check('pdf tolov: vision chaqirildi', chaqiruv.length === 1, String(chaqiruv.length));
   check('pdf tolov: manba tolov', r.receiptSource === 'tolov', String(r.receiptSource));
   check('pdf tolov: needsReview rost', r.needsReview === true);
   check('pdf tolov: belgi chek deydi', r.agentText === '[mijoz to\'lov cheki yubordi]', r.agentText);
-  check('pdf tolov: tavsif saqlanadi', r.imageNote === 'Xonsaroy Pay', String(r.imageNote));
+  check('pdf tolov: tavsif saqlanadi', r.imageNote === 'Payme', String(r.imageNote));
 }
 
 // ─── 4. Chek bo'lmagan PDF — operatorga ──────────────────────────────────

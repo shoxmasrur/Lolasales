@@ -51,7 +51,6 @@ import { personaNameOf } from '@/domain/entities/TelegramAccount';
 import { mavzudanTashqari, TASHQARI_JAVOBI } from '@/domain/services/mavzudanTashqari';
 import {
   AbortedError,
-  NomalumMijozXatosi,
   NotFoundError,
   StaleTurnError,
 } from '@/shared/errors';
@@ -78,16 +77,6 @@ export interface AgentTurnResult {
 }
 
 const YUBORILMADI: AgentTurnResult = { sent: false, reply: null, escalated: false, cardSent: false };
-
-/** Navbat qaysi rejimda narx daftariga yoziladi (`agent_usage.mode` CHECK'i eski qiymatlarni biladi). */
-const USAGE_MODE: Record<TurnMode, AgentUsageMode> = {
-  first: 'first',
-  reply: 'reply',
-  nudge: 'nudge',
-  operator: 'operator',
-  receipt_confirmed: 'thanks',
-  receipt_rejected: 'operator',
-};
 
 /** Modeldan keyingi qo'llash parametrlari. */
 interface ApplyOptions {
@@ -324,7 +313,7 @@ export class AgentRunner {
       const { output, ishlatilgan, fallback } = await this.navbat(conversation, (engine) =>
         AgentRunner.chaqiruv(engine, mode, input),
       );
-      await this.trackUsage(conversation.id, USAGE_MODE[mode], output, ishlatilgan);
+      await this.trackUsage(conversation.id, mode, output, ishlatilgan);
       if (signal.aborted) throw new AbortedError('Agent navbati to\'xtatildi');
       return { output, context, ishlatilgan, fallback };
     } finally {
@@ -886,9 +875,6 @@ export class AgentRunner {
   private async requireConversation(id: string): Promise<Conversation> {
     const conversation = await this.conversations.findById(id);
     if (!conversation) throw new NotFoundError('Suhbat', id);
-    // Noma'lum mijozga asosiy agent YOZMAYDI — javobni `NomalumMijozAgenti` beradi.
-    const client = await this.clients.findById(conversation.clientId);
-    if (client?.nomalum) throw new NomalumMijozXatosi();
     return conversation;
   }
 }

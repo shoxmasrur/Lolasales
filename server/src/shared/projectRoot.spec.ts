@@ -24,11 +24,11 @@ const soxtaFs = (fayllar: Record<string, string>): IldizFs => ({
   },
 });
 
-const ROOT = path.resolve('/opt/debitor-agent');
+const ROOT = path.resolve('/opt/lolasales');
 const fs = soxtaFs({
-  [path.join(ROOT, 'package.json')]: JSON.stringify({ name: 'debitor-agent', workspaces: ['server', 'web', 'mcp'] }),
+  [path.join(ROOT, 'package.json')]: JSON.stringify({ name: 'lolasales', workspaces: ['server', 'web'] }),
   // `server/package.json` — workspace a'zosi, ildiz emas.
-  [path.join(ROOT, 'server', 'package.json')]: JSON.stringify({ name: '@debitor/server' }),
+  [path.join(ROOT, 'server', 'package.json')]: JSON.stringify({ name: '@lolasales/server' }),
 });
 
 check('bundle: server/dist → loyiha ildizi', loyihaIldizi(path.join(ROOT, 'server', 'dist'), '/zaxira', fs), ROOT);

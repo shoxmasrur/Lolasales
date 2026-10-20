@@ -50,7 +50,7 @@ function ochilish(yangi: boolean): OchilishMalumoti {
     sabab: yangi ? 'login-kod' : 'bootstrap',
     yangi,
     apiId: 12345,
-    imzo: { deviceModel: 'Debitor Agent', systemVersion: 'macOS', appVersion: '1.0', langCode: 'en', systemLangCode: 'en' },
+    imzo: { deviceModel: 'LolaSales', systemVersion: 'macOS', appVersion: '1.0', langCode: 'en', systemLangCode: 'en' },
     proksi: '10.0.0.1:1080',
     dc: 2,
     dcManzil: '149.154.167.51:443',
@@ -76,7 +76,7 @@ eq('toString kabi meros kalit — o\'lim emas', olimKodi('toString'), null);
   iz.telegramKorinishi('Madina', [
     {
       joriy: true, rasmiyIlova: false, tasdiqlanmagan: true, parolKutilmoqda: false,
-      qurilma: 'Debitor Agent', platforma: '', tizim: 'macOS', apiId: 12345, ilova: 'debitor 1.0',
+      qurilma: 'LolaSales', platforma: '', tizim: 'macOS', apiId: 12345, ilova: 'lolasales 1.0',
       yaratilgan: null, faol: null, ip: '213.148.21.37', mamlakat: 'UZ', hudud: '',
     },
     {

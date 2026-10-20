@@ -67,10 +67,10 @@ export interface NewReceiptReview {
  * Tugmasiz qolib ketgan chek tekshiruvi necha kundan keyin e'tiborga
  * olinmaydi (2026-09-17 qarori).
  *
- * Operator eskalatsiyani tugmasiz yechsa, tekshiruv `reviewing` bo'lib
- * abadiy qolardi: sukut xabarlari to'xtab, agent har javobda "hamkasbim
- * tekshiryapti" derdi. Muddatdan keyin yozuv o'zgartirilmaydi — u shunchaki
- * sukutni to'smaydi, agent qoidasiga tushmaydi va tugma ko'rinmaydi.
+ * Operator tekshiruvni tugmasiz yechsa, u `reviewing` bo'lib abadiy
+ * qolardi: eslatmalar to'xtab, agent har javobda "hamkasbim tekshiryapti"
+ * derdi. Muddatdan keyin yozuv o'zgartirilmaydi — u shunchaki eslatmani
+ * to'smaydi, agent qoidasiga tushmaydi va tugma ko'rinmaydi.
  */
 export const CHEK_TEKSHIRUVI_MUDDATI_KUNLAR = 7;
 

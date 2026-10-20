@@ -38,7 +38,7 @@ export class ForbiddenError extends AppError {
 
 /**
  * `code` ixtiyoriy: marshrut yoki web ziddiyat TURINI ajratishi kerak
- * bo'lsa (masalan `TALABNOMA_BOR`), matnni solishtirish o'rniga kodni o'qiydi.
+ * bo'lsa, matnni solishtirish o'rniga kodni o'qiydi.
  */
 export class ConflictError extends AppError {
   constructor(message: string, code = 'CONFLICT') {
@@ -99,44 +99,3 @@ export class StaleTurnError extends AbortedError {
   }
 }
 
-/**
- * Shartnomalar bazasi (CRM) javob bermadi — mijozga aytiladigan summa
- * TASDIQLANMADI.
- *
- * NEGA ALOHIDA SINF: chaqiruvchilar aynan shu holatga boshqacha munosabat
- * bildiradi. Mijoz javob kutib turgan yo'lda urinish takrorlanadi, keyin
- * suhbat operatorga chiqariladi; kuzatuvchilar esa suhbatni shunchaki
- * o'tkazib yuboradi — CRM chorak soat ishlamasa, yuzlab suhbat operator
- * ro'yxatiga tushib ketardi. Oddiy xato bo'lsa bu farqni ajratib
- * bo'lmasdi.
- *
- * NEGA UMUMAN TO'XTATAMIZ: mijozga aytiladigan raqamning yagona manbai —
- * CRM. Bizdagi nusxa faqat uning aksi va u eskirgan bo'lishi mumkin.
- * 2026-09-10 da eski nusxa bo'yicha aytilgan raqam 500 000 so'mga xato
- * chiqdi (Boyirov Boyxon). Eski raqam aytishdan ko'ra jim turish arzon.
- *
- * 503 — vaqtinchalik nosozlik: ma'lumot noto'g'ri emas, shunchaki hozir
- * yo'q.
- */
-export class CrmUnavailableError extends AppError {
-  constructor(
-    message = 'CRM javob bermadi — mijozga summa aytilmaydi',
-    readonly contractNo?: string,
-  ) {
-    super(message, 503, 'CRM_UNAVAILABLE', { contractNo });
-  }
-}
-
-/**
- * Asosiy agent noma'lum mijozga yozmoqchi bo'lganda tashlanadi.
- *
- * Asosiy agentning konteksti shartnoma va to'lov ma'lumotiga qurilgan;
- * begona odamga bu ma'lumot chiqmasligi kerak. Noma'lum suhbatga
- * `NomalumMijozAgenti` javob beradi. 409 — so'rov to'g'ri, lekin suhbat
- * holatiga zid.
- */
-export class NomalumMijozXatosi extends AppError {
-  constructor() {
-    super("Noma'lum mijozga asosiy agent yozmaydi", 409, 'NOMALUM_MIJOZ');
-  }
-}

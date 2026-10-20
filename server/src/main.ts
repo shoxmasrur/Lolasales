@@ -13,14 +13,13 @@ import { createDbLogSink } from '@/infrastructure/logging/dbLogSink';
 
 // systemd butun to'xtash uchun 90 soniya beradi. Telegram'ga ketgan
 // so'rov osilib qolsa, qolgan to'xtash tartibi (`telegram.shutdown`,
-// `closePool`) garovda qolmasin. Qayta aloqadagi agent chaqiruvi
-// uzilmaydi (bir necha o'n soniya olishi mumkin) — shuning uchun 45 s.
-// Chegarada tugamagan suhbat yo'qolmaydi: tiklangach qayta ko'riladi va
-// shu kuni yozilgan bo'lsa ro'yxat shartidan chiqib, o'tkazib yuboriladi.
+// `closePool`) garovda qolmasin. Ketayotgan agent chaqiruvi uzilmaydi
+// (bir necha o'n soniya olishi mumkin) — shuning uchun 45 s. Chegarada
+// tugamagan mijoz yo'qolmaydi: vazifa tiklangach qayta ko'riladi.
 const BULK_IDLE_TIMEOUT_MS = 45_000;
 
 async function bootstrap(): Promise<void> {
-  logger.info({ env: config.NODE_ENV, tz: config.TIMEZONE }, 'Debitor Agent ishga tushmoqda');
+  logger.info({ env: config.NODE_ENV, tz: config.TIMEZONE }, 'LolaSales ishga tushmoqda');
 
   await runMigrations();
 
@@ -94,6 +93,10 @@ async function bootstrap(): Promise<void> {
   container.services.appLogCleaner.start();
   container.services.connectionWatcher.start();
   container.services.eslatmaKuzatuvchi.start();
+  // Kunlik sotuv xulosasi (bot ulangan bo'lsa) — kechqurun bir marta.
+  const xulosaToxtat = container.services.xulosaBoti.rejaBoshla(
+    container.repositories.stats, container.clock, config.TIMEZONE,
+  );
 
   httpServer.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, `API tayyor: http://localhost:${config.PORT}`);
@@ -141,13 +144,11 @@ async function bootstrap(): Promise<void> {
       container.services.bulkJobStore.beginShutdown();
       container.services.bulkLookup.pauseForShutdown();
       container.services.bulkStart.pauseForShutdown();
-      container.services.bulkRecontact.pauseForShutdown();
       const idleAbort = new AbortController();
       const timedOut = await Promise.race([
         Promise.all([
           container.services.bulkLookup.idle(),
           container.services.bulkStart.idle(),
-          container.services.bulkRecontact.idle(),
         ]).then(() => false),
         sleep(BULK_IDLE_TIMEOUT_MS, idleAbort.signal).then(() => true),
       ]);
@@ -166,6 +167,7 @@ async function bootstrap(): Promise<void> {
     }
     await container.services.scheduler.stop();
     await container.services.eslatmaKuzatuvchi.stop();
+    xulosaToxtat();
     container.services.spamWatcher.stop();
     container.services.appLogCleaner.stop();
     container.services.connectionWatcher.stop();

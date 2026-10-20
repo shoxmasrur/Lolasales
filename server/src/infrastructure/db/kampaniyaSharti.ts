@@ -1,6 +1,4 @@
 import type { CampaignFilters } from '@/domain/entities/Campaign';
-import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
-import { mijozQamroviSharti } from '@/infrastructure/db/qamrovSharti';
 
 /** Bir martalik kampaniya nishonlari soni uchun yuqori chegara. */
 export const NISHON_LIMITI = 5000;
@@ -10,14 +8,12 @@ export const NISHON_LIMITI = 5000;
  * parametrlari orqali beriladi (SQL matniga qo'shilmaydi).
  *
  * "Joriy xarid" = faol xarid, bo'lmasa eng oxirgisi (`xaridSharti.ts`
- * bilan bir xil qoida). Obyekt cheklovi (`qamrov`) mijoz ro'yxati bilan
- * bir xil shart orqali qo'llanadi.
+ * bilan bir xil qoida).
  *
  * DIQQAT: `@/infrastructure/db/pool` import qilinmaydi — bazasiz test uchun.
  */
 export function kampaniyaNishonSql(
   filters: CampaignFilters,
-  qamrov: MijozQamrovi = HAMMASI,
 ): { sql: string; params: unknown[] } {
   const params: unknown[] = [];
   const where: string[] = [
@@ -61,8 +57,6 @@ export function kampaniyaNishonSql(
     where.push(`NOT EXISTS (SELECT 1 FROM conversations cv
                              WHERE cv.client_id = cl.id AND cv.deleted_at IS NULL)`);
   }
-
-  where.push(mijozQamroviSharti(qamrov, 'cl', params));
 
   params.push(Math.max(1, Math.min(filters.limit ?? 500, NISHON_LIMITI)));
 

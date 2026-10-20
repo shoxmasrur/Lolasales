@@ -40,18 +40,3 @@ export interface NewAgentRule {
   updatedBy?: string | null;
 }
 
-/** Bo'lim tartibi — promptdagi ketma-ketlikni belgilaydi. */
-export const SECTION_KEYS = [
-  'style',
-  'anti_repetition',
-  'promise_acceptance',
-  'after_agreement',
-  'contract_facts',
-  'tactics',
-  'client_types',
-  'media',
-  'prohibitions',
-  'examples',
-] as const;
-
-export type SectionKey = (typeof SECTION_KEYS)[number];

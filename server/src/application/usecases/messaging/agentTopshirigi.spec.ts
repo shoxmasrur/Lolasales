@@ -9,7 +9,7 @@ import type { ConversationPatch, IConversationRepository } from '@/domain/reposi
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { DomainEvent, IClock, IEventBus } from '@/domain/services/support';
-import { CrmUnavailableError, NomalumMijozXatosi, StaleTurnError } from '@/shared/errors';
+import { StaleTurnError } from '@/shared/errors';
 
 /**
  * Qo'lda ishga tushiriladi: npm run test:agent-topshirigi --workspace=server
@@ -49,11 +49,10 @@ function build(options: {
   humanKind?: HumanKind | null;
   killSwitch?: boolean;
   telegramStatus?: string;
-  nomalum?: boolean;
   hasOutbound?: boolean;
   agentThrows?: Error;
-  /** Qayd yozilishidan OLDINGI CRM tekshiruvi yiqilsin. */
-  crmThrows?: Error;
+  /** Qayd yozilishidan OLDINGI kontekst qurish yiqilsin. */
+  contextThrows?: Error;
 }): Harness {
   const patches: ConversationPatch[] = [];
   const notes: NewMessage[] = [];
@@ -63,12 +62,11 @@ function build(options: {
   const conversation = {
     id: 'cv1',
     clientId: 'c1',
-    state: options.state ?? 'negotiating',
-    stage: 'soft',
+    state: options.state ?? 'active',
     agentEnabled: options.agentEnabled ?? true,
     needsHuman: options.needsHuman ?? true,
-    humanReason: 'Va\'da buzildi',
-    humanKind: options.humanKind === undefined ? 'broken_promise' : options.humanKind,
+    humanReason: 'Agent operatorga o\'tkazdi',
+    humanKind: options.humanKind === undefined ? null : options.humanKind,
   } as unknown as Conversation;
 
   const conversations = {
@@ -88,13 +86,13 @@ function build(options: {
   } as unknown as IMessageRepository;
 
   const clients = {
-    findById: async () => ({ id: 'c1', telegramStatus: options.telegramStatus ?? 'found', nomalum: options.nomalum ?? false }),
+    findById: async () => ({ id: 'c1', telegramStatus: options.telegramStatus ?? 'found' }),
   } as unknown as IClientRepository;
 
   const agent = {
     buildContext: async () => {
-      if (options.crmThrows) throw options.crmThrows;
-      return { context: {}, contractId: null };
+      if (options.contextThrows) throw options.contextThrows;
+      return { context: {} };
     },
     operatorTurn: async (id: string) => {
       agentCalls.push(id);
@@ -127,7 +125,7 @@ const kirish = (instruction = TOPSHIRIQ) => ({
   conversationId: 'cv1',
   instruction,
   userId: 'u1',
-  userEmail: 'd.hakimova@xonsaroy.uz',
+  userEmail: 'd.hakimova@lolasales.uz',
 });
 
 async function otadi(fn: () => Promise<unknown>): Promise<Error | null> {
@@ -177,17 +175,10 @@ function hechNarsaQilinmadi(h: Harness, nom: string): void {
   hechNarsaQilinmadi(h, 'boshlanmagan suhbat');
 }
 
-{
-  const h = build({ nomalum: true });
-  const err = await otadi(() => h.useCase.execute(kirish()));
-  check('noma\'lum suhbat: NomalumMijozXatosi', err instanceof NomalumMijozXatosi, String(err));
-  hechNarsaQilinmadi(h, 'noma\'lum suhbat');
-  check('noma\'lum suhbat: hodisa chiqmadi', h.events.length === 0, `hodisalar: ${h.events.length}`);
-}
 
 // ─── 2. Asosiy yo'l ────────────────────────────────────────────────────
 {
-  const h = build({ agentEnabled: false, needsHuman: true, humanKind: 'broken_promise' });
+  const h = build({ agentEnabled: false, needsHuman: true, humanKind: null });
   const result = await h.useCase.execute(kirish());
   const note = h.notes[0];
 
@@ -196,7 +187,7 @@ function hechNarsaQilinmadi(h: Harness, nom: string): void {
   check('qayd yo\'nalishi note', note?.direction === 'note', `yo'nalish: ${note?.direction}`);
   check('qayd muallifi system', note?.author === 'system', `muallif: ${note?.author}`);
   check('topshiriq bo\'shliqlarsiz saqlanadi', note?.body === TOPSHIRIQ.trim(), `matn: "${note?.body}"`);
-  check('qaydda operator ko\'rsatiladi', note?.authorUserId === 'u1' && note?.meta?.by === 'd.hakimova@xonsaroy.uz');
+  check('qaydda operator ko\'rsatiladi', note?.authorUserId === 'u1' && note?.meta?.by === 'd.hakimova@lolasales.uz');
   check('qayd turi belgilanadi', note?.meta?.kind === 'operator_instruction');
 
   const patch = h.patches[0] ?? {};
@@ -209,13 +200,10 @@ function hechNarsaQilinmadi(h: Harness, nom: string): void {
   );
 }
 {
-  const h = build({ state: 'escalated' });
-  await h.useCase.execute(kirish());
-  check(
-    'eskalatsiya qilingan suhbat muzokaraga qaytadi',
-    h.patches[0]?.state === 'negotiating',
-    JSON.stringify(h.patches[0]),
-  );
+  const h = build({ state: 'closed' });
+  const err = await otadi(() => h.useCase.execute(kirish()));
+  check('yopilgan suhbat — rad etiladi', err !== null);
+  hechNarsaQilinmadi(h, 'yopilgan suhbat');
 }
 
 // ─── 3. Agent yiqilsa ──────────────────────────────────────────────────
@@ -242,31 +230,14 @@ function hechNarsaQilinmadi(h: Harness, nom: string): void {
   );
 }
 
-// ─── 4. CRM javob bermasa ───────────────────────────────────────────────
+// ─── 4. Kontekst qurilmasa ──────────────────────────────────────────────
 {
-  const h = build({ crmThrows: new CrmUnavailableError() });
+  const h = build({ contextThrows: new Error('Baza javob bermadi') });
   const err = await otadi(() => h.useCase.execute(kirish()));
-  check('CRM tushgan — xato chaqiruvchiga yetadi', err instanceof CrmUnavailableError);
-  check('CRM tushgan — qayd yozilmaydi', h.notes.length === 0, `qaydlar: ${h.notes.length}`);
-  check('CRM tushgan — agent chaqirilmaydi', h.agentCalls.length === 0);
-  check('CRM tushgan — suhbat holati o\'zgarmaydi', h.patches.length === 0, JSON.stringify(h.patches));
-}
-{
-  // Tekshiruvdan o'tdi, lekin agent chaqiruvida CRM yiqildi (poyga).
-  const h = build({ agentThrows: new CrmUnavailableError() });
-  const err = await otadi(() => h.useCase.execute(kirish()));
-  const oxirgi = h.patches[h.patches.length - 1] ?? {};
-  check('poygada CRM xatosi chaqiruvchiga yetadi', err instanceof CrmUnavailableError);
-  check(
-    'poygada suhbat operatorga agent xatosi bo\'lib CHIQMAYDI',
-    !h.patches.some((p) => p.humanKind === 'agent_error'),
-    JSON.stringify(h.patches),
-  );
-  check(
-    'poygada bayroqlar oldingi holatiga qaytadi',
-    oxirgi.needsHuman === true && oxirgi.humanKind === 'broken_promise' && oxirgi.agentEnabled === true,
-    JSON.stringify(oxirgi),
-  );
+  check('kontekst yiqildi — xato chaqiruvchiga yetadi', err?.message === 'Baza javob bermadi');
+  check('kontekst yiqildi — qayd yozilmaydi', h.notes.length === 0, `qaydlar: ${h.notes.length}`);
+  check('kontekst yiqildi — agent chaqirilmaydi', h.agentCalls.length === 0);
+  check('kontekst yiqildi — suhbat holati o\'zgarmaydi', h.patches.length === 0, JSON.stringify(h.patches));
 }
 
 console.log(failed ? `\n${failed} ta tekshiruv yiqildi` : "\nHammasi o'tdi");

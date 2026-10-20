@@ -6,10 +6,8 @@ import type { StartConversationUseCase } from '@/application/usecases/messaging/
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 import type { BulkStartPlanner } from '@/application/services/BulkStartPlanner';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { AccountLabels } from '@/application/services/AccountLabels';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import type { IClock, IEventBus } from '@/domain/services/support';
 
 /**
@@ -229,9 +227,7 @@ function build(s: Sozlama): Qurilma {
     planner,
     clients,
     accounts,
-    { findPrimaryForClient: async (id: string) => ({ contractNo: `SH-${id}` }) } as unknown as IContractRepository,
     { labelOf: (id: string | null) => (id ? `Akkaunt ${id}` : null) } as unknown as AccountLabels,
-    { list: async () => [] } as unknown as IHolidayRepository,
   );
 
   return { bulk, clientIds, chaqiruvlar };
@@ -485,8 +481,8 @@ async function paceniKut(bulk: BulkConversationStart): Promise<BulkStartJob> {
         && x.reason === 'Bugungi taqsimotga kirmadi — operator qo\'lda chegaralagan',
     ),
     JSON.stringify(job.skippedItems));
-  check('tafsilotda shartnoma va ism bor',
-    job.skippedItems.some((x) => x.contractNo === 'SH-a1-c2' && x.fullName === 'Mijoz a1-c2'),
+  check('tafsilotda ism bor',
+    job.skippedItems.some((x) => x.clientId === 'a1-c2' && x.fullName === 'Mijoz a1-c2'),
     JSON.stringify(job.skippedItems));
 }
 

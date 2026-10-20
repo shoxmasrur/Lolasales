@@ -5,7 +5,6 @@ import { useCan } from '@/store/auth';
 import type { LlmModel, OutreachSettings, PaymentCard } from '@/lib/types';
 import { relative } from '@/lib/format';
 import { ErrorNote, Spinner, Toggle } from '@/components/ui';
-import { RecontactTopicsSettings } from '@/components/recontact/RecontactTopicsSettings';
 import { XulosaBotiPanel } from '@/components/XulosaBotiPanel';
 
 const WEEKDAYS = [
@@ -21,7 +20,6 @@ const WEEKDAYS = [
 interface ResetSummary {
   conversations: number;
   messages: number;
-  promises: number;
   profiles: number;
   campaignTargets: number;
 }
@@ -721,54 +719,7 @@ export default function SettingsPage() {
         <KartalarPanel />
 
         <div className="card space-y-4">
-          <h2 className="text-sm font-medium">Va'da kunidagi eslatma</h2>
-
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-ink-200">Kelishilgan kuni eslatib qo'yish</p>
-              <p className="mt-0.5 text-xs text-ink-500">
-                Mijoz "15-avgustda to'layman" degan bo'lsa — o'sha kuni ertalab bitta
-                yumshoq eslatma ketadi ("bugun kelishuvimiz kuni edi"). Bosim emas:
-                mijoz hali kechikmagan. Har bir va'da uchun faqat bir marta.
-              </p>
-            </div>
-            <Toggle
-              checked={form.promiseReminder}
-              disabled={!admin}
-              onChange={(v) => patch('promiseReminder', v)}
-            />
-          </div>
-
-          <div className="max-w-xs">
-            <label className="label">Eslatma shu vaqtgacha yuboriladi</label>
-            <input
-              type="time"
-              className="input"
-              value={form.promiseReminderUntil}
-              disabled={!admin || !form.promiseReminder}
-              onChange={(e) => patch('promiseReminderUntil', e.target.value)}
-            />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
-              Ish vaqti boshlanganidan shu vaqtgacha. Kunning ikkinchi yarmidagi eslatma
-              mijozga ta'qib bo'lib tuyuladi — tushgacha qo'yish tavsiya etiladi.
-            </p>
-          </div>
-
-          <div className="max-w-xs">
-            <label className="label">"Pul tushdi" xabari shu vaqtgacha</label>
-            <input
-              type="time"
-              className="input"
-              value={form.promiseThanksUntil}
-              disabled={!admin}
-              onChange={(e) => patch('promiseThanksUntil', e.target.value)}
-            />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
-              To'lov bankdan tunda ham ko'rinishi mumkin, lekin xabar ish vaqtida —
-              boshlanishidan shu vaqtgacha va yuqoridagi hafta kunlarida ketadi.
-              Tashqarida qolgani yo'qolmaydi, ertalab yuboriladi.
-            </p>
-          </div>
+          <h2 className="text-sm font-medium">Eslatma va kanal izohlari</h2>
 
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -797,35 +748,6 @@ export default function SettingsPage() {
               disabled={!admin || !form.eslatmaYoqilgan}
               onChange={(e) => patch('eslatmaSoat', Number(e.target.value))}
             />
-          </div>
-
-          <div className="max-w-xs">
-            <label className="label">Minimal qarzdorlik chegarasi (so'm)</label>
-            <input
-              type="number"
-              min={0}
-              max={10_000_000}
-              step={10_000}
-              className="input"
-              value={form.minDebt}
-              disabled={!admin}
-              onChange={(e) => patch('minDebt', Number(e.target.value))}
-            />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
-              Kechikkan to'lovi shu summadan katta bo'lmagan mijozga
-              yozilmaydi: 800-1000 so'mlik qoldiq yaxlitlash farqi, uning
-              uchun yuborilgan xabar hech narsani tezlashtirmaydi. Hisob
-              mijozning yoziladigan BARCHA shartnomalari (Сотилди, К оплате,
-              Проц. отказ) bo'yicha yig'ib
-              olinadi. 0 — chegara yo'q.
-            </p>
-            {form.minDebt === 0 ? (
-              // Maydonni tozalash ham `0` beradi — sozlama sukut saqlashda
-              // sezdirmasdan o'chib qolmasin, shu yerda ochiq ogohlantiramiz.
-              <p className="mt-1 text-[11px] leading-relaxed text-amber-400">
-                Chegara o'chirilgan — 800 so'mlik qoldiqqa ham yoziladi.
-              </p>
-            ) : null}
           </div>
 
           <div className="border-t border-ink-800 pt-4">
@@ -884,12 +806,8 @@ export default function SettingsPage() {
                   weekdays: form.weekdays,
                   agentAutoReply: form.agentAutoReply,
                   personaName: form.personaName,
-                  promiseReminder: form.promiseReminder,
-                  promiseReminderUntil: form.promiseReminderUntil,
-                  promiseThanksUntil: form.promiseThanksUntil,
                   eslatmaYoqilgan: form.eslatmaYoqilgan,
                   eslatmaSoat: form.eslatmaSoat,
-                  minDebt: form.minDebt,
                   izohKalitSozlari: form.izohKalitSozlari.map((k) => k.trim()).filter(Boolean),
                   izohLimit: form.izohLimit,
                 })
@@ -908,8 +826,8 @@ export default function SettingsPage() {
           <div className="card border-red-500/30 bg-red-500/5">
             <h2 className="text-sm font-medium text-red-300">Sinovni noldan boshlash</h2>
             <p className="mt-1 text-xs text-ink-400">
-              Barcha suhbatlar, xabarlar, va'dalar va agentning mijozlar haqidagi xotirasi
-              o'chiriladi. <span className="text-ink-300">Mijozlar, shartnomalar va agent
+              Barcha suhbatlar, xabarlar va agentning mijozlar haqidagi xotirasi
+              o'chiriladi. <span className="text-ink-300">Mijozlar, xaridlar va agent
               qoidalari saqlanib qoladi</span> — import qayta bajarilmaydi.
             </p>
 
@@ -959,8 +877,6 @@ export default function SettingsPage() {
             </div>
           </div>
         ) : null}
-
-        <RecontactTopicsSettings />
 
         <div className="card space-y-4">
           <XulosaBotiPanel />

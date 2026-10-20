@@ -14,7 +14,6 @@ export interface AppLogRow {
   readonly flag: AppLogFlag | null;
   readonly scope: string | null;
   readonly msg: string;
-  readonly shartnoma: string | null;
   readonly akkaunt: string | null;
   readonly mijoz: string | null;
   readonly payload: Record<string, unknown>;
@@ -31,7 +30,7 @@ export interface AppLogQuery {
   readonly level?: 'error';
   /** Berilsa FAQAT shu bayroqli qatorlar, darajasidan qat'i nazar. */
   readonly flag?: AppLogFlag;
-  /** Shartnoma, akkaunt, mijoz yoki matn bo'yicha qidiruv. */
+  /** Akkaunt, mijoz yoki matn bo'yicha qidiruv. */
   readonly q?: string;
   /** Shu id'dan eskiroqlarini olish (pastga varaqlash). */
   readonly beforeId?: string;

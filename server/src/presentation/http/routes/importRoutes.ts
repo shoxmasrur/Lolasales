@@ -66,17 +66,12 @@ export function importRoutes(container: Container): Router {
         fayl: batch.filename,
         importVaqti: batch.createdAt,
         olibTashlandi: summary,
-        qaytarilmagan: { yangilanganShartnomalar: batch.contractsUpdated },
       },
     });
 
     container.events.publish({ type: 'stats.invalidate' });
 
-    res.json({
-      summary,
-      /** Qaytarib bo'lmagan qism — xodim buni bilishi shart. */
-      notUndone: { contractsUpdated: batch.contractsUpdated },
-    });
+    res.json({ summary });
   });
 
   /** Qaytarishni bekor qilish — import olib tashlagan hamma narsa tiklanadi. */

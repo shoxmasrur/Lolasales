@@ -38,13 +38,12 @@ export interface BulkStartJob {
   /**
    * Kim o'tkazib yuborilgani — sabab bo'yicha ochib ko'rish uchun.
    *
-   * Sabab bo'yicha son yetarli emas edi: "9 tasi Сотилди emas" degan
-   * qatorni ko'rgan operator qaysi shartnomalar ekanini bilolmasdi.
+   * Sabab bo'yicha son yetarli emas edi: operator qaysi mijozlar ekanini
+   * bilolmasdi.
    */
   skippedItems: Array<{
     clientId: string;
     fullName: string;
-    contractNo: string | null;
     reason: string;
   }>;
   /** Serverdagi cheklovdan oshgani uchun ro'yxatga kirmaganlari. */
@@ -75,35 +74,6 @@ export interface BulkStartJob {
   resumedCount?: number;
 }
 
-export interface BulkContractSyncJob {
-  id: string;
-  /** Tanlangan mijozlar soni. */
-  total: number;
-  done: number;
-  /** Muvaffaqiyatli yangilangan shartnomalar soni. */
-  contracts: number;
-  /** CRM'dan qo'shilgan yangi raqamlar soni. */
-  newPhones: number;
-  notFound: number;
-  failed: number;
-  /** Bizda umuman shartnomasi yo'q mijozlar. */
-  noContract: number;
-  status: 'running' | 'done' | 'stopped' | 'failed';
-  currentName: string | null;
-  startedAt: string;
-  finishedAt: string | null;
-  error: string | null;
-  missing: Array<{
-    clientId: string;
-    name: string;
-    reason: 'not_found' | 'error' | 'no_contract';
-  }>;
-  /** Serverdagi cheklovdan oshgani uchun ro'yxatga kirmaganlari. */
-  missingTruncated: number;
-  /** Server qayta ishga tushgach (deploy) vazifa necha marta davom ettirilgan. */
-  resumedCount?: number;
-}
-
 export type ServerEvent =
   | { type: 'message.created'; conversationId: string; messageId: string }
   | { type: 'message.updated'; conversationId: string; messageId: string }
@@ -129,7 +99,6 @@ export type ServerEvent =
   | { type: 'agent.thinking'; conversationId: string; on: boolean }
   | { type: 'telegram.lookup_progress'; job: BulkLookupJob }
   | { type: 'conversation.bulk_progress'; job: BulkStartJob }
-  | { type: 'contracts.sync_progress'; job: BulkContractSyncJob }
   | { type: 'stats.invalidate' };
 
 let socket: Socket | null = null;

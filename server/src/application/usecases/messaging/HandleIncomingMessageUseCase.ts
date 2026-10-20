@@ -5,7 +5,6 @@ import type {
 } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { IncomingMessage } from '@/domain/services/ITelegramGateway';
 import { canAgentReply } from '@/domain/entities/Conversation';
 import { RECEIPT_REVIEW_REASON } from '@/domain/entities/PaymentCheck';
@@ -71,7 +70,6 @@ export function xabarMaydonlari(
 export class HandleIncomingMessageUseCase {
   constructor(
     private readonly clients: IClientRepository,
-    private readonly contracts: IContractRepository,
     private readonly conversations: IConversationRepository,
     private readonly messages: IMessageRepository,
     private readonly replies: ReplyDebouncer,
@@ -145,8 +143,6 @@ export class HandleIncomingMessageUseCase {
       conversation = await this.conversations.create({
         clientId: client.id,
         telegramAccountId: incoming.telegramAccountId,
-        // Debitor eskalatsiya bosqichi sotuvda ishlatilmaydi (Task 14 olib tashlaydi).
-        stage: 'soft',
       });
       this.events.publish({ type: 'conversation.created', conversationId: conversation.id });
     }

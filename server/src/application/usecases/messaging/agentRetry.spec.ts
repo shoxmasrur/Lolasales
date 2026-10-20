@@ -5,7 +5,6 @@ import type { Conversation, HumanKind } from '@/domain/entities/Conversation';
 import type { Message } from '@/domain/entities/Message';
 import type { ConversationPatch, IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import { NomalumMijozXatosi } from '@/shared/errors';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IClock, IEventBus } from '@/domain/services/support';
@@ -59,7 +58,6 @@ function build(options: {
   history?: Message[];
   agentThrows?: Error;
   agentEnabled?: boolean;
-  nomalum?: boolean;
 }): Harness {
   const patches: ConversationPatch[] = [];
   const replyCalls: string[] = [];
@@ -68,8 +66,7 @@ function build(options: {
   const conversation = {
     id: 'cv1',
     clientId: 'c1',
-    state: 'negotiating',
-    stage: 'soft',
+    state: 'active',
     agentEnabled: options.agentEnabled ?? true,
     needsHuman: options.needsHuman ?? true,
     humanReason: 'Agent vaqtincha ishlamadi: Claude limiti',
@@ -105,7 +102,7 @@ function build(options: {
   } as unknown as AgentRunner;
 
   const clients = {
-    findById: async () => ({ id: 'c1', nomalum: options.nomalum ?? false }),
+    findById: async () => ({ id: 'c1' }),
   } as unknown as IClientRepository;
 
   const replies = new ReplyDebouncer(agent, 0, async () => undefined);
@@ -136,15 +133,6 @@ const err1 = await otadi(() => h1.useCase.execute({ conversationId: 'cv1', userE
 check('agent eskalatsiyasida xato qaytadi', err1 !== null, 'xato otilmadi');
 check('agent chaqirilmaydi', h1.replyCalls.length === 0, `chaqiruvlar: ${h1.replyCalls.length}`);
 check('bayroqqa tegilmaydi', h1.patches.length === 0, `patch: ${h1.patches.length}`);
-
-// ─── 1b. Noma'lum suhbat — asosiy agent urinmaydi ──────────────────────
-{
-  const h = build({ nomalum: true, history: [msg('m1', 'in', 'salom', '2026-08-12T08:00:00Z')] });
-  const err = await otadi(() => h.useCase.execute({ conversationId: 'cv1', userEmail: 'a@b.uz' }));
-  check('noma\'lum suhbat: NomalumMijozXatosi', err instanceof NomalumMijozXatosi, String(err));
-  check('noma\'lum suhbat: bayroqqa tegilmadi', h.patches.length === 0, `patch: ${h.patches.length}`);
-  check('noma\'lum suhbat: agent chaqirilmadi', h.replyCalls.length === 0 && h.firstContactCalls.length === 0);
-}
 
 // ─── 2. Javobsiz xabar bilan chaqiriladi ───────────────────────────────
 const h2 = build({

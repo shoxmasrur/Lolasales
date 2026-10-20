@@ -64,8 +64,6 @@ function qur(c: Record<string, unknown>, opts: { identityXato?: boolean } = {}) 
     { publish: () => {} } as never,
     { saveContact: async () => { iz.contacts += 1; } } as never,
     { hasPossiblyDeliveredOutbound: async () => false } as never,
-    { sukutdami: async () => false },
-    { todayIso: () => '2026-10-20' },
   );
   return { uc, iz };
 }

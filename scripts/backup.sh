@@ -2,11 +2,11 @@
 #
 # Soatlik baza zaxirasi → BACKUP_DIR va yopiq Telegram guruhi.
 #
-# systemd timer (debitor-backup.timer) har soat chaqiradi, qo'lda ham
+# systemd timer (lolasales-backup.timer) har soat chaqiradi, qo'lda ham
 # ishlatsa bo'ladi:  ./scripts/backup.sh
 #
 # Nega bash, ilova ichidagi rejalashtiruvchi emas: zaxira aynan ilova
-# ishlamay qolgan paytda kerak bo'ladi. `debitor` xizmati yiqilsa yoki
+# ishlamay qolgan paytda kerak bo'ladi. `lolasales` xizmati yiqilsa yoki
 # build buzilsa, ilova ichidagi timer ham to'xtardi.
 
 set -euo pipefail
@@ -29,7 +29,7 @@ DATABASE_URL=${DATABASE_URL:-$(env_get DATABASE_URL)}
 BOT_TOKEN=${BACKUP_BOT_TOKEN:-$(env_get BACKUP_BOT_TOKEN)}
 CHAT_ID=${BACKUP_CHAT_ID:-$(env_get BACKUP_CHAT_ID)}
 BACKUP_DIR=${BACKUP_DIR:-$(env_get BACKUP_DIR)}
-BACKUP_DIR=${BACKUP_DIR:-/var/backups/debitor}
+BACKUP_DIR=${BACKUP_DIR:-/var/backups/lolasales}
 KEEP=${BACKUP_KEEP:-$(env_get BACKUP_KEEP)}
 KEEP=${KEEP:-48}
 API_BASE=${TELEGRAM_API_BASE:-https://api.telegram.org}
@@ -62,7 +62,7 @@ STAMP=$(TZ="$TZ_NAME" date +%Y%m%d-%H%M)
 HUMAN=$(TZ="$TZ_NAME" date '+%d.%m.%Y %H:%M')
 FILE="$BACKUP_DIR/hourly-$STAMP.sql.gz"
 
-# URL'dan baza nomi: …/debitor_agent02?sslmode=… → debitor_agent02
+# URL'dan baza nomi: …/lolasales?sslmode=… → lolasales
 DB_NAME=${DATABASE_URL##*/}
 DB_NAME=${DB_NAME%%\?*}
 

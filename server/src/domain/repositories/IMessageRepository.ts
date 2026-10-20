@@ -65,13 +65,4 @@ export interface IMessageRepository {
    * Birinchi xabarni takrorlashdan himoya (`StartConversationUseCase`).
    */
   hasPossiblyDeliveredOutbound(conversationId: string): Promise<boolean>;
-  /**
-   * Mijozning (har qanday suhbatidagi) shu nomli faylli, yetib borgan
-   * bo'lishi mumkin bo'lgan eng so'nggi chiquvchi xabari — `draft`/`failed`
-   * dan boshqasi, `hasPossiblyDeliveredOutbound` bilan bir xil ma'noda.
-   * Talabnomani qayta urinishda ikkinchi nusxa yubormaslik uchun.
-   */
-  yuborilganFayl(clientId: string, fileName: string): Promise<Message | null>;
-  /** Xabarlarni boshqa suhbatga ko'chiradi; takroriy telegram_msg_id lar tashlanadi. @returns ko'chirilganlar soni */
-  moveAll(fromConversationId: string, toConversationId: string): Promise<number>;
 }

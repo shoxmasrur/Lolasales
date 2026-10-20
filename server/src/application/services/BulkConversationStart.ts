@@ -13,9 +13,7 @@ import { sleep } from '@/shared/datetime';
 import { config } from '@/shared/config';
 import { childLogger } from '@/shared/logger';
 import { kontekst } from '@/shared/logContext';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { AccountLabels } from '@/application/services/AccountLabels';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import type { BulkJobStore } from '@/application/services/BulkJobStore';
 import type { BulkJobRow } from '@/domain/repositories/IBulkJobRepository';
 import type { ResumableJob } from '@/application/services/BulkJobResumer';
@@ -192,54 +190,39 @@ export class BulkConversationStart implements ResumableJob {
     private readonly planner: BulkStartPlanner,
     private readonly clients: IClientRepository,
     private readonly accounts: ITelegramAccountRepository,
-    /** Jurnalda shartnoma raqamini ko'rsatish uchun. */
-    private readonly contracts: IContractRepository,
     /** Jurnalda akkaunt nomini ko'rsatish uchun. */
     private readonly accountLabels: AccountLabels,
-    private readonly holidays: IHolidayRepository,
     /** `null` — holat saqlanmaydi (testlar). */
     private readonly store: BulkJobStore | null = null,
   ) {}
 
   /**
-   * O'tkazib yuborilgan mijozning ism va shartnoma raqami.
+   * O'tkazib yuborilgan mijozning ismi.
    *
-   * FAQAT o'tkazib yuborilganda chaqiriladi, ya'ni qo'shimcha ikki so'rov
+   * FAQAT o'tkazib yuborilganda chaqiriladi, ya'ni qo'shimcha so'rov
    * muvaffaqiyatli yuborishlarga tegmaydi.
    */
   private async skipTafsiloti(clientId: string, reason: string): Promise<SkippedClient> {
     try {
-      const [client, contract] = await Promise.all([
-        this.clients.findById(clientId),
-        this.contracts.findPrimaryForClient(clientId),
-      ]);
-      return {
-        clientId,
-        fullName: client?.fullName ?? 'Noma\'lum',
-        contractNo: contract?.contractNo ?? null,
-        reason,
-      };
+      const client = await this.clients.findById(clientId);
+      return { clientId, fullName: client?.fullName ?? 'Noma\'lum', reason };
     } catch {
       // Tafsilot ololmagani sababni yo'qotmasligi kerak.
-      return { clientId, fullName: 'Noma\'lum', contractNo: null, reason };
+      return { clientId, fullName: 'Noma\'lum', reason };
     }
   }
 
   /**
    * Yiqilgan mijoz uchun o'qiladigan jurnal konteksti.
    *
-   * FAQAT xato yo'lida chaqiriladi: ikkita qo'shimcha so'rov muvaffaqiyatli
-   * yuborishlarga tegmaydi, xato bo'lganda esa "qaysi shartnoma, qaysi
+   * FAQAT xato yo'lida chaqiriladi: qo'shimcha so'rov muvaffaqiyatli
+   * yuborishlarga tegmaydi, xato bo'lganda esa "qaysi mijoz, qaysi
    * akkaunt" savoliga javobsiz qator baribir yaroqsiz.
    */
   private async xatoKonteksti(clientId: string): Promise<Record<string, string>> {
     try {
-      const [client, contract] = await Promise.all([
-        this.clients.findById(clientId),
-        this.contracts.findPrimaryForClient(clientId),
-      ]);
+      const client = await this.clients.findById(clientId);
       return kontekst({
-        shartnoma: contract?.contractNo,
         akkaunt: this.accountLabels.labelOf(client?.telegramAccountId),
         mijoz: client?.fullName,
       });
@@ -1003,13 +986,11 @@ export class BulkConversationStart implements ResumableJob {
       }
 
       // Ish vaqtidan tashqarida notanish odamga yozish — spam signali.
-      const bayramlar = await this.holidays.list();
       const window = evaluateWindow(this.clock.now(), {
         start: runtime.windowStart,
         end: runtime.windowEnd,
         weekdays: runtime.weekdays,
         timeZone: config.TIMEZONE,
-        holidays: bayramlar,
       });
       if (!window.allowed) {
         this.umumiyToxtat('stopped', `Ish vaqti tugadi (${window.reason}) — qolganini ertaga davom ettiring`);
@@ -1060,9 +1041,8 @@ export class BulkConversationStart implements ResumableJob {
           allowNameMismatch: this.options.allowNameMismatch,
           actor: this.options.actor,
           noAutoAssign,
-          // "To'xtatish" endi mijozning ICHIGA ham yetadi: shartnoma
-          // sinxronizatsiyasi, Telegram qidiruvi va model chaqiruvi
-          // yarim yo'lda uziladi.
+          // "To'xtatish" endi mijozning ICHIGA ham yetadi: Telegram
+          // qidiruvi va model chaqiruvi yarim yo'lda uziladi.
           signal: this.stopSignal?.signal,
         });
 
@@ -1075,11 +1055,11 @@ export class BulkConversationStart implements ResumableJob {
           const reason = result.reason ?? 'Sabab ko\'rsatilmagan';
 
           // Kim ekanini ham yozib qo'yamiz — sonning o'zi tashxis uchun
-          // yetarli emas. Ism va shartnoma bitta qo'shimcha so'rov, u esa
+          // yetarli emas. Ism bitta qo'shimcha so'rov, u esa
           // o'tkazib yuborilganda (ya'ni kamdan-kam) qilinadi.
           //
           // Ro'yxat to'lgan bo'lsa tafsilot olishning ma'nosi yo'q — u
-          // baribir tashlab yuborilardi, lekin ikkita baza so'rovi ketardi.
+          // baribir tashlab yuborilardi, lekin baza so'rovi ketardi.
           const toliq = (this.job?.skippedItems.length ?? 0) >= SKIP_DETAILS_LIMIT;
           const tafsilot = toliq ? ('truncated' as const) : await this.skipTafsiloti(id, reason);
           this.bump(accountId, { skipped: 1, done: 1, skipReason: reason, skippedItem: tafsilot });

@@ -1,9 +1,9 @@
 /**
  * Mijozga bog'lanmagan, tuzilgan (JSON sxemali) model chaqiruvi porti.
  *
- * NEGA ALOHIDA: `IAgentEngine` har bir kirishda mijoz/shartnoma kontekstini
- * talab qiladi. Noma'lum odam haqida bunday kontekst YO'Q va bo'lmasligi ham
- * kerak — shuning uchun faqat system/user matn va sxema beriladi.
+ * NEGA ALOHIDA: `IAgentEngine` har bir kirishda mijoz/xarid kontekstini
+ * talab qiladi. Bunday kontekst bo'lmagan vazifalarda (masalan izoh
+ * tasnifi) u kerak emas — shuning uchun faqat system/user matn va sxema beriladi.
  */
 export interface TuzilganSorov {
   system: string;

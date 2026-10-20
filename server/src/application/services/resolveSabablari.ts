@@ -1,6 +1,6 @@
 /**
  * `ClientTelegramResolver.resolve` rad javoblarining operatorga ko'rinadigan
- * sababi. Suhbat boshlash va talabnoma yuborish bir xil matnni ko'rsatadi —
+ * sababi. Bitta mijoz va ommaviy suhbat boshlash bir xil matnni ko'rsatadi —
  * operator bitta muammoni ikki xil so'z bilan o'qimasin.
  *
  * Sof modul (config yo'q), shuning uchun istalgan joydan import qilinadi.

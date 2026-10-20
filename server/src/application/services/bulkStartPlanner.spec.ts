@@ -22,7 +22,7 @@ const account = (over: Partial<TelegramAccount> & { id: string }): TelegramAccou
   dailyLimit: 40, sentToday: 0, lookupLimit: 50, lookupsToday: 0, counterDate: TODAY, floodWaitUntil: null, floodWaitSince: null, peerFloodSince: null,
   spamStatus: 'clean', spamCheckedAt: null, spamMessage: null, spamUntil: null,
   proxy: null,
-  isEnabled: true, styleVersion: 'v1', llmModelId: null, premiumUntil: null, premiumEslatildi: null, createdAt: NOW, updatedAt: NOW,
+  isEnabled: true, styleVersion: 'v1', llmModelId: null, createdAt: NOW, updatedAt: NOW,
   ...over,
 });
 

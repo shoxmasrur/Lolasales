@@ -55,8 +55,6 @@ const container = {
     },
     messages: {},
     clients: { findById: async () => ({ id: 'c1' }) },
-    contracts: { findByClientId: async () => [] },
-    promises: { findActiveByConversation: async () => null },
     audit: { record: async () => undefined },
     telegramAccounts: { list: async () => [] },
     paymentChecks: { findOpenByConversation: async () => ochiqTekshiruv },
@@ -64,6 +62,7 @@ const container = {
       findById: async (id: string) =>
         id === 'p1' ? { id: 'p1', courseId: 'k1', totalAmount: 1_500_000, paidAmount: 500_000, installment: true } : null,
       findActiveByClient: async () => null,
+      findLatestByClient: async () => null,
     },
     courses: { findById: async () => ({ id: 'k1', price: 1_500_000, installmentFirstMin: 500_000 }) },
   },
@@ -93,7 +92,7 @@ const container = {
 function foydalanuvchi(permissions: Permission[]): User {
   return {
     id: '11111111-1111-4111-8111-111111111111',
-    email: 'operator@xonsaroy.uz',
+    email: 'operator@lolasales.uz',
     passwordHash: '',
     fullName: 'Test',
     roleId: 'r',
@@ -103,7 +102,7 @@ function foydalanuvchi(permissions: Permission[]): User {
     },
     isActive: true,
     failedLoginAttempts: 0,
-    lockedAt: null, objects: [],
+    lockedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -148,7 +147,7 @@ try {
 
   const ok = await so('POST', '/cv1/receipt-confirm', true, { amount: 500000 });
   eq('tasdiq — 200 va natija', [ok.status, ok.json], [200, { kind: 'confirmed', stage: 'qisman_toladi', linkSent: true }]);
-  eq('operator emaili va summa servisga bordi', chaqiruvlar[0], { id: 'cv1', actor: 'operator@xonsaroy.uz', amount: 500000 });
+  eq('operator emaili va summa servisga bordi', chaqiruvlar[0], { id: 'cv1', actor: 'operator@lolasales.uz', amount: 500000 });
 
   natija = { kind: 'not_sent', reason: 'agent_error', stage: 'qisman_toladi', linkSent: false };
   const yozilmadi = await so('POST', '/cv1/receipt-confirm', true, { amount: 500000 });
@@ -169,7 +168,7 @@ try {
   eq('rad: servis chaqirilmadi', radlar.length, 0);
   const rad = await so('POST', '/cv1/receipt-reject', true, { reason: '  Chek xira  ' });
   eq('rad: 200', [rad.status, rad.json], [200, { kind: 'rejected' }]);
-  eq('rad: sabab qirqilib bordi', radlar[0], { id: 'cv1', actor: 'operator@xonsaroy.uz', reason: 'Chek xira' });
+  eq('rad: sabab qirqilib bordi', radlar[0], { id: 'cv1', actor: 'operator@lolasales.uz', reason: 'Chek xira' });
   radNatija = { kind: 'no_review' };
   eq('rad: tekshiruv yo\'q — 409', (await so('POST', '/cv1/receipt-reject', true, { reason: 'x' })).status, 409);
 
@@ -219,7 +218,7 @@ try {
     return res.status;
   }
 
-  eq('PATCH: holat o\'zgardi — 200', await patch({ state: 'negotiating' }), 200);
+  eq('PATCH: holat o\'zgardi — 200', await patch({ state: 'active' }), 200);
   eq('PATCH: yopilmagan suhbatda tekshiruv bekor qilinmaydi', bekorlar, []);
   eq('PATCH: suhbat yopildi — 200', await patch({ state: 'closed' }), 200);
   eq('PATCH: yopilgan suhbatda tekshiruv bekor qilindi', bekorlar, ['cv1']);

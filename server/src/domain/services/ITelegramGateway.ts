@@ -1,5 +1,5 @@
 /**
- * Telegram bilan ishlashning domen darajasidagi shartnomasi.
+ * Telegram bilan ishlashning domen darajasidagi porti (kelishuvi).
  * Application qatlami GramJS haqida hech narsa bilmaydi — faqat shu interfeys.
  */
 
@@ -61,8 +61,8 @@ export interface IncomingMessage {
   readonly receivedAt: Date;
   /**
    * Telegram jo'natuvchini rasmiy (`verified`) yoki yordam xizmati
-   * (`support`) deb belgilagan. Bunday hisob bazada bo'lmasa, noma'lum
-   * mijoz OCHILMAYDI — u qarzdor emas va agent unga yozmasligi kerak.
+   * (`support`) deb belgilagan. Bunday hisob bazada bo'lmasa, yangi
+   * mijoz OCHILMAYDI — u lead emas va agent unga yozmasligi kerak.
    * Ixtiyoriy: eski chaqiruvchilar va testlar uni bermaydi.
    */
   readonly xizmatHisobi?: boolean;
@@ -291,7 +291,7 @@ export interface ITelegramGateway {
   /**
    * Username bo'yicha topish (@nomi).
    *
-   * Mijozning shartnomadagi raqami bilan Telegramda o'tirmasligi mumkin —
+   * Mijoz bergan raqami bilan Telegramda o'tirmasligi mumkin —
    * boshqa raqamda. Bunday holatda xodim username'ni qo'lda kiritadi.
    */
   lookupByUsername(accountId: string, username: string): Promise<PhoneLookupResult>;

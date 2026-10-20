@@ -106,7 +106,6 @@ export class EslatmaKuzatuvchi {
       end: runtime.windowEnd,
       weekdays: runtime.weekdays,
       timeZone: config.TIMEZONE,
-      holidays: [],
     };
     const first = evaluateWindow(this.clock.now(), window);
     if (!first.allowed) {

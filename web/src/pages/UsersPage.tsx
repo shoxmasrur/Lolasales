@@ -333,7 +333,7 @@ function UsersTab() {
                 type="email"
                 value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="nodira@xonsaroy.uz"
+                placeholder="nodira@lolasales.uz"
               />
             </div>
             <div>
@@ -671,7 +671,7 @@ function RolesTab() {
                 className="input"
                 value={draft.name}
                 onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                placeholder="Undiruvchi"
+                placeholder="Sotuv menejeri"
               />
             </div>
             {creating ? (
@@ -683,7 +683,7 @@ function RolesTab() {
                   onChange={(e) =>
                     setDraft((d) => ({ ...d, key: e.target.value.toLowerCase().replace(/\s+/g, '_') }))
                   }
-                  placeholder="undiruvchi"
+                  placeholder="sotuv_menejeri"
                 />
               </div>
             ) : null}

@@ -1,14 +1,13 @@
 import { EKSPORT_USTUNLARI, eksportQatori } from '@/application/usecases/clients/eksportJadvali';
-import type { ClientWithDebt } from '@/domain/repositories/IClientRepository';
+import type { ClientListItem } from '@/domain/repositories/IClientRepository';
 
 /**
  * Qo'lda ishga tushiriladi: npm run test:eksport-jadvali --workspace=server
  *
  * NEGA BU TEST KERAK: faylni odam ochadi va undagi songa ishonib ish
- * qiladi. Eng jimgina xato — summaning MATN bo'lib tushishi: Excel
- * bunday katakni qo'shmaydi va yig'indi noto'g'ri chiqadi, lekin hech
- * qayerda xato ko'rinmaydi. Ikkinchisi — `null` ning "null" degan matn
- * bo'lib chiqishi: raqamsiz mijoz "null" nomli telefonga ega bo'lib
+ * qiladi. Eng jimgina xato — to'langan summaning MATN bo'lib tushishi:
+ * Excel bunday katakni qo'shmaydi. Ikkinchisi — `null` ning "null" degan
+ * matn bo'lib chiqishi: raqamsiz mijoz "null" nomli telefonga ega bo'lib
  * qoladi.
  */
 
@@ -27,10 +26,9 @@ function eq(nom: string, actual: unknown, kutilgan: unknown): void {
 
 const SANA = new Date('2026-09-01T10:00:00Z');
 
-function mijoz(overrides: Partial<ClientWithDebt> = {}): ClientWithDebt {
+function mijoz(overrides: Partial<ClientListItem> = {}): ClientListItem {
   return {
     id: 'cl1',
-    externalId: null,
     fullName: 'Testov Test',
     firstName: null,
     phone: '+998901112233',
@@ -53,21 +51,17 @@ function mijoz(overrides: Partial<ClientWithDebt> = {}): ClientWithDebt {
     updatedAt: SANA,
     deletedAt: null,
     deletedBy: null,
-    debtMonthly: 1_500_000,
-    debtTotal: 4_500_000,
-    daysOverdue: 37,
-    contractsCount: 2,
-    contractStatuses: ['sold'],
     accountName: 'Madina',
     ...overrides,
-  } as ClientWithDebt;
+  } as ClientListItem;
 }
 
 // ── 1. Ustunlar soni va qator uzunligi mos ────────────────────────────
-eq('16 ta ustun', EKSPORT_USTUNLARI.length, 16);
+eq('11 ta ustun', EKSPORT_USTUNLARI.length, 11);
 eq('qator uzunligi ustunlarga teng', eksportQatori(mijoz()).length, EKSPORT_USTUNLARI.length);
 eq('birinchi ustun F.I.O.', EKSPORT_USTUNLARI[0]?.nom, 'F.I.O.');
-eq('oxirgi ustun Izoh', EKSPORT_USTUNLARI[11]?.nom, 'Izoh');
+eq('Izoh ustuni', EKSPORT_USTUNLARI[6]?.nom, 'Izoh');
+eq('qarz ustunlari yo\'q', EKSPORT_USTUNLARI.some((u) => /shartnoma|kechikish/i.test(u.nom)), false);
 
 // ── 2. To'liq qator — tartib bilan ────────────────────────────────────
 eq('to\'liq qator', eksportQatori(mijoz()), [
@@ -76,12 +70,7 @@ eq('to\'liq qator', eksportQatori(mijoz()), [
   '',
   'Topildi',
   'testov',
-  2,
-  'Сотилди',
   'Madina',
-  1_500_000,
-  4_500_000,
-  37,
   '',
   'Reklama',
   '',
@@ -89,13 +78,8 @@ eq('to\'liq qator', eksportQatori(mijoz()), [
   0,
 ]);
 
-// ── 3. Summalar RAQAM bo'lib qoladi — Excelda yig'indi shunga bog'liq ──
-{
-  const qator = eksportQatori(mijoz());
-  eq('oyma-oy kechikish raqam', typeof qator[8], 'number');
-  eq('umumiy kechikish raqam', typeof qator[9], 'number');
-  eq('kechikish kuni raqam', typeof qator[10], 'number');
-}
+// ── 3. To'langan summa RAQAM bo'lib qoladi ─────────────────────────────
+eq('to\'langan raqam (xaridsiz)', typeof eksportQatori(mijoz())[10], 'number');
 
 // ── 4. Bo'sh maydonlar "null" matniga aylanmaydi ──────────────────────
 {
@@ -104,8 +88,8 @@ eq('to\'liq qator', eksportQatori(mijoz()), [
   );
   eq('bo\'sh telefon', qator[1], '');
   eq('bo\'sh username', qator[4], '');
-  eq('bo\'sh akkaunt', qator[7], '');
-  eq('bo\'sh izoh', qator[11], '');
+  eq('bo\'sh akkaunt', qator[5], '');
+  eq('bo\'sh izoh', qator[6], '');
 }
 
 // ── 5. Qo'shimcha raqamlar probel bilan ───────────────────────────────
@@ -123,19 +107,6 @@ eq(
   'yangi_holat',
 );
 
-// ── 7. Shartnoma holatlari nomga aylanadi ─────────────────────────────
-eq(
-  'bir nechta holat',
-  eksportQatori(mijoz({ contractStatuses: ['sold', 'for_return'] }))[6],
-  'Сотилди, К возврату',
-);
-eq(
-  'tanilmagan kalit o\'zgarmaydi',
-  eksportQatori(mijoz({ contractStatuses: ['Новый статус'] }))[6],
-  'Новый статус',
-);
-eq('holatsiz mijoz', eksportQatori(mijoz({ contractStatuses: [] }))[6], '');
-
 // ── 8. Manba, bosqich, kurs, to'langan ────────────────────────────────
 {
   const xarid = {
@@ -143,10 +114,10 @@ eq('holatsiz mijoz', eksportQatori(mijoz({ contractStatuses: [] }))[6], '');
     kursNomi: 'Python',
   };
   const qator = eksportQatori(mijoz({ source: 'qolda' }), xarid);
-  eq('manba nomi', qator[12], 'Qo\'lda');
-  eq('bosqich nomi', qator[13], 'Qisman to\'ladi');
-  eq('kurs nomi', qator[14], 'Python');
-  eq('to\'langan raqam', qator[15], 500_000);
+  eq('manba nomi', qator[7], 'Qo\'lda');
+  eq('bosqich nomi', qator[8], 'Qisman to\'ladi');
+  eq('kurs nomi', qator[9], 'Python');
+  eq('to\'langan raqam', qator[10], 500_000);
 }
 
 console.log(failed === 0 ? '\nHammasi o\'tdi' : `\n${failed} ta test yiqildi`);

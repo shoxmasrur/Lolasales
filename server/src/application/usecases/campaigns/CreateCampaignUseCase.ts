@@ -1,7 +1,6 @@
 import type { Campaign, CampaignFilters } from '@/domain/entities/Campaign';
 import type { ICampaignRepository } from '@/domain/repositories/ICampaignRepository';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IEventBus } from '@/domain/services/support';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
@@ -17,8 +16,6 @@ export interface CreateCampaignInput {
   userEmail: string;
   /** Yaratilgandan keyin darhol ishga tushirish. */
   startNow?: boolean;
-  /** So'rov egasining obyekt cheklovi; berilmasa — cheklovsiz. */
-  qamrov?: MijozQamrovi;
 }
 
 export interface CreateCampaignResult {
@@ -49,11 +46,8 @@ export class CreateCampaignUseCase {
       createdBy: input.userId ?? null,
     });
 
-    const clientIds = await this.clients.findCampaignTargets(input.filters, input.qamrov ?? HAMMASI);
-    const targetsAdded = await this.campaigns.addTargets(
-      campaign.id,
-      clientIds.map((clientId) => ({ clientId, contractId: null })),
-    );
+    const clientIds = await this.clients.findCampaignTargets(input.filters);
+    const targetsAdded = await this.campaigns.addTargets(campaign.id, clientIds);
 
     const finalCampaign = input.startNow && targetsAdded > 0
       ? await this.campaigns.setStatus(campaign.id, 'running')
@@ -73,7 +67,7 @@ export class CreateCampaignUseCase {
   }
 
   /** Kampaniya yaratmasdan, filtr nechta mijozni qamrashini ko'rsatadi. */
-  async preview(filters: CampaignFilters, qamrov: MijozQamrovi = HAMMASI): Promise<number> {
-    return (await this.clients.findCampaignTargets(filters, qamrov)).length;
+  async preview(filters: CampaignFilters): Promise<number> {
+    return (await this.clients.findCampaignTargets(filters)).length;
   }
 }

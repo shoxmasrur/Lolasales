@@ -1,12 +1,8 @@
-import type { MijozQamrovi } from '@/domain/entities/MijozQamrovi';
-
 /**
  * Mijozdan uzilgan raqamlar — "bu raqam shu mijozniki emas" belgisi.
  *
- * Belgi DOIMIY: sinxronizatsiya ham, import ham raqamni shu mijozga qayta
- * bog'lay olmaydi. Usiz CRM har yangilanishda uzilgan raqamni qaytarib
- * qo'yardi va begona odamga bergan "boshqa yozilmaydi" degan va'damiz
- * buzilardi.
+ * Belgi DOIMIY: import raqamni shu mijozga qayta bog'lay olmaydi. Usiz
+ * begona odamga bergan "boshqa yozilmaydi" degan so'zimiz buzilardi.
  */
 
 export interface ClientPhoneBlock {
@@ -17,11 +13,9 @@ export interface ClientPhoneBlock {
   readonly blockedAt: Date;
 }
 
-/** CRM jamoasiga beriladigan hisobot qatori. */
+/** Uzilgan raqamlar hisobotining qatori. */
 export interface PhoneBlockReportRow extends ClientPhoneBlock {
   readonly clientName: string;
-  /** Mijozning shartnoma raqamlari — CRM'da qidirish uchun. */
-  readonly contractNos: string[];
   readonly blockedByName: string | null;
 }
 
@@ -46,7 +40,7 @@ export interface IClientPhoneBlockRepository {
   /** Raqam biror mijozdan uzilganmi (importdagi yangi lead shunday raqamga yozilmasin). */
   isPhoneBlocked(phone: string): Promise<boolean>;
 
-  /** Shu mijoz uchun uzilgan raqamlar. Sinxronizatsiya va import shuni so'raydi. */
+  /** Shu mijoz uchun uzilgan raqamlar. Import shuni so'raydi. */
   listForClient(clientId: string): Promise<string[]>;
 
   /**
@@ -57,9 +51,8 @@ export interface IClientPhoneBlockRepository {
    */
   listForClients(clientIds: readonly string[]): Promise<Map<string, string[]>>;
 
-  /** CRM uchun hisobot — eng yangisi birinchi. */
-  /** `qamrov` — obyekt cheklovi; sukut `HAMMASI` (SQL o'zgarmaydi). */
-  report(qamrov?: MijozQamrovi): Promise<PhoneBlockReportRow[]>;
+  /** Hisobot — eng yangisi birinchi. */
+  report(): Promise<PhoneBlockReportRow[]>;
 
   /** Hisobot filtri uchun: to'silgan raqami bor mijozlar. */
   clientIdsWithBlocks(): Promise<string[]>;

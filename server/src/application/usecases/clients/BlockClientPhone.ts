@@ -23,12 +23,11 @@ export interface BlockClientPhoneInput {
  *
  * Mijozga yozdik, javob bergan odam boshqa kishi bo'lib chiqdi: raqam eski
  * egasidan chiqib, yangi odamga berilgan. Agent bunday holatda uzr aytadi
- * va begona odamga "boshqa yozilmaydi" deb VA'DA beradi — bu use case
- * o'sha va'dani bajaradi.
+ * va begona odamga "boshqa yozilmaydi" deydi — bu use case o'sha so'zni
+ * bajaradi.
  *
- * Qaror OPERATORNIKI, agentniki emas: haqiqiy qarzdor ham xabardan
- * qutulish uchun "adashgansiz" deyishi mumkin, va tekshirilmagan da'vo
- * bo'yicha avtomatik o'chirish undiruvni jimgina yo'qotardi.
+ * Qaror OPERATORNIKI, agentniki emas: tekshirilmagan da'vo bo'yicha
+ * avtomatik o'chirish haqiqiy mijozni jimgina yo'qotardi.
  */
 export class BlockClientPhoneUseCase {
   constructor(
@@ -54,8 +53,8 @@ export class BlockClientPhoneUseCase {
       extraPhones: [...keyingi.extraPhones],
     });
 
-    // 2. Doimiy belgi. Usiz sinxronizatsiya raqamni CRM'dan qaytarib
-    //    qo'yardi — 067-migratsiyaning izohiga qarang.
+    // 2. Doimiy belgi. Usiz keyingi import raqamni mijozga qaytarib
+    //    qo'yardi.
     await this.blocks.block({
       clientId: input.clientId,
       phone: input.phone,

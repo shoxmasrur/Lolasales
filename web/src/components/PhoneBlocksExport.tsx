@@ -6,7 +6,6 @@ import { ErrorNote, Spinner } from '@/components/ui';
 interface ReportRow {
   clientId: string;
   clientName: string;
-  contractNos: string[];
   phone: string;
   reason: string | null;
   blockedByName: string | null;
@@ -14,17 +13,11 @@ interface ReportRow {
 }
 
 /**
- * "CRM'da raqami noto'g'ri" ro'yxatini CSV qilib yuklab beradi.
- *
- * NEGA KERAK: raqam mijozdan uzilganda muammoning MANBAI tuzalmaydi —
- * CRM'da (`app-api.xonsaroy.uz`) raqam hamon eski egasiga bog'langan
- * holicha turadi. Bizda u yerga yozish huquqi yo'q, shuning uchun
- * Xonsaroy jamoasiga beriladigan aniq ro'yxat kerak.
- *
- * Shartnoma raqami ham chiqadi: CRM'da mijozni ism bilan emas, aynan shu
- * bo'yicha topadilar.
+ * "Mijozniki emas" deb uzilgan raqamlar ro'yxatini CSV qilib yuklab beradi
+ * — qaysi raqam kimdan, qachon va nima sababdan uzilganini ko'rib chiqish
+ * yoki reklama/import manbasini tozalash uchun.
  */
-const HEADER = ['Mijoz', 'Shartnoma', 'Noto\'g\'ri raqam', 'Sana', 'Sabab', 'Kim uzdi'];
+const HEADER = ['Mijoz', 'Noto\'g\'ri raqam', 'Sana', 'Sabab', 'Kim uzdi'];
 
 /**
  * Excel CSV'ni vergul bilan ajratadi va qo'shtirnoq ichidagi qo'shtirnoqni
@@ -44,7 +37,6 @@ export function PhoneBlocksExport() {
         ...rows.map((r) =>
           [
             r.clientName,
-            r.contractNos.join(' '),
             r.phone,
             new Date(r.blockedAt).toLocaleDateString('ru-RU'),
             r.reason ?? '',
@@ -62,7 +54,7 @@ export function PhoneBlocksExport() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `crm-notogri-raqamlar-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `notogri-raqamlar-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       return rows.length;
@@ -79,10 +71,10 @@ export function PhoneBlocksExport() {
         className="btn-ghost text-xs"
         disabled={download.isPending}
         onClick={() => download.mutate()}
-        title="Uzilgan raqamlar ro'yxatini CRM jamoasiga berish uchun"
+        title="«Mijozniki emas» deb uzilgan raqamlar ro'yxati (CSV)"
       >
         {download.isPending ? <Spinner /> : null}
-        CRM uchun: noto'g'ri raqamlar
+        Noto'g'ri raqamlar
       </button>
       {download.data === 0 ? (
         <span className="text-[11px] text-ink-600">Hozircha uzilgan raqam yo'q</span>

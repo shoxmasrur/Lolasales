@@ -1,5 +1,5 @@
 [Unit]
-Description=Debitor bazasini har soat zaxiralash
+Description=LolaSales bazasini har soat zaxiralash
 
 [Timer]
 OnCalendar=hourly

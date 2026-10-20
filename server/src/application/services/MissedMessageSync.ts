@@ -37,7 +37,7 @@ export interface SyncResult {
  * yo'qolardi (prodda 2026-08-10 da ko'rindi).
  *
  * Tiklangan xabar jonli oqimdagi bilan BIR XIL yo'ldan o'tadi: agent javob
- * yozadi, chek bo'lsa to'lov tekshiruvi ochiladi, va'da yozib olinadi.
+ * yozadi, chek bo'lsa to'lov tekshiruvi ochiladi.
  * Takroriy ishlov xavfi yo'q — `HandleIncomingMessageUseCase` xabarni
  * `telegram_msg_id` bo'yicha taniydi va ikkinchi marta ishlamaydi.
  */

@@ -12,14 +12,14 @@ import { childLogger, type Logger } from '@/shared/logger';
 
 const log = childLogger('vision:claude');
 
-const KORSATMA = `Sen qurilish kompaniyasining to'lov bo'limida ishlaysan.
+const KORSATMA = `Sen onlayn kurslar sotuvi bo'limida to'lovlarni tekshirasan.
 Mijoz yuborgan rasm yoki faylga qara va uni TO'RTTA turdan biriga ajrat:
 
   tolov  — unda TO'LOV ko'rsatilgan: summa, sana yoki tranzaksiya raqami
-           bor. Bank ilovasi, Xonsaroy Pay, kvitansiya, bank chiqarmasi,
+           bor. Bank ilovasi, Payme, Click, kvitansiya, bank chiqarmasi,
            bankomat cheki — hammasi shu turga kiradi. Skrinshot yoki PDF
            bo'lishi muhim emas, MAZMUN muhim.
-  hujjat — shartnoma, pasport, ariza yoki boshqa rasmiy qog'oz.
+  hujjat — pasport, ariza yoki boshqa rasmiy qog'oz.
   boshqa — yuqoridagilarga kirmaydigan rasm yoki fayl.
   noaniq — sifatsiz yoki nima ekanini ayta olmayapsan.
 

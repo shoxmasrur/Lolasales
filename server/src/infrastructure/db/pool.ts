@@ -6,7 +6,7 @@ import { alsKontekstidanTashqarida } from '@/infrastructure/logging/dbLogSink';
 const log = childLogger('db');
 
 // NUMERIC va BIGINT'ni JS number sifatida qaytaramiz — bizda 2^53 dan katta
-// pul summasi bo'lmaydi (eng katta shartnoma ~1 mlrd so'm).
+// pul summasi bo'lmaydi (kurs narxlari million so'mlar atrofida).
 pg.types.setTypeParser(1700, (v) => (v === null ? null : Number.parseFloat(v)));
 pg.types.setTypeParser(20, (v) => (v === null ? null : Number.parseInt(v, 10)));
 // DATE — vaqt mintaqasi siljishisiz, satr sifatida (YYYY-MM-DD)
@@ -34,7 +34,7 @@ pool.on('error', (err) => alsKontekstidanTashqarida(() => log.error({ err }, 'Po
  * NEGA KERAK: Telegram audit izi yoqilgandan keyin har bir MTProto
  * chaqiruvi ikkita `INSERT` beradi. Ommaviy kampaniyada bu yuzlab
  * parallel yozuv degani va ular asosiy hovuzning 10 ta ulanishini
- * domen so'rovlari (suhbat, xabar, shartnoma) bilan BO'LISHARDI.
+ * domen so'rovlari (suhbat, xabar, mijoz) bilan BO'LISHARDI.
  *
  * Yomoni shundaki, halqa o'zini kuchaytiradi: domen so'rovlari 500ms
  * dan oshsa, har biri "Sekin so'rov" ogohlantirishini beradi, u esa

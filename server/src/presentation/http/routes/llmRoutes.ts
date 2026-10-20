@@ -207,7 +207,7 @@ export function llmRoutes(container: Container): Router {
 
 /**
  * Probe uchun eng sodda sinov so'rovi — haqiqiy suhbat, mijoz yoki
- * shartnoma yo'q, faqat model va kalitning o'zi ishlayotganini bilish
+ * xarid yo'q, faqat model va kalitning o'zi ishlayotganini bilish
  * kerak. Shakli `OpenAiAgentEngine`ning `openAiAgentEngine.spec.ts`
  * dagi sinov kirishi bilan bir xil — `AgentTurnInput`ning to'liq shakli
  * SHART, boshqacha yo'l yo'q.

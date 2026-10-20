@@ -8,8 +8,8 @@ import { mapPaymentCheck, mapPurchase } from '@/infrastructure/db/mappers';
 const OCHIQ = `status = 'reviewing'`;
 
 const CHEK_INSERT = `INSERT INTO payment_checks
-         (conversation_id, client_id, purchase_id, message_id, kind, status, receipt_source, since_date, baseline_paid)
-       VALUES ($1, $2, $3, $4, 'receipt_review', 'reviewing', $5, $6, 0)`;
+         (conversation_id, client_id, purchase_id, message_id, kind, status, receipt_source, since_date)
+       VALUES ($1, $2, $3, $4, 'receipt_review', 'reviewing', $5, $6)`;
 
 export class PgPaymentCheckRepository implements IPaymentCheckRepository {
   /**

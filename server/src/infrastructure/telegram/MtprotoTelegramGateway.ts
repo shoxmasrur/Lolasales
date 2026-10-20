@@ -75,7 +75,7 @@ const MTPROTO_LOG_LEVEL = 'error' as Parameters<TelegramClient['setLogLevel']>[0
  * User-Agent o'rni. Bitta joyda: klientga ham, sessiya jurnaliga ham shu ketadi.
  */
 const KLIENT_IMZOSI = {
-  deviceModel: 'Debitor Agent',
+  deviceModel: 'LolaSales',
   systemVersion: 'macOS',
   appVersion: '1.0',
 } as const;
@@ -640,7 +640,7 @@ export class MtprotoTelegramGateway implements ITelegramGateway {
             new Api.InputPhoneContact({
               clientId: bigInt(Date.now()),
               phone: bare,
-              firstName: 'Debitor',
+              firstName: 'Lead',
               lastName: bare.slice(-4),
             }),
           ],
@@ -1185,7 +1185,7 @@ export class MtprotoTelegramGateway implements ITelegramGateway {
   /**
    * Username bo'yicha foydalanuvchini topish.
    *
-   * Mijozning shartnomadagi raqami bilan Telegramda o'tirmasligi mumkin.
+   * Mijoz bergan raqami bilan Telegramda o'tirmasligi mumkin.
    * Bunday holatda xodim username'ni qo'lda kiritadi va aloqa shu orqali
    * ketadi.
    */

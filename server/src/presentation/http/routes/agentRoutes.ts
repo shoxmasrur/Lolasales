@@ -5,7 +5,6 @@ import { CLIENT_TYPE_LABEL, isClientType } from '@/domain/entities/AgentMemory';
 import { uslubVersiyasi } from '@/domain/entities/UslubVersiyasi';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
 import { parseBody } from '@/presentation/http/middleware/validate';
-import { qamrov, qamrovParam } from '@/presentation/http/middleware/qamrov';
 import { resetSection } from '@/infrastructure/ai/prompt/seedDefaultRules';
 import { NotFoundError, ValidationError } from '@/shared/errors';
 
@@ -44,9 +43,6 @@ export function agentRoutes(container: Container): Router {
   const router = Router();
   const { agentRules, lessons, clientProfiles, audit } = container.repositories;
   const { promptComposer } = container.services;
-
-  // Obyekt cheklovi: begona mijozning xotirasi — 404 (faqat `client-profile` yo'llarida `:clientId`).
-  router.param('clientId', qamrovParam((q, id) => container.services.qamrovTekshiruvchi.mijoz(q, id)));
 
   // ─── Qoidalar ───────────────────────────────────────────────────────────
   router.get('/rules', requirePermission('agent.view'), async (_req, res) => {
@@ -149,11 +145,6 @@ export function agentRoutes(container: Container): Router {
   router.post('/lessons', requirePermission('agent.propose'), async (req, res) => {
     const user = currentUser(req);
     const payload = parseBody(proposeLessonSchema, req);
-    // Obyekt cheklovi: saboq begona suhbatga bog'lanmaydi (404).
-    const mijozQamrovi = qamrov(req);
-    if (payload.conversationId && mijozQamrovi.cheklangan) {
-      await container.services.qamrovTekshiruvchi.suhbat(mijozQamrovi, payload.conversationId);
-    }
 
     const lesson = await lessons.recordProposal({
       lesson: payload.lesson,

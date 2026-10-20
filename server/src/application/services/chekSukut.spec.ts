@@ -27,18 +27,17 @@ import type { IAuditRepository } from '@/domain/repositories/ISupportRepositorie
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { AgentTurnOutput, IAgentEngine } from '@/domain/services/IAgentEngine';
 import type { IClock, IEventBus } from '@/domain/services/support';
-import { CHEK_TEKSHIRUVIDAGI_SUHBATLARSIZ } from '@/infrastructure/db/repositories/chekSukutFiltri';
 
 /**
  * Qo'lda ishga tushiriladi: npm run test:chek-sukut --workspace=server
  * (CI'da soxta DATABASE_URL/JWT_SECRET/ENCRYPTION_KEY bilan — bazaga ham,
  * Telegramga ham chiqmaydi).
  *
- * Chek operator tekshiruvida turganda mijozga sukut xabari ketmaydi.
- * Ikki qatlam: `findSilent` SQL filtri (asosiy) va `silenceNudge`
- * ichidagi tekshiruv (nomzod tanlangandan keyin chek kelgan poyga uchun).
- * `aniqlanmagan` tekshiruv sukutni TO'SMAYDI — operator eskalatsiyani
- * tugmasiz yechgan bo'lsa, rasm chek emas deb topilgan.
+ * Chek operator tekshiruvida turganda mijozga eslatma ketmaydi. Ikki
+ * qatlam: `findEslatmaNomzodlari` SQL sharti (asosiy) va `nudge` ichidagi
+ * tekshiruv (nomzod tanlangandan keyin chek kelgan poyga uchun).
+ * `aniqlanmagan` tekshiruv eslatmani TO'SMAYDI — operator uni tugmasiz
+ * yechgan bo'lsa, rasm chek emas deb topilgan.
  */
 let failed = 0;
 const check = (name: string, ok: boolean, izoh = ''): void => {
@@ -48,25 +47,9 @@ const check = (name: string, ok: boolean, izoh = ''): void => {
 
 const NOW = new Date('2026-09-17T06:00:00Z');
 
-// ─── 1. SQL filtri ───────────────────────────────────────────────────────
-{
-  const sql = CHEK_TEKSHIRUVIDAGI_SUHBATLARSIZ.replace(/\s+/g, ' ');
-  check('filtr NOT EXISTS', sql.includes('AND NOT EXISTS ( SELECT 1 FROM payment_checks pc'), sql);
-  check('filtr suhbatga bog\'langan', sql.includes('pc.conversation_id = c.id'), sql);
-  check(
-    'filtr faqat ochiq tolov chekini chetlaydi',
-    sql.includes("pc.status = 'reviewing'") && sql.includes("pc.receipt_source = 'tolov'"),
-    sql,
-  );
-  // 2026-09-17 qarori: tugmasiz qolib ketgan tekshiruv 7 kundan keyin
-  // sukutni to'smaydi — aks holda mijoz umrbod jim qolardi.
-  check('muddat 7 kun', CHEK_TEKSHIRUVI_MUDDATI_KUNLAR === 7, String(CHEK_TEKSHIRUVI_MUDDATI_KUNLAR));
-  check(
-    'filtr faqat 7 kundan yosh tekshiruvni chetlaydi',
-    sql.includes("pc.created_at > now() - interval '7 days'"),
-    sql,
-  );
-}
+// Tugmasiz qolib ketgan tekshiruv 7 kundan keyin eslatmani to'smaydi —
+// aks holda mijoz umrbod jim qolardi.
+check('muddat 7 kun', CHEK_TEKSHIRUVI_MUDDATI_KUNLAR === 7, String(CHEK_TEKSHIRUVI_MUDDATI_KUNLAR));
 
 // ─── 2. silenceNudge ichidagi zaxira ─────────────────────────────────────
 const chek = (receiptSource: PaymentCheck['receiptSource'], createdAt = NOW): PaymentCheck => ({
@@ -103,7 +86,6 @@ const SUHBAT = {
   clientId: 'c1',
   telegramAccountId: null,
   state: 'contacted',
-  stage: 'soft',
   agentEnabled: true,
   needsHuman: false,
   humanReason: null,

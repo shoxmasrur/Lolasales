@@ -16,8 +16,6 @@ export const RETENTION_DAYS = 14;
  */
 export const TELEGRAM_RETENTION_DAYS = 3;
 
-/** Qo'ng'iroq transkripti shuncha kun saqlanadi; xulosa va boshqa maydonlar qoladi. */
-
 /** Sutkada bir marta yetarli — jadval sekin o'sadi. */
 const INTERVAL_MS = 24 * 60 * 60 * 1000;
 

@@ -38,7 +38,7 @@ function xotiradagiSozlamalar(boshlangich: Record<string, unknown> = {}) {
   // qarang).
   eq('manba env', await k.kalitManbasi(), 'env');
 
-  await k.setOpenAiKey('bazadagi-kalit', 'admin@xonsaroy.uz');
+  await k.setOpenAiKey('bazadagi-kalit', 'admin@lolasales.uz');
   eq('baza ustun', await k.openAiKey(), 'bazadagi-kalit');
   eq('manba baza', await k.kalitManbasi(), 'baza');
   // Kalit OCHIQ saqlanmaydi — bazani o'qigan odam uni ko'rmasligi kerak.

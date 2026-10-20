@@ -62,11 +62,11 @@ const ish = boshIsh('j1', 6, false, [
   const keyin = bumpJob(ish, 'a1', {
     done: 1,
     skipped: 1,
-    skipReason: 'Shartnoma holati "Сотилди" emas',
-    skippedItem: { clientId: 'c1', fullName: 'Ali', contractNo: 'SH-1', reason: 'Shartnoma holati "Сотилди" emas' },
+    skipReason: 'Telegramda topilmadi',
+    skippedItem: { clientId: 'c1', fullName: 'Ali', reason: 'Telegramda topilmadi' },
   });
 
-  check('sabab sanaldi', keyin.skipReasons['Shartnoma holati "Сотилди" emas'] === 1,
+  check('sabab sanaldi', keyin.skipReasons['Telegramda topilmadi'] === 1,
     JSON.stringify(keyin.skipReasons));
   check('tafsilot qo\'shildi', keyin.skippedItems.length === 1, String(keyin.skippedItems.length));
 }
@@ -80,7 +80,7 @@ const ish = boshIsh('j1', 6, false, [
       done: 1,
       skipped: 1,
       skipReason: 'sabab',
-      skippedItem: { clientId: `c${i}`, fullName: 'X', contractNo: null, reason: 'sabab' },
+      skippedItem: { clientId: `c${i}`, fullName: 'X', reason: 'sabab' },
     });
   }
 

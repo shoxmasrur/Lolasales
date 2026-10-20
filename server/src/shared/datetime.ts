@@ -79,25 +79,6 @@ export function formatUzDate(d: Date | string | null | undefined): string {
 }
 
 /**
- * Sanani chorakka o'giradi: "2029-12-31" → "2029-yilning 4-choragi".
- *
- * Xonadonni bitish muddati mijozga shu shaklda aytiladi — aniq kun emas.
- * Qurilish muddati suriladi, mijoz esa eshitgan kunni eslab qoladi;
- * chorak bir oylik surilishni yutadi.
- *
- * Satrdan o'qiladi, `Date` orqali emas: vaqt mintaqasi chorak
- * chegarasidagi kunni (1-iyul, 1-oktabr) qo'shni chorakka surib
- * yubormasligi uchun. Noto'g'ri kirishda `null`.
- */
-export function chorakMuddati(iso: string | null | undefined): string | null {
-  const m = /^(\d{4})-(\d{2})-\d{2}/.exec(iso ?? '');
-  if (!m) return null;
-  const month = Number(m[2]);
-  if (month < 1 || month > 12) return null;
-  return `${m[1]}-yilning ${Math.ceil(month / 3)}-choragi`;
-}
-
-/**
  * Kutish — xohlasa BEKOR QILINADIGAN.
  *
  * NEGA SIGNAL KERAK: ommaviy ishlarda ikki mijoz orasidagi pauza o'nlab

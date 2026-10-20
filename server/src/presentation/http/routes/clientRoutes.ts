@@ -6,7 +6,7 @@ import type { Container } from '@/composition/container';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
 import { parseBody, parseQuery } from '@/presentation/http/middleware/validate';
 import { normalizePhone } from '@/shared/phone';
-import { AppError, NotFoundError, ValidationError } from '@/shared/errors';
+import { NotFoundError, ValidationError } from '@/shared/errors';
 import { canAcceptClients } from '@/domain/entities/TelegramAccount';
 import { XARID_BOSQICHLARI } from '@/domain/entities/Purchase';
 import { CLIENT_SOURCES } from '@/domain/entities/Client';
@@ -15,9 +15,6 @@ import { EKSPORT_USTUNLARI, eksportQatori } from '@/application/usecases/clients
 import type { ClientQuery } from '@/domain/repositories/IClientRepository';
 import { childLogger } from '@/shared/logger';
 import { uniqueBuzildimi, PROFIL_BAND } from '@/shared/pgErrors';
-import { qamrov } from '@/presentation/http/middleware/qamrov';
-import { begonaniToxtatma, korinadiganVazifa } from '@/application/services/vazifaKorinishi';
-import type { MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 
 const log = childLogger('client-routes');
 
@@ -50,8 +47,10 @@ const unblockPhoneSchema = z.object({
   phone: z.string().trim().min(1, 'Raqam majburiy'),
 });
 
-const fromContractSchema = z.object({
-  contractNo: z.string().trim().min(1, 'Shartnoma raqami majburiy'),
+const createSchema = z.object({
+  fullName: z.string().trim().min(2, 'Ism majburiy').max(200),
+  phone: z.string().trim().min(1, 'Telefon majburiy'),
+  courseId: z.string().uuid().nullable().optional(),
 });
 
 const bulkLookupSchema = z.object({
@@ -137,8 +136,8 @@ const bulkPreviewSchema = z.object({
  * Bir nechta qiymat oladigan filtr parametri.
  *
  * Qiymatlar TAKRORLANGAN parametr bilan keladi (`?a=x&a=y`) — Express uni
- * massiv qilib beradi. Vergul bilan ajratilmaydi: CRM'dan kelgan xom
- * shartnoma holati nomida vergul bo'lishi mumkin. Bitta qiymatli eski
+ * massiv qilib beradi. Vergul bilan ajratilmaydi: qiymat nomida vergul
+ * bo'lishi mumkin. Bitta qiymatli eski
  * so'rov (`?a=x`) ham ishlayveradi. Bo'sh ro'yxat — "filtr yo'q".
  */
 const kopQiymat = <T extends z.ZodTypeAny>(element: T) =>
@@ -159,15 +158,11 @@ export const listQuery = z.object({
     ]),
   ),
   hasPhone: z.enum(['true', 'false']).optional(),
-  hasDebt: z.enum(['true', 'false']).optional(),
-  minDaysOverdue: z.coerce.number().int().optional(),
-  objectName: z.string().optional(),
-  virtualStatus: kopQiymat(z.string()),
   aloqa: z.enum(ALOQA_KALITLARI).optional(),
   stage: z.enum(XARID_BOSQICHLARI).optional(),
   source: z.enum(CLIENT_SOURCES as [string, ...string[]]).optional(),
   courseId: z.string().uuid().optional(),
-  sort: z.enum(['debt', 'overdue', 'name', 'recent']).optional(),
+  sort: z.enum(['name', 'recent']).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
@@ -190,10 +185,6 @@ export function listFiltrlari(q: z.infer<typeof listQuery>): ClientQuery {
     tab: q.tab,
     telegramStatus: q.telegramStatus,
     hasPhone: q.hasPhone === undefined ? undefined : q.hasPhone === 'true',
-    hasDebt: q.hasDebt === 'true' ? true : undefined,
-    minDaysOverdue: q.minDaysOverdue,
-    objectName: q.objectName,
-    virtualStatus: q.virtualStatus,
     aloqa: q.aloqa,
     stage: q.stage,
     source: q.source as ClientQuery['source'],
@@ -222,60 +213,11 @@ const updateSchema = z.object({
 
 export function clientRoutes(container: Container): Router {
   const router = Router();
-  const { clients, contracts, conversations, contractPayments, audit, phoneBlocks, purchases } =
-    container.repositories;
-  const { contractSync, qamrovTekshiruvchi } = container.services;
-
-  /**
-   * Obyekt cheklovi — ommaviy amallar uchun: so'rovdagi id'lardan faqat
-   * qamrovdagilari. Cheklanganda javobga `chiqarildi` (nechtasi tushdi)
-   * qo'shiladi; cheklanmaganda ro'yxat va javob avvalgidek.
-   */
-  async function qamrovdagilar(
-    q: MijozQamrovi,
-    clientIds: string[],
-    { boshBolmasin }: { boshBolmasin: boolean },
-  ): Promise<{ ids: string[]; qoshimcha: { chiqarildi?: number } }> {
-    if (!q.cheklangan) return { ids: clientIds, qoshimcha: {} };
-    const ids = await qamrovTekshiruvchi.idlarniKesish(q, clientIds);
-    if (boshBolmasin && ids.length === 0) {
-      throw new ValidationError('Tanlangan mijozlarning hech biri sizning obyektlaringizda emas');
-    }
-    return { ids, qoshimcha: { chiqarildi: clientIds.length - ids.length } };
-  }
-
-  /** Bazadagi shartnoma mijozi qamrovda bo'lmasa — `Shartnoma topilmadi` (404). */
-  async function shartnomaMijoziniTekshir(q: MijozQamrovi, clientId: string, contractNo: string): Promise<void> {
-    try {
-      await qamrovTekshiruvchi.mijoz(q, clientId);
-    } catch (err) {
-      if (err instanceof NotFoundError) throw new NotFoundError('Shartnoma', contractNo);
-      throw err;
-    }
-  }
-
-  /**
-   * Obyekt cheklovi: `/:id` va `/:id/*` — mijoz qamrovda bo'lmasa 404
-   * (begona yozuv borligi oshkor qilinmaydi). Cheklanmaganda bazaga so'rov
-   * yo'q. Savatdagi (o'chirilgan) mijoz cheklanganga ko'rinmaydi: qamrov
-   * tirik shartnoma talab qiladi, o'chirishda esa shartnomalar ham
-   * belgilanadi.
-   */
-  router.param('id', async (req, _res, next, id) => {
-    try {
-      await qamrovTekshiruvchi.mijoz(qamrov(req), String(id));
-      next();
-    } catch (err) {
-      next(err);
-    }
-  });
+  const { clients, conversations, audit, phoneBlocks, purchases } = container.repositories;
 
   router.get('/', async (req, res) => {
     const q = parseQuery(listQuery, req);
-    const page = await clients.search(
-      { ...listFiltrlari(q), sort: q.sort, limit: q.limit, offset: q.offset },
-      qamrov(req),
-    );
+    const page = await clients.search({ ...listFiltrlari(q), sort: q.sort, limit: q.limit, offset: q.offset });
     // Har bir mijozga joriy xarid (faol yoki oxirgi) qo'shiladi.
     const xaridlar = await purchases.findCurrentByClients(page.items.map((c) => c.id));
     res.json({ ...page, items: page.items.map((c) => ({ ...c, purchase: xaridlar.get(c.id) ?? null })) });
@@ -296,7 +238,7 @@ export function clientRoutes(container: Container): Router {
     // Filtr `listFiltrlari` orqali — ro'yxat bilan aynan bir xil
     // to'plam. Aks holda operator ekranda ko'rmagan mijozlarni
     // belgilab qo'yardi.
-    const ids = await clients.searchIds(listFiltrlari(q), qamrov(req));
+    const ids = await clients.searchIds(listFiltrlari(q));
     res.json({ ids, total: ids.length });
   });
 
@@ -308,7 +250,7 @@ export function clientRoutes(container: Container): Router {
    *
    * NEGA ALOHIDA RUXSAT: ekranda ko'rish qaytarib olinadi, fayl esa
    * yo'q — u kompyuterda, pochtada, Telegramda qolib ketadi. Ichida
-   * telefon raqamlari va to'lov summalari bor.
+   * telefon raqamlari bor.
    *
    * `limit`/`offset` ATAYLAB e'tiborga olinmaydi: operator ekranda
    * ko'rgan TO'PLAMNI oladi, birinchi sahifani emas — `/ids` bilan bir
@@ -320,7 +262,6 @@ export function clientRoutes(container: Container): Router {
     // JSON xatoga aylantirib bo'lmaydi, sarlavhalar ketib bo'lgan.
     const q = parseQuery(listQuery, req);
     const filters = { ...listFiltrlari(q), sort: q.sort };
-    const mijozQamrovi = qamrov(req);
 
     const sana = new Date().toISOString().slice(0, 10);
     res.setHeader(
@@ -346,7 +287,7 @@ export function clientRoutes(container: Container): Router {
 
     let soni = 0;
     try {
-      for await (const bolak of clients.searchAll(filters, 500, mijozQamrovi)) {
+      for await (const bolak of clients.searchAll(filters, 500)) {
         const xaridlar = await purchases.findCurrentByClients(bolak.map((c) => c.id));
         for (const mijoz of bolak) {
           const purchase = xaridlar.get(mijoz.id) ?? null;
@@ -398,9 +339,7 @@ export function clientRoutes(container: Container): Router {
 
   router.post('/telegram-lookup-bulk', requirePermission('clients.telegram_lookup'), async (req, res) => {
     const user = currentUser(req);
-    const body = parseBody(bulkLookupSchema, req);
-    const { accountIds } = body;
-    const { ids: clientIds, qoshimcha } = await qamrovdagilar(qamrov(req), body.clientIds, { boshBolmasin: true });
+    const { clientIds, accountIds } = parseBody(bulkLookupSchema, req);
 
     if (container.services.bulkLookup.isRunning()) {
       throw new ValidationError('Tekshiruv allaqachon ketyapti — tugashini kuting');
@@ -441,7 +380,7 @@ export function clientRoutes(container: Container): Router {
       payload: { count: clientIds.length, jobId, accounts: accountIds?.length ?? 0, assigned },
     });
 
-    res.json({ job, ...qoshimcha });
+    res.json({ job });
   });
 
   /**
@@ -452,22 +391,19 @@ export function clientRoutes(container: Container): Router {
    * uchun qolib ketishini bilmasligi mumkin edi.
    */
   router.post('/telegram-lookup-bulk/preview', requirePermission('clients.telegram_lookup'), async (req, res) => {
-    const body = parseBody(bulkLookupSchema, req);
-    const { accountIds } = body;
-    const { ids: clientIds, qoshimcha } = await qamrovdagilar(qamrov(req), body.clientIds, { boshBolmasin: false });
+    const { clientIds, accountIds } = parseBody(bulkLookupSchema, req);
     const plan = await container.services.bulkStartPlanner.plan(clientIds, accountIds ?? [], {
       maqsad: 'lookup',
     });
-    res.json({ total: clientIds.length, accountPlan: plan.accountPlan, ...qoshimcha });
+    res.json({ total: clientIds.length, accountPlan: plan.accountPlan });
   });
 
   /** Joriy vazifa holati — socket uzilib qolsa zaxira sifatida. */
-  router.get('/telegram-lookup-bulk', async (req, res) => {
-    res.json({ job: korinadiganVazifa(container.services.bulkLookup.current(), currentUser(req).id, qamrov(req)) });
+  router.get('/telegram-lookup-bulk', async (_req, res) => {
+    res.json({ job: container.services.bulkLookup.current() });
   });
 
-  router.post('/telegram-lookup-bulk/stop', requirePermission('clients.telegram_lookup'), async (req, res) => {
-    begonaniToxtatma(container.services.bulkLookup.current(), currentUser(req).id, qamrov(req));
+  router.post('/telegram-lookup-bulk/stop', requirePermission('clients.telegram_lookup'), async (_req, res) => {
     container.services.bulkLookup.stop();
     res.json({ job: container.services.bulkLookup.current() });
   });
@@ -488,24 +424,17 @@ export function clientRoutes(container: Container): Router {
    * zahoti ko'rsatsa bo'ladi.
    */
   router.post('/start-conversation-bulk/preview', requirePermission('clients.start_conversation'), async (req, res) => {
-    const body = parseBody(bulkPreviewSchema, req);
-    const { accountIds, perAccount } = body;
-    const { ids: clientIds, qoshimcha } = await qamrovdagilar(qamrov(req), body.clientIds, { boshBolmasin: false });
+    const { clientIds, accountIds, perAccount } = parseBody(bulkPreviewSchema, req);
     const [preview, plan] = await Promise.all([
       clients.previewBulkStart(clientIds),
       container.services.bulkStartPlanner.plan(clientIds, accountIds ?? [], { manual: perAccount }),
     ]);
-    res.json({
-      preview: { ...preview, accountPlan: plan.accountPlan, reassigned: plan.reassigned },
-      ...qoshimcha,
-    });
+    res.json({ preview: { ...preview, accountPlan: plan.accountPlan, reassigned: plan.reassigned } });
   });
 
   router.post('/start-conversation-bulk', requirePermission('clients.start_conversation'), async (req, res) => {
     const user = currentUser(req);
-    const body = parseBody(bulkStartSchema, req);
-    const { allowNameMismatch, accountIds, perAccount, spreadUntil } = body;
-    const { ids: clientIds, qoshimcha } = await qamrovdagilar(qamrov(req), body.clientIds, { boshBolmasin: true });
+    const { clientIds, allowNameMismatch, accountIds, perAccount, spreadUntil } = parseBody(bulkStartSchema, req);
 
     if (container.services.bulkStart.isRunning()) {
       throw new ValidationError('Suhbat boshlash allaqachon ketyapti — tugashini kuting');
@@ -558,102 +487,63 @@ export function clientRoutes(container: Container): Router {
       },
     });
 
-    res.json({ job, ...qoshimcha });
+    res.json({ job });
   });
 
-  router.get('/start-conversation-bulk', async (req, res) => {
-    res.json({ job: korinadiganVazifa(container.services.bulkStart.current(), currentUser(req).id, qamrov(req)) });
+  router.get('/start-conversation-bulk', async (_req, res) => {
+    res.json({ job: container.services.bulkStart.current() });
   });
 
-  router.post('/start-conversation-bulk/stop', requirePermission('clients.start_conversation'), async (req, res) => {
-    begonaniToxtatma(container.services.bulkStart.current(), currentUser(req).id, qamrov(req));
+  router.post('/start-conversation-bulk/stop', requirePermission('clients.start_conversation'), async (_req, res) => {
     container.services.bulkStart.stop();
     res.json({ job: container.services.bulkStart.current() });
   });
 
   /** Tab tugmalari yonidagi sonlar. `/:id` dan OLDIN turishi shart. */
-  router.get('/tab-counts', async (req, res) => {
-    res.json({ counts: await clients.tabCounts(qamrov(req)) });
-  });
-
-  /** Filtr ro'yxati uchun: bazada uchraydigan shartnoma holatlari. */
-  router.get('/contract-statuses', async (req, res) => {
-    res.json({ items: await clients.contractStatuses(qamrov(req)) });
+  router.get('/tab-counts', async (_req, res) => {
+    res.json({ counts: await clients.tabCounts() });
   });
 
   /**
-   * Shartnoma raqamini tekshirish — hech narsa saqlanmaydi.
+   * Mijozni qo'lda qo'shish (manba `qolda`). Shu telefonli tirik mijoz
+   * bo'lsa yangisi yaratilmaydi — mavjudi qaytadi (`created: false`).
    *
-   * Oldindan ko'rish ataylab: bitta raqam xato terilsa, butunlay boshqa
-   * odam qo'shilib ketardi va uni keyin o'chirish kerak bo'lardi.
-   *
-   * `/:id` dan OLDIN turishi shart — aks holda Express `from-contract` ni
-   * mijoz id'si deb qabul qiladi.
+   * `/:id` dan OLDIN turishi shart emas (POST `/`), lekin ro'yxat
+   * marshrutlari bilan yonma-yon turadi.
    */
-  router.post('/from-contract/preview', requirePermission('clients.create'), async (req, res) => {
-    const { contractNo } = parseBody(fromContractSchema, req);
-    const mijozQamrovi = qamrov(req);
-    const preview = await container.useCases.createClientFromContract.preview(contractNo, mijozQamrovi);
-
-    if (preview.outcome === 'disabled') {
-      throw new ValidationError('Shartnomalar integratsiyasi o\'chirilgan');
-    }
-    if (preview.outcome === 'error') {
-      throw new AppError(
-        `Shartnomalar bazasi javob bermadi: ${preview.error ?? 'noma\'lum xato'}`,
-        502,
-        'UPSTREAM_ERROR',
-      );
-    }
-    if (preview.outcome === 'not_found') throw new NotFoundError('Shartnoma', contractNo);
-    // Obyekt cheklovi: bazadagi shartnomaning mijozi begona bo'lsa — topilmagan kabi.
-    if (preview.existingClient) await shartnomaMijoziniTekshir(mijozQamrovi, preview.existingClient.id, contractNo);
-
-    res.json({ preview });
-  });
-
-  /** Mijozni shartnoma raqami bo'yicha qo'shish. */
-  router.post('/from-contract', requirePermission('clients.create'), async (req, res) => {
+  router.post('/', requirePermission('clients.create'), async (req, res) => {
     const user = currentUser(req);
-    const { contractNo } = parseBody(fromContractSchema, req);
-    const mijozQamrovi = qamrov(req);
-    const result = await container.useCases.createClientFromContract.execute(contractNo, user.email, mijozQamrovi);
-
-    if (result.outcome === 'disabled') {
-      throw new ValidationError('Shartnomalar integratsiyasi o\'chirilgan');
+    const body = parseBody(createSchema, req);
+    const phone = normalizePhone(body.phone);
+    if (!phone) throw new ValidationError(`Telefon raqami noto'g'ri: ${body.phone}`);
+    if (await phoneBlocks.isPhoneBlocked(phone)) {
+      throw new ValidationError('Bu raqam boshqa mijozdan "mijozniki emas" deb uzilgan');
     }
-    if (result.outcome === 'error') {
-      throw new AppError(
-        `Shartnomalar bazasi javob bermadi: ${result.error ?? 'noma\'lum xato'}`,
-        502,
-        'UPSTREAM_ERROR',
-      );
+    const result = await container.services.mijozYaratuvchi.qoldan({
+      fullName: body.fullName,
+      phone,
+      courseId: body.courseId ?? null,
+    });
+    if (result.created) {
+      await audit.record({
+        actor: user.email,
+        action: 'client.created_manually',
+        entity: 'client',
+        entityId: result.client.id,
+        payload: { mijoz: result.client.fullName, telefon: phone, courseId: body.courseId ?? null },
+      });
     }
-    if (result.outcome === 'not_found') throw new NotFoundError('Shartnoma', contractNo);
-    // Obyekt cheklovi: bazadagi shartnomaning mijozi begona bo'lsa — topilmagan
-    // kabi (`clientId` oshkor qilinmaydi). Bu yo'lda hech narsa yozilmagan.
-    if (result.outcome === 'already_exists' && result.clientId) {
-      await shartnomaMijoziniTekshir(mijozQamrovi, result.clientId, contractNo);
-    }
-
-    // `already_exists` xato EMAS: operator raqamni kiritib, mijoz
-    // allaqachon borligini bilib oldi. Unga kerakli narsa — o'sha karta.
-    res.json({ result });
+    res.json({ client: result.client, created: result.created });
   });
 
   /**
-   * CRM uchun hisobot: qaysi mijozning qaysi raqami noto'g'ri chiqdi.
-   *
-   * Manbadagi xatoni biz tuzata olmaymiz — `app-api.xonsaroy.uz` ga
-   * yozish huquqimiz yo'q. Shuning uchun Xonsaroy jamoasiga beriladigan
-   * aniq ro'yxat kerak: shartnoma raqami bilan, ular mijozni shu bo'yicha
-   * topadi.
+   * Hisobot: qaysi mijozning qaysi raqami "mijozniki emas" deb uzilgan.
    *
    * `/:id` dan OLDIN turishi shart, aks holda "phone-blocks" mijoz id'si
    * deb o'qilardi.
    */
-  router.get('/phone-blocks', requirePermission('clients.export'), async (req, res) => {
-    res.json({ rows: await phoneBlocks.report(qamrov(req)) });
+  router.get('/phone-blocks', requirePermission('clients.export'), async (_req, res) => {
+    res.json({ rows: await phoneBlocks.report() });
   });
 
   router.get('/:id', async (req, res) => {
@@ -662,48 +552,16 @@ export function clientRoutes(container: Container): Router {
     // tiklashdan oldin xodim nimani qaytarayotganini ko'rsin.
     const client = await clients.findById(id, { includeDeleted: true });
     if (!client) throw new NotFoundError('Mijoz', id);
-    // Obyekt cheklovi: savat cheklanganga yopiq (yopiq holatda yiqiladi).
-    if (client.deletedAt && qamrov(req).cheklangan) throw new NotFoundError('Mijoz', id);
 
-    const [clientContracts, conversation, blockedPhones] = await Promise.all([
-      contracts.findByClientId(id, { includeDeleted: Boolean(client.deletedAt) }),
+    const [conversation, blockedPhones, purchase] = await Promise.all([
       conversations.findByClientId(id),
       // Uzilgan raqamlar kartada ko'rinadi: operator xato uzganini
       // qaytara olishi kerak, aks holda raqam izsiz yo'qolardi.
       phoneBlocks.listForClient(id),
+      purchases.findActiveByClient(id).then(async (p) => p ?? (await purchases.findLatestByClient(id))),
     ]);
 
-    // Grafik va kelib tushgan to'lovlar — ASOSIY shartnoma bo'yicha.
-    // Mijozda bir nechta shartnoma bo'lsa, karta birinchisini ochib
-    // ko'rsatadi; qolganlari ro'yxatda ko'rinadi.
-    const primary = clientContracts[0] ?? null;
-    const [schedule, recentPayments] = primary
-      ? await Promise.all([
-          contractPayments.listSchedule(primary.id),
-          contractPayments.listRecentPayments(primary.id, 20),
-        ])
-      : [[], []];
-
-    res.json({
-      client,
-      purchase: await purchases.findActiveByClient(id) ?? (await purchases.findLatestByClient(id)),
-      contracts: clientContracts,
-      conversation,
-      blockedPhones,
-      payments: {
-        contractId: primary?.id ?? null,
-        contractNo: primary?.contractNo ?? null,
-        syncedAt: primary?.syncedAt ?? null,
-        syncError: primary?.syncError ?? null,
-        schedule,
-        recent: recentPayments,
-      },
-      // Ikkalasi ham: agent mijozga `debtMonthly` ni aytadi, xodim esa
-      // umumiy kechikkan to'lovni ham ko'rib turishi kerak.
-      debtMonthly: clientContracts.reduce((s, c) => s + c.debtMonthly, 0),
-      debtTotal: clientContracts.reduce((s, c) => s + c.debtTotal, 0),
-      daysOverdue: clientContracts.reduce((m, c) => Math.max(m, c.daysOverdue), 0),
-    });
+    res.json({ client, purchase, conversation, blockedPhones });
   });
 
   /** Xarid bosqichini qo'lda o'zgartirish (menejer) — har qanday o'tish ruxsat. */
@@ -740,11 +598,10 @@ export function clientRoutes(container: Container): Router {
    *
    * Mijozga yozdik, javob bergan odam boshqa kishi bo'lib chiqdi: raqam eski
    * egasidan chiqib, yangi odamga berilgan. Agent bunday holatda uzr aytadi
-   * va begona odamga "boshqa yozilmaydi" deb va'da beradi.
+   * va begona odamga "boshqa yozilmaydi" deydi.
    *
-   * Qaror OPERATORNIKI: haqiqiy qarzdor ham xabardan qutulish uchun
-   * "adashgansiz" deyishi mumkin, va tekshirilmagan da'vo bo'yicha
-   * avtomatik o'chirish undiruvni jimgina yo'qotardi.
+   * Qaror OPERATORNIKI: tekshirilmagan da'vo bo'yicha avtomatik o'chirish
+   * haqiqiy mijozni jimgina yo'qotardi.
    */
   router.post('/:id/phones/block', requirePermission('clients.edit'), async (req, res) => {
     const user = currentUser(req);
@@ -788,8 +645,8 @@ export function clientRoutes(container: Container): Router {
   /**
    * Mijozni o'chirish — YUMSHOQ.
    *
-   * Bazadan hech narsa yo'qolmaydi: mijoz, shartnomalari, suhbatlari,
-   * xabarlari va to'lov va'dalari `deleted_at` bilan belgilanadi va
+   * Bazadan hech narsa yo'qolmaydi: mijoz, suhbatlari va xabarlari
+   * `deleted_at` bilan belgilanadi va
    * ro'yxatlardan chiqib ketadi. Kerak bo'lsa "O'chirilgan" tabidan
    * qaytariladi. Kim, qachon va nima uchun o'chirgani jurnalda qoladi.
    */
@@ -811,13 +668,10 @@ export function clientRoutes(container: Container): Router {
       payload: {
         mijoz: client.fullName,
         telefon: client.phone,
-        eksportId: client.externalId,
         sabab: reason ?? null,
         belgilandi: {
-          shartnomalar: summary.contracts,
           suhbatlar: summary.conversations,
           xabarlar: summary.messages,
-          vadalar: summary.promises,
           kampaniyaNishonlari: summary.campaignTargets,
           profillar: summary.profiles,
         },
@@ -836,8 +690,6 @@ export function clientRoutes(container: Container): Router {
 
     const client = await clients.findById(id, { includeDeleted: true });
     if (!client) throw new NotFoundError('Mijoz', id);
-    // Obyekt cheklovi: savat cheklanganga yopiq (yopiq holatda yiqiladi).
-    if (client.deletedAt && qamrov(req).cheklangan) throw new NotFoundError('Mijoz', id);
     if (!client.deletedAt) throw new ValidationError('Bu mijoz o\'chirilmagan');
 
     const summary = await clients.restore(id);
@@ -852,10 +704,8 @@ export function clientRoutes(container: Container): Router {
         ochirilgan: client.deletedAt,
         ochirgan: client.deletedBy,
         qaytarildi: {
-          shartnomalar: summary.contracts,
           suhbatlar: summary.conversations,
           xabarlar: summary.messages,
-          vadalar: summary.promises,
           kampaniyaNishonlari: summary.campaignTargets,
           profillar: summary.profiles,
         },
@@ -868,35 +718,6 @@ export function clientRoutes(container: Container): Router {
   });
 
   /** Mijozni Telegramdan qidirish (telefon raqami bo'yicha). */
-  /**
-   * Bitta shartnomani shartnomalar bazasidan darhol yangilaydi.
-   *
-   * Xodim kartada eskirgan raqamni ko'rsa kechani kutmasligi kerak —
-   * bitta so'rov ~330 ms.
-   */
-  router.post('/:id/sync-contract', requirePermission('contracts.sync'), async (req, res) => {
-    const user = currentUser(req);
-    const clientId = String(req.params.id);
-    const contractId = String((req.body as { contractId?: string } | undefined)?.contractId ?? '');
-    if (!contractId) throw new ValidationError('contractId majburiy');
-
-    // Boshqa mijozning shartnomasini yangilashga yo'l qo'ymaymiz.
-    const owned = await contracts.findByClientId(clientId);
-    if (!owned.some((c) => c.id === contractId)) throw new NotFoundError('Shartnoma', contractId);
-
-    const result = await contractSync.syncOne(contractId);
-
-    await audit.record({
-      actor: user.email,
-      action: 'contract.synced_manually',
-      entity: 'contract',
-      entityId: contractId,
-      payload: { outcome: result.outcome, debtTotal: result.debtTotal, newPhones: result.newPhones.length },
-    });
-
-    res.json(result);
-  });
-
   router.post('/:id/telegram-lookup', requirePermission('clients.telegram_lookup'), async (req, res) => {
     const id = String(req.params.id);
     const client = await clients.findById(id);
@@ -912,7 +733,7 @@ export function clientRoutes(container: Container): Router {
   /**
    * Mijozning Telegram username'ini QO'LDA biriktirish.
    *
-   * Shartnomadagi raqam bilan mijoz Telegramda o'tirmasligi mumkin — u
+   * Mijoz bergan raqam bilan Telegramda o'tirmasligi mumkin — u
    * butunlay boshqa raqamdan foydalanadi. Bunday holatda xodim username'ni
    * kiritadi va aloqa shu profil orqali ketadi.
    *

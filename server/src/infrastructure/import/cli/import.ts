@@ -31,8 +31,6 @@ async function main(): Promise<void> {
       rowsOk: result.batch.rowsOk,
       rowsFailed: result.batch.rowsFailed,
       clientsCreated: result.batch.clientsCreated,
-      contractsCreated: result.batch.contractsCreated,
-      contractsUpdated: result.batch.contractsUpdated,
     },
     'Import yakunlandi',
   );

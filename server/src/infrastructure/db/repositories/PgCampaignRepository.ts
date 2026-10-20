@@ -64,24 +64,24 @@ export class PgCampaignRepository implements ICampaignRepository {
 
   async addTargets(
     campaignId: string,
-    targets: Array<{ clientId: string; contractId: string | null }>,
+    clientIds: string[],
   ): Promise<number> {
-    if (!targets.length) return 0;
+    if (!clientIds.length) return 0;
 
     return withTransaction(async (client) => {
       let inserted = 0;
       // Katta ro'yxatlarni bo'lib yozamiz (parametr limiti 65535).
       const CHUNK = 500;
-      for (let i = 0; i < targets.length; i += CHUNK) {
-        const chunk = targets.slice(i, i + CHUNK);
+      for (let i = 0; i < clientIds.length; i += CHUNK) {
+        const chunk = clientIds.slice(i, i + CHUNK);
         const values: string[] = [];
         const params: unknown[] = [campaignId];
-        chunk.forEach((t) => {
-          params.push(t.clientId, t.contractId);
-          values.push(`($1, $${params.length - 1}, $${params.length})`);
+        chunk.forEach((clientId) => {
+          params.push(clientId);
+          values.push(`($1, $${params.length})`);
         });
         const res = await client.query(
-          `INSERT INTO campaign_targets (campaign_id, client_id, contract_id)
+          `INSERT INTO campaign_targets (campaign_id, client_id)
            VALUES ${values.join(', ')}
            -- Unique indeks qisman (faqat tirik nishonlar) — 032-migratsiya.
            ON CONFLICT (campaign_id, client_id) WHERE deleted_at IS NULL DO NOTHING`,

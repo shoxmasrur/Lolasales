@@ -66,7 +66,6 @@ const SUHBAT = {
   clientId: 'c1',
   telegramAccountId: null,
   state: 'contacted',
-  stage: 'soft',
   agentEnabled: true,
   needsHuman: false,
   humanKind: null,

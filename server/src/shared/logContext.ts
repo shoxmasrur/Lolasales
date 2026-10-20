@@ -8,15 +8,13 @@
  * boyitishning ma'nosi qolmaydi. Funksiya kalitlarni bitta joyda ushlab
  * turadi va tip tekshiruvi xato nom yozishga yo'l qo'ymaydi.
  *
- * Bo'sh qiymatlar tushirib qoldiriladi: `"shartnoma":null` qatorni
+ * Bo'sh qiymatlar tushirib qoldiriladi: `"mijoz":null` qatorni
  * uzaytiradi va hech narsa aytmaydi.
  *
  * Chaqirish namunasi:
- *   log.warn({ ...kontekst({ shartnoma, akkaunt, mijoz }), err }, 'Xabar ketmadi');
+ *   log.warn({ ...kontekst({ akkaunt, mijoz }), err }, 'Xabar ketmadi');
  */
 export interface LogKontekst {
-  /** Shartnoma raqami — `contract.contractNo`, masalan `3090MSO25A5`. */
-  shartnoma?: string | null;
   /** Telegram akkauntning ichki nomi — `account.label`, masalan `Madina`. */
   akkaunt?: string | null;
   /** Mijozning F.I.O. si. */
@@ -30,9 +28,6 @@ export function kontekst(k: LogKontekst): Record<string, string> {
     const t = typeof v === 'string' ? v.trim() : '';
     return t === '' ? null : t;
   };
-
-  const shartnoma = q(k.shartnoma);
-  if (shartnoma) out.shartnoma = shartnoma;
 
   const akkaunt = q(k.akkaunt);
   if (akkaunt) out.akkaunt = akkaunt;

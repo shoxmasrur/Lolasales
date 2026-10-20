@@ -32,13 +32,10 @@ export interface Client {
   readonly sourceGroup: string | null;
   readonly sourceComment: string | null;
   readonly id: string;
-  readonly externalId: string | null;
   readonly fullName: string;
   /**
-   * CRM bergan ANIQ ism. Murojaat shakli ("Aziz aka") shundan tuziladi.
-   *
-   * NULL bo'lsa ism to'liq ism-sharifdan taxmin qilinadi — Excel importidan
-   * kelgan, CRM'da yozuvi bo'lmagan mijozlarda shunday bo'ladi.
+   * Aniq ism (masalan Telegram profilidan). Murojaat shakli ("Aziz aka")
+   * shundan tuziladi. NULL bo'lsa ism to'liq ism-sharifdan taxmin qilinadi.
    */
   readonly firstName: string | null;
   readonly phone: string | null;
@@ -70,17 +67,14 @@ export interface Client {
   readonly updatedAt: Date;
   /**
    * Yumshoq o'chirish belgisi. NULL bo'lmasa — mijoz ro'yxatlarda yo'q,
-   * lekin uning shartnomalari, suhbatlari va xabarlari bazada turadi.
+   * lekin uning suhbatlari, xaridlari va xabarlari bazada turadi.
    */
   readonly deletedAt: Date | null;
   /** Kim o'chirgani (pochtasi) — "O'chirilgan" ro'yxatida ko'rsatiladi. */
   readonly deletedBy: string | null;
-  /** Telegramda o'zi yozgan, bazada bo'lmagan odam — shartnomasi yo'q. */
-  readonly nomalum: boolean;
 }
 
 export interface NewClient {
-  externalId?: string | null;
   fullName: string;
   firstName?: string | null;
   phone?: string | null;

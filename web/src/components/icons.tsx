@@ -174,7 +174,7 @@ export function IconMenu(props: IconProps) {
   );
 }
 
-/** Bayram kunlari — kalendar varaqasi. */
+/** Kalendar varaqasi. */
 export function IconCalendar(props: IconProps) {
   return (
     <Icon {...props}>

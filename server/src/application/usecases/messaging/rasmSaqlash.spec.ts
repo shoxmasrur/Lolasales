@@ -21,11 +21,11 @@ function check(holat: string, ok: boolean, izoh = ''): void {
   const m: Partial<NewMessage> = xabarMaydonlari({
     imageKind: 'tolov',
     imageStatus: 'done',
-    imageNote: 'Xonsaroy Pay, 5 000 000 so\'m',
+    imageNote: 'Payme, 5 000 000 so\'m',
   });
   check('imageKind o\'tadi', m.imageKind === 'tolov', String(m.imageKind));
   check('imageStatus o\'tadi', m.imageStatus === 'done', String(m.imageStatus));
-  check('imageNote o\'tadi', m.imageNote === 'Xonsaroy Pay, 5 000 000 so\'m', String(m.imageNote));
+  check('imageNote o\'tadi', m.imageNote === 'Payme, 5 000 000 so\'m', String(m.imageNote));
 }
 
 {

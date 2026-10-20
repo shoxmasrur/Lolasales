@@ -5,13 +5,9 @@ import { mijozQatori } from '@/infrastructure/db/repositories/mijozQatori';
  *
  * Bazaga chiqmaydi — xom qator qo'lda yasaladi.
  *
- * NEGA BU TEST KERAK: bu xaritalash endi IKKI joyda ishlatiladi —
- * ekrandagi ro'yxat (`search`) va eksport (`searchAll`). Summalar
- * `NUMERIC` bo'lgani uchun drayverdan satr bo'lib kelishi mumkin, va
- * satr bo'lib qolsa Excelda yig'indi chiqmaydi, ekranda esa saralash
- * buziladi. Shartnoma holati esa bazada ikki xil yozilgan ("sold" va
- * "Сотилди") — bittaga keltirilmasa, bitta mijozda ikkita bir xil
- * yorliq turadi.
+ * NEGA BU TEST KERAK: bu xaritalash IKKI joyda ishlatiladi — ekrandagi
+ * ro'yxat (`search`) va eksport (`searchAll`). Ikkalasi bir xil qator
+ * berishi shart.
  */
 
 let failed = 0;
@@ -39,51 +35,25 @@ function xomQator(overrides: Record<string, unknown> = {}): Record<string, unkno
     do_not_contact: false,
     created_at: SANA,
     updated_at: SANA,
-    debt_monthly: '1500000',
-    debt_total: '4500000',
-    days_overdue: '37',
-    contracts_count: '2',
-    virtual_statuses: ['sold'],
+    source: 'reklama',
     account_name: 'Madina',
     ...overrides,
   };
 }
 
-// ── 1. Summalar RAQAM bo'lib chiqadi (satr emas) ──────────────────────
+// ── 1. Mijoz maydonlari va akkaunt nomi ──────────────────────────────
 {
   const c = mijozQatori(xomQator());
-  eq('debtMonthly raqam', typeof c.debtMonthly, 'number');
-  eq('debtMonthly qiymati', c.debtMonthly, 1_500_000);
-  eq('debtTotal qiymati', c.debtTotal, 4_500_000);
-  eq('daysOverdue qiymati', c.daysOverdue, 37);
-  eq('contractsCount qiymati', c.contractsCount, 2);
+  eq('ism', c.fullName, 'Testov Test');
+  eq('manba', c.source, 'reklama');
+  eq('akkaunt nomi', c.accountName, 'Madina');
+  eq('qarz maydonlari yo\'q', 'debtMonthly' in c || 'contractStatuses' in c, false);
 }
 
-// ── 2. Bo'sh hisob — nol, null emas ───────────────────────────────────
+// ── 2. Akkaunt biriktirilmagan — null ─────────────────────────────────
 {
-  const c = mijozQatori(
-    xomQator({ debt_monthly: null, debt_total: null, days_overdue: null, contracts_count: null }),
-  );
-  eq('bo\'sh hisob nolga aylanadi', [c.debtMonthly, c.debtTotal, c.daysOverdue, c.contractsCount], [0, 0, 0, 0]);
-}
-
-// ── 3. Holatning ikki yozilishi bitta kalitga keladi ──────────────────
-{
-  const c = mijozQatori(xomQator({ virtual_statuses: ['sold', 'Сотилди'] }));
-  eq('takrorlanmaydi', c.contractStatuses, ['sold']);
-}
-
-// ── 4. Tanilmagan holat xom qiymati bilan qoladi ──────────────────────
-{
-  const c = mijozQatori(xomQator({ virtual_statuses: ['Новый статус'] }));
-  eq('tanilmagan holat saqlanadi', c.contractStatuses, ['Новый статус']);
-}
-
-// ── 5. Akkaunt biriktirilmagan — null ─────────────────────────────────
-{
-  const c = mijozQatori(xomQator({ account_name: null, virtual_statuses: null }));
+  const c = mijozQatori(xomQator({ account_name: null }));
   eq('akkaunt null', c.accountName, null);
-  eq('holatsiz mijoz bo\'sh massiv', c.contractStatuses, []);
 }
 
 console.log(failed === 0 ? '\nHammasi o\'tdi' : `\n${failed} ta test yiqildi`);

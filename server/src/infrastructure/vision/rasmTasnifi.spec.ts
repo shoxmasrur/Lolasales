@@ -57,9 +57,9 @@ async function natija(javob: unknown, status = 200) {
 }
 
 {
-  const r = await natija({ content: [{ type: 'text', text: '{"tur":"tolov","tavsif":"Xonsaroy Pay, 5 000 000 so\'m"}' }] });
+  const r = await natija({ content: [{ type: 'text', text: '{"tur":"tolov","tavsif":"Payme, 5 000 000 so\'m"}' }] });
   check('to\'g\'ri javobdan tur olinadi', r.kind === 'tolov', r.kind);
-  check('tavsif olinadi', r.note === 'Xonsaroy Pay, 5 000 000 so\'m', String(r.note));
+  check('tavsif olinadi', r.note === 'Payme, 5 000 000 so\'m', String(r.note));
   check('failed rost emas', r.failed === false);
 }
 

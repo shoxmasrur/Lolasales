@@ -5,7 +5,7 @@ import type { Conversation } from '@/domain/entities/Conversation';
  * Qo'lda: npm run test:dispatcher-fayl --workspace=server
  *
  * `sendMedia`: Telegram faylni yetkazgandan KEYIN yiqilgan hisob yozuvi
- * xabarni "failed" qilmasligi kerak — aks holda qayta urinish (talabnoma)
+ * xabarni "failed" qilmasligi kerak — aks holda qayta urinish
  * mijozga ikkinchi nusxani yuboradi. «Agent navbati» (logger → config).
  */
 let failed = 0;

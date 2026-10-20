@@ -11,7 +11,7 @@ import { conversationRoutes } from '@/presentation/http/routes/conversationRoute
  * (CI'da soxta DATABASE_URL/JWT_SECRET/ENCRYPTION_KEY bilan — route
  * `shared/config` ni tortadi; bazaga chiqmaydi).
  *
- * `GET /conversations?clientId=` — «Talabnomalar» → «Batafsil» oynasi mijozning
+ * `GET /conversations?clientId=` — mijoz kartasidan ochiladigan ro'yxat mijozning
  * BARCHA suhbatlarini (turli akkauntlar) shu filtr bilan oladi:
  *   • UUID — repoga boradi; UUID emas — 422 (zod; SQL'ga yetmaydi);
  *   • berilmasa — filtrsiz (avvalgi xatti-harakat).
@@ -41,8 +41,6 @@ const container = {
     },
     messages: {},
     clients: {},
-    contracts: {},
-    promises: {},
     audit: {},
     paymentChecks: {},
   },
@@ -53,13 +51,13 @@ const container = {
 
 function foydalanuvchi(permissions: Permission[]): User {
   return {
-    id: '11111111-1111-4111-8111-111111111111', email: 'operator@xonsaroy.uz', passwordHash: '',
+    id: '11111111-1111-4111-8111-111111111111', email: 'operator@lolasales.uz', passwordHash: '',
     fullName: 'Test', roleId: 'r',
     role: {
       id: 'r', key: 'r', name: 'r', description: null, permissions,
       isSystem: false, createdAt: new Date(), updatedAt: new Date(),
     },
-    isActive: true, failedLoginAttempts: 0, lockedAt: null, objects: [], createdAt: new Date(), updatedAt: new Date(),
+    isActive: true, failedLoginAttempts: 0, lockedAt: null, createdAt: new Date(), updatedAt: new Date(),
   };
 }
 
