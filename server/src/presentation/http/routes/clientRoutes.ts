@@ -491,11 +491,8 @@ export function clientRoutes(container: Container): Router {
     const body = parseBody(bulkPreviewSchema, req);
     const { accountIds, perAccount } = body;
     const { ids: clientIds, qoshimcha } = await qamrovdagilar(qamrov(req), body.clientIds, { boshBolmasin: false });
-    // Chegara dialogda ko'rsatiladigan son bilan yuborishda qo'llanadigan
-    // qoida bitta manbadan kelishi uchun shu yerda o'qiladi.
-    const { minDebt } = await container.settings.get();
     const [preview, plan] = await Promise.all([
-      clients.previewBulkStart(clientIds, minDebt),
+      clients.previewBulkStart(clientIds),
       container.services.bulkStartPlanner.plan(clientIds, accountIds ?? [], { manual: perAccount }),
     ]);
     res.json({

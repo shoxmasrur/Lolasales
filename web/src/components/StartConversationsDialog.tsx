@@ -25,9 +25,6 @@ const LABELS: Record<BulkStartOutlook, string> = {
   needs_lookup: 'Telegramda qidiriladi',
   name_mismatch: 'Telegramdagi ism mos kelmadi',
   already_started: 'Suhbat allaqachon boshlangan',
-  not_sold: 'Shartnoma holati yozishga mos emas (Сотилди, К оплате yoki Проц. отказ emas)',
-  no_debt: 'Oyma-oy to\'lovda kechikish yo\'q',
-  below_min_debt: 'Kechikish minimal chegaradan kichik',
   no_phone: 'Telefon raqami yo\'q',
   do_not_contact: 'Bog\'lanish taqiqlangan',
   blocked: 'Bloklangan',
@@ -37,12 +34,12 @@ const LABELS: Record<BulkStartOutlook, string> = {
 /** Ko'rsatish tartibi: avval yuboriladiganlar, keyin o'tkazib yuboriladiganlar. */
 const ORDER: BulkStartOutlook[] = [
   'ready', 'needs_lookup', 'name_mismatch',
-  'already_started', 'not_sold', 'no_debt', 'below_min_debt', 'no_phone',
+  'already_started', 'no_phone',
   'do_not_contact', 'blocked', 'deactivated',
 ];
 
 const SKIPPED: ReadonlySet<BulkStartOutlook> = new Set([
-  'already_started', 'not_sold', 'no_debt', 'below_min_debt', 'no_phone',
+  'already_started', 'no_phone',
   'do_not_contact', 'blocked', 'deactivated',
 ]);
 

@@ -651,8 +651,7 @@ export class BulkConversationStart implements ResumableJob {
     // ko'rgan "shu soatgacha" va'dasi buzilardi.
     //
     // Faqat bazadan hisoblanadi — Telegramga so'rov yubormaydi.
-    const { minDebt } = await this.settings.get();
-    const { counts } = await this.clients.previewBulkStart(clientIds, minDebt);
+    const { counts } = await this.clients.previewBulkStart(clientIds);
     const expectedSends =
       counts.ready +
       counts.needs_lookup +

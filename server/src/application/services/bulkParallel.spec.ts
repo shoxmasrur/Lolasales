@@ -33,7 +33,7 @@ const NOW = new Date('2026-08-14T05:00:00Z');
 
 const BOSH_COUNTS = {
   ready: 0, needs_lookup: 0, name_mismatch: 0, already_started: 0,
-  not_sold: 0, no_debt: 0, below_min_debt: 0, no_phone: 0,
+  no_phone: 0,
   do_not_contact: 0, blocked: 0,
 };
 

@@ -32,6 +32,7 @@ jobs:
           npm run test:mijoz-yaratuvchi --workspace=server
           npm run test:reklama-oqimi --workspace=server
           npm run test:lead-boshlash --workspace=server
+          npm run test:bulk-oldindan --workspace=server
           npm run test:kampaniya-sharti --workspace=server
           npm run test:name-match --workspace=server
           npm run test:gender --workspace=server

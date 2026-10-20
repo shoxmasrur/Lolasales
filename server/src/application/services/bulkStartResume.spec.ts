@@ -40,7 +40,7 @@ const BUGUN = '2026-10-14';
 const SOAT = new Date(`${BUGUN}T05:00:00.000Z`);
 const BOSH_COUNTS = {
   ready: 0, needs_lookup: 0, name_mismatch: 0, already_started: 0,
-  not_sold: 0, no_debt: 0, below_min_debt: 0, no_phone: 0, do_not_contact: 0, blocked: 0,
+  no_phone: 0, do_not_contact: 0, blocked: 0,
 };
 
 interface JarayonOpts {

@@ -37,9 +37,6 @@ const BOSH_COUNTS = {
   needs_lookup: 0,
   name_mismatch: 0,
   already_started: 0,
-  not_sold: 0,
-  no_debt: 0,
-  below_min_debt: 0,
   no_phone: 0,
   do_not_contact: 0,
   blocked: 0,
@@ -169,7 +166,7 @@ async function paceniKut(bulk: BulkConversationStart): Promise<BulkStartJob> {
 // 12 ta tanlangan, lekin faqat 4 tasiga xabar ketadi (6 tasi "sotilmagan",
 // 2 tasi ism mos kelmagani uchun). 120 / 4 = 30 daqiqa.
 {
-  const bulk = build({ counts: { ready: 4, not_sold: 6, name_mismatch: 2 } });
+  const bulk = build({ counts: { ready: 4, already_started: 6, name_mismatch: 2 } });
   bulk.start(
     ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'],
     'j2',
@@ -186,7 +183,7 @@ async function paceniKut(bulk: BulkConversationStart): Promise<BulkStartJob> {
 // ─── 3. allowNameMismatch bo'luvchini oshiradi ───────────────────────────
 // O'sha ro'yxat, lekin ism mos kelmaganlarga ham yuboriladi: 4 + 2 = 6.
 {
-  const bulk = build({ counts: { ready: 4, not_sold: 6, name_mismatch: 2 } });
+  const bulk = build({ counts: { ready: 4, already_started: 6, name_mismatch: 2 } });
   bulk.start(
     ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10','c11','c12'],
     'j3',

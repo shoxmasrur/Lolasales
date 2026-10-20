@@ -332,7 +332,7 @@ export class BulkTelegramLookup implements ResumableJob {
           failed: this.job?.failed ?? 0,
         };
         if (outcome.kind === 'ok') counts.found += 1;
-        else if (outcome.kind === 'name_mismatch') counts.needsReview += 1;
+        else if (outcome.kind === 'name_mismatch' || outcome.kind === 'profile_taken') counts.needsReview += 1;
         else counts.notFound += 1;
 
         await this.patch({ ...counts, done: (this.job?.done ?? 0) + 1 }, id);

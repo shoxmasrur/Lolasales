@@ -524,10 +524,6 @@ export type BulkStartOutlook =
   | 'blocked'
   | 'deactivated'
   | 'no_phone'
-  | 'not_sold'
-  | 'no_debt'
-  /** Kechikish bor, lekin minimal chegaradan katta emas. */
-  | 'below_min_debt'
   | 'already_started';
 
 export interface BulkStartAccountPlan {

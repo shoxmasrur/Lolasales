@@ -47,6 +47,7 @@
     "test:kampaniya-sharti": "tsx src/infrastructure/db/kampaniyaSharti.spec.ts",
     "test:reklama-oqimi": "tsx src/application/usecases/messaging/reklamaOqimi.spec.ts",
     "test:lead-boshlash": "tsx src/application/usecases/messaging/leadBoshlash.spec.ts",
+    "test:bulk-oldindan": "tsx src/infrastructure/db/bulkOldindan.spec.ts",
     "test:column-map": "tsx src/infrastructure/import/columnMap.spec.ts",
     "test:block-phone": "tsx src/application/usecases/clients/blockClientPhone.spec.ts",
     "test:import-leads": "tsx src/application/usecases/import/importLeads.spec.ts",

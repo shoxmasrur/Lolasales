@@ -112,18 +112,6 @@ export type BulkStartOutlook =
   /** Mijozning Telegram akkaunti o'chirilgan. */
   | 'deactivated'
   | 'no_phone'
-  /** Birorta ham "Сотилди" shartnomasi yo'q — bekor qilinayotgan yoki hali sotilmagan. */
-  | 'not_sold'
-  | 'no_debt'
-  /**
-   * Kechikish bor, lekin minimal chegaradan katta emas.
-   *
-   * `no_debt` dan ALOHIDA saqlanadi: operator "kechikishi umuman yo'q"
-   * bilan "chegara tufayli tushib qoldi" ni ajrata olishi kerak —
-   * ikkinchisi Sozlamalardagi bitta raqam bilan hal qilinadi, birinchisi
-   * yo'q.
-   */
-  | 'below_min_debt'
   | 'already_started';
 
 /** Ogohlantirish dialogida ko'rsatiladigan juftlik. */
@@ -235,11 +223,8 @@ export interface IClientRepository {
    * Ommaviy suhbat boshlashdan oldingi tekshiruv: tanlanganlarning
    * nechtasiga xabar ketishi va qolgani nega o'tkazib yuborilishi.
    *
-   * `minDebt` — `OutreachSettings.minDebt`. Chaqiruvchi uni sozlamadan
-   * oladi: repozitoriy sozlamalarni o'zi o'qisa, dialogda ko'rsatilgan
-   * son bilan yuborishda qo'llanadigan chegara ayri manbadan kelardi.
    */
-  previewBulkStart(clientIds: string[], minDebt: number): Promise<BulkStartPreview>;
+  previewBulkStart(clientIds: string[]): Promise<BulkStartPreview>;
   /**
    * Ommaviy suhbat boshlashda akkaunti O'ZGARTIRILSA bo'ladigan mijozlar.
    *

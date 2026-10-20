@@ -3,7 +3,6 @@ import { aloqaSharti } from '@/domain/entities/aloqaHolati';
 import {
   holatniAniqla,
   holatSqlQiymatlari,
-  YOZILADIGAN_SQL_QIYMATLARI,
 } from '@/domain/entities/shartnomaHolati';
 import type {
   BulkStartMismatch,
@@ -24,6 +23,7 @@ import { mijozQatori } from '@/infrastructure/db/repositories/mijozQatori';
 import { mijozTartibi } from '@/infrastructure/db/repositories/mijozTartibi';
 import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 import { xaridShartlari } from '@/infrastructure/db/xaridSharti';
+import { bulkOldindanSql } from '@/infrastructure/db/bulkOldindan';
 import { kampaniyaNishonSql } from '@/infrastructure/db/kampaniyaSharti';
 import type { CampaignFilters } from '@/domain/entities/Campaign';
 import { mijozQamroviSharti } from '@/infrastructure/db/qamrovSharti';
@@ -762,7 +762,7 @@ export class PgClientRepository implements IClientRepository {
    * topilmagan). Natijasini oldindan aytib bo'lmaydi, shuning uchun uni
    * "ketadi" deb ham, "ketmaydi" deb ham ko'rsatmaymiz.
    */
-  async previewBulkStart(clientIds: string[], minDebt: number): Promise<BulkStartPreview> {
+  async previewBulkStart(clientIds: string[]): Promise<BulkStartPreview> {
     const counts: Record<BulkStartOutlook, number> = {
       ready: 0,
       name_mismatch: 0,
@@ -771,9 +771,6 @@ export class PgClientRepository implements IClientRepository {
       blocked: 0,
       deactivated: 0,
       no_phone: 0,
-      not_sold: 0,
-      no_debt: 0,
-      below_min_debt: 0,
       already_started: 0,
     };
     // accountPlan/reassigned — akkaunt tanlovi bo'yicha taqsimot; buni
@@ -788,57 +785,8 @@ export class PgClientRepository implements IClientRepository {
       phone: string | null;
       outlook: BulkStartOutlook;
     }>(
-      `SELECT c.id, c.full_name, c.telegram_name, c.phone,
-              CASE
-                WHEN c.do_not_contact THEN 'do_not_contact'
-                WHEN c.telegram_status = 'blocked' THEN 'blocked'
-                WHEN c.telegram_status = 'deactivated' THEN 'deactivated'
-                WHEN c.phone IS NULL AND c.telegram_user_id IS NULL THEN 'no_phone'
-                WHEN COALESCE(cv.state, 'new') <> 'new' THEN 'already_started'
-                WHEN COALESCE(agg.sold_count, 0) = 0 THEN 'not_sold'
-                WHEN COALESCE(agg.debt_first, 0) + COALESCE(agg.debt_monthly, 0) <= 0
-                  THEN 'no_debt'
-                -- Kechikish bor, lekin minimal chegaradan katta emas.
-                -- Tartib StartConversationUseCase bilan bir xil:
-                -- u ham nolni va chegarani BITTA tekshiruvda kesadi.
-                WHEN COALESCE(agg.debt_first, 0) + COALESCE(agg.debt_monthly, 0) <= $3
-                  THEN 'below_min_debt'
-                WHEN c.telegram_status = 'name_mismatch' THEN 'name_mismatch'
-                WHEN c.telegram_user_id IS NOT NULL THEN 'ready'
-                ELSE 'needs_lookup'
-              END AS outlook
-         FROM clients c
-         LEFT JOIN LATERAL (
-           -- Ikkala qismi ham: use case boshlang'ich to'lovda kechikish bo'lsa ham
-           -- suhbatni boshlaydi. Bu yerda faqat oyma-oy kechikishga qaralsa,
-           -- ogohlantirish "o'tkazib yuboriladi" degan mijozga aslida
-           -- xabar ketib qolardi.
-           --
-           -- Kechikkan to'lov FAQAT "Сотилди" shartnomalari bo'yicha sanaladi — use case
-           -- ham shunday qiladi. Aks holda bekor qilinayotgan shartnomasi
-           -- borlar "xabar ketadi" bo'lib ko'rinardi.
-           SELECT COUNT(*) AS sold_count,
-                  COALESCE(SUM(ct.debt_first), 0) AS debt_first,
-                  COALESCE(SUM(ct.debt_monthly), 0) AS debt_monthly
-             FROM contracts ct
-            WHERE ct.client_id = c.id AND ct.deleted_at IS NULL
-              AND TRIM(ct.virtual_status) = ANY($2::text[])
-         ) agg ON TRUE
-         -- Use case eng OXIRGI suhbatga qaraydi (findByClientId), shuning
-         -- uchun bu yerda ham aynan shu qator olinadi. "Bittasi 'new' emas"
-         -- deb tekshirilsa, eski yopilgan suhbati borlar noto'g'ri
-         -- "allaqachon boshlangan" bo'lib chiqardi.
-         LEFT JOIN LATERAL (
-           SELECT cv2.state
-             FROM conversations cv2
-            WHERE cv2.client_id = c.id AND cv2.deleted_at IS NULL
-            ORDER BY cv2.created_at DESC
-            LIMIT 1
-         ) cv ON TRUE
-        WHERE c.id = ANY($1::uuid[]) AND ${ALIVE}
-          AND NOT c.nomalum -- Noma'lum mijoz — shartnomasiz, unga ommaviy/eslatma yozilmaydi.
-        ORDER BY c.full_name ASC`,
-      [clientIds, YOZILADIGAN_SQL_QIYMATLARI, minDebt],
+      bulkOldindanSql(ALIVE),
+      [clientIds],
     );
 
     const mismatches: BulkStartMismatch[] = [];
