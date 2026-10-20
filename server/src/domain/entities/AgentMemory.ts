@@ -23,15 +23,26 @@ export interface NewAgentLesson {
   evidence?: string | null;
 }
 
-/** Playbook 8-bo'limidagi mijoz tasnifi. */
-export type ClientType = 'qochoq' | 'tajovuzkor' | 'qiynalayotgan' | 'yaxshi_niyatli';
+/**
+ * Sotuvdagi mijoz turi. `client_profiles.client_type` CHECK'i aynan shu
+ * qiymatlarni qabul qiladi (003-migratsiya); agent ularni `clientMemory`
+ * da qaytaradi.
+ */
+export const CLIENT_TYPES_LIST = ['tez_qaror', 'oylaydigan', 'narxga_sezgir', 'shubhali'] as const;
+
+export type ClientType = (typeof CLIENT_TYPES_LIST)[number];
 
 export const CLIENT_TYPE_LABEL: Record<ClientType, string> = {
-  qochoq: 'Qochoq — javob bermaydi, mavzuni chalg\'itadi',
-  tajovuzkor: 'Tajovuzkor — asabiy, ayblaydi',
-  qiynalayotgan: 'Chin qiynalayotgan — real moliyaviy muammo',
-  yaxshi_niyatli: 'Yaxshi niyatli — to\'lashga tayyor, lekin sekin',
+  tez_qaror: 'Tez qaror qiladi — aniq savol beradi, ortiqcha taqdimot kerak emas',
+  oylaydigan: 'O\'ylaydigan — ikkilanadi, shoshirmaslik kerak',
+  narxga_sezgir: 'Narxga sezgir — avval narxni so\'raydi, "qimmat" deydi',
+  shubhali: 'Shubhali — ishonmaydi, aniq fakt kerak',
 };
+
+/** Bazaga yozsa bo'ladigan tur — boshqa qiymat CHECK'da yiqiladi. */
+export function isClientType(value: string | null | undefined): value is ClientType {
+  return Boolean(value && (CLIENT_TYPES_LIST as readonly string[]).includes(value));
+}
 
 /**
  * Telegramda shartnoma egasining O'RNIGA yozayotgan odam — masalan o'g'li.

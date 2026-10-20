@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Container } from '@/composition/container';
-import { CLIENT_TYPE_LABEL } from '@/domain/entities/AgentMemory';
+import { CLIENT_TYPE_LABEL, isClientType } from '@/domain/entities/AgentMemory';
 import { uslubVersiyasi } from '@/domain/entities/UslubVersiyasi';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
 import { parseBody } from '@/presentation/http/middleware/validate';
@@ -206,7 +206,7 @@ export function agentRoutes(container: Container): Router {
     const body = req.body as Record<string, string | null>;
 
     const profile = await clientProfiles.upsert(String(req.params.clientId), {
-      clientType: (body.clientType as never) ?? null,
+      clientType: isClientType(body.clientType) ? body.clientType : null,
       summary: body.summary ?? null,
       whatWorks: body.whatWorks ?? null,
       bestContactTime: body.bestContactTime ?? null,

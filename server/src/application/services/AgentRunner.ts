@@ -9,7 +9,7 @@ import {
   RECEIPT_REVIEW_REASON,
   type PaymentCheck,
 } from '@/domain/entities/PaymentCheck';
-import type { ClientType } from '@/domain/entities/AgentMemory';
+import { isClientType } from '@/domain/entities/AgentMemory';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
@@ -66,20 +66,6 @@ const log = childLogger('agent-runner');
  * `stale` — mijoz yangi xabar yubordi va tayyor bo'layotgan javob eskirdi.
  */
 export type AbortReason = 'operator' | 'stale';
-
-/**
- * `client_profiles.client_type` bazada hali eski tasnifni qabul qiladi
- * (14-vazifada migratsiya bilan almashadi). Sotuv tasnifi (`tez_qaror` va
- * h.k.) bazaga yozilsa CHECK yiqiladi va xulosa ham yo'qoladi — shuning
- * uchun faqat baza qabul qiladigan qiymat yoziladi, qolgani `null`.
- */
-const SAQLANADIGAN_TURLAR: ReadonlySet<string> = new Set([
-  'qochoq', 'tajovuzkor', 'qiynalayotgan', 'yaxshi_niyatli',
-]);
-
-function isClientType(value: string | null | undefined): value is ClientType {
-  return Boolean(value && SAQLANADIGAN_TURLAR.has(value));
-}
 
 const HISTORY_LIMIT = 20;
 

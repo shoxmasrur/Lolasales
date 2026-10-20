@@ -390,7 +390,7 @@ ishlatilmaydi**: u "tasdiq kutmoqda" holatida turadi, siz tasdiqlaganingizdan
 keyingina promptga qo'shiladi. Bir xil saboq qayta uchrasa hisoblagichi oshadi.
 
 **Mijoz bo'yicha xotira** — mijoz kartasida (`Mijozlar` → mijozni tanlang).
-Agent mijoz tipini (qochoq / tajovuzkor / qiynalayotgan / yaxshi niyatli),
+Agent mijoz tipini (tez qaror / o'ylaydigan / narxga sezgir / shubhali),
 qisqa xulosani va qaysi yondashuv ishlaganini yozib boradi. Bu ma'lumot
 keyingi suhbatlarda promptga qo'shiladi — ya'ni agent mijozni "eslaydi".
 Qo'lda ham tahrirlash mumkin.

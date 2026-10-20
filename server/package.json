@@ -72,6 +72,7 @@
     "test:chek-tasdiq-route": "tsx src/presentation/http/routes/chekTasdiqRoute.spec.ts",
     "test:chek-poygasi": "tsx src/application/services/chekPoygasi.spec.ts",
     "test:lugat": "tsx src/infrastructure/ai/prompt/lugat.spec.ts",
+    "test:sotuv-qoidalari": "tsx src/infrastructure/ai/prompt/sotuvQoidalari.spec.ts",
     "test:attribution": "tsx src/domain/services/attributionBuckets.spec.ts",
     "test:persona-name": "tsx src/infrastructure/ai/prompt/personaName.spec.ts",
     "test:account-split": "tsx src/application/services/accountSplit.spec.ts",

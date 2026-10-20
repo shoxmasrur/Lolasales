@@ -41,6 +41,8 @@ jobs:
           npm run test:contract-upsert-guard --workspace=server
           # Agent promptidagi taqiqlangan so'zlar (qarz, qachonroq, -da, ajoyib).
           npm run test:lugat --workspace=server
+          # Standart sotuv qoidalari: qarz so'zlari yo'q, brief bo'limlari, e'tirozlar, mijoz turlari.
+          npm run test:sotuv-qoidalari --workspace=server
           npm run test:kun-chegarasi --workspace=server
           npm run test:norozilik --workspace=server
           npm run test:bot-tokeni --workspace=server

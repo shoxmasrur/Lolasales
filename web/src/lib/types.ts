@@ -67,7 +67,7 @@ export interface AgentLesson {
   createdAt: string;
 }
 
-export type ClientType = 'qochoq' | 'tajovuzkor' | 'qiynalayotgan' | 'yaxshi_niyatli';
+export type ClientType = 'tez_qaror' | 'oylaydigan' | 'narxga_sezgir' | 'shubhali';
 
 export interface ClientProfile {
   clientId: string;

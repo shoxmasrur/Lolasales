@@ -94,10 +94,10 @@ const ROW_LABEL: Record<RowState, string> = {
 };
 
 const CLIENT_TYPE_LABEL: Record<string, string> = {
-  qochoq: 'Qochoq',
-  tajovuzkor: 'Tajovuzkor',
-  qiynalayotgan: 'Chin qiynalayotgan',
-  yaxshi_niyatli: 'Yaxshi niyatli',
+  tez_qaror: 'Tez qaror qiladi',
+  oylaydigan: 'O\'ylaydigan',
+  narxga_sezgir: 'Narxga sezgir',
+  shubhali: 'Shubhali',
 };
 
 /**
