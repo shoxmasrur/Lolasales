@@ -65,15 +65,7 @@ export class OpenAiAgentEngine implements IAgentEngine {
     return this.run(input, 'reply');
   }
 
-  async composePromiseReminder(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
-    return this.run({ ...input, incoming: null }, 'reminder');
-  }
-
-  async composePaymentThanks(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
-    return this.run({ ...input, incoming: null }, 'thanks');
-  }
-
-  async composeSilenceNudge(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
+  async composeNudge(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
     return this.run({ ...input, incoming: null }, 'nudge');
   }
 
@@ -85,8 +77,8 @@ export class OpenAiAgentEngine implements IAgentEngine {
     return this.run({ ...input, incoming: null }, 'receipt_confirmed');
   }
 
-  async composeMonthlyReminder(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
-    return this.run({ ...input, incoming: null }, 'oylik_eslatma');
+  async composeReceiptRejected(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
+    return this.run({ ...input, incoming: null }, 'receipt_rejected');
   }
 
   private async run(input: AgentTurnInput, mode: TurnMode): Promise<AgentTurnOutput> {
@@ -100,12 +92,7 @@ export class OpenAiAgentEngine implements IAgentEngine {
     }
     if (input.signal?.aborted) throw new AbortedError('Agent javobi to\'xtatildi');
 
-    const systemPrompt = buildSystemPrompt(
-      this.persona,
-      input.stage,
-      mode === 'first' ? 'new' : input.conversationState,
-      input.knowledge,
-    );
+    const systemPrompt = buildSystemPrompt(this.persona, input.knowledge.companyName ?? '', input.knowledge);
     const userPrompt = buildUserPrompt(input, mode, new Date());
 
     // Ikkita mustaqil sabab bilan to'xtashi kerak: foydalanuvchi/tizim

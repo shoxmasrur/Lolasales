@@ -239,7 +239,7 @@ export default function TelegramPage() {
   });
 
   const accounts = accountsQuery.data?.items ?? [];
-  const defaultPersonaName = accountsQuery.data?.defaultPersonaName ?? 'Madina';
+  const defaultPersonaName = accountsQuery.data?.defaultPersonaName ?? 'Lola';
   const dist = distributionQuery.data;
   const countFor = (id: string): number =>
     dist?.distribution.find((d) => d.accountId === id)?.count ?? 0;

@@ -1,4 +1,5 @@
 import type { Interlocutor } from '@/domain/entities/AgentMemory';
+import type { XaridBosqichi } from '@/domain/entities/Purchase';
 import type { AgentTurnOutput } from '@/domain/services/IAgentEngine';
 import { childLogger } from '@/shared/logger';
 
@@ -15,8 +16,10 @@ const log = childLogger('agent-output');
 export interface RawAgentOutput {
   reply?: string | null;
   replySecond?: string | null;
-  state?: string | null;
-  promise?: { amount?: number; date?: string; quote?: string } | null;
+  stage?: string | null;
+  courseId?: string | null;
+  sendCard?: boolean | null;
+  installment?: boolean | null;
   escalate?: string | null;
   note?: string | null;
   lesson?: { lesson?: string; evidence?: string | null } | null;
@@ -26,7 +29,19 @@ export interface RawAgentOutput {
     whatWorks?: string | null;
   } | null;
   interlocutor?: { name?: string | null; gender?: string | null; relation?: string | null } | null;
-  paymentClaim?: boolean | null;
+}
+
+/**
+ * Agent o'zi qo'ya oladigan bosqichlar. Qolganlarini (`karta_yuborildi`,
+ * `chek_keldi`, `toladi`…) faqat tizim qo'yadi — model ularni qaytarsa
+ * tashlanadi.
+ */
+export const AGENT_BOSQICHLARI = ['suhbatda', 'qiziqdi', 'rad_etdi'] as const;
+
+function agentBosqichi(raw: unknown): XaridBosqichi | null {
+  return typeof raw === 'string' && (AGENT_BOSQICHLARI as readonly string[]).includes(raw)
+    ? (raw as XaridBosqichi)
+    : null;
 }
 
 /**
@@ -76,7 +91,7 @@ export function parseAgentOutput(structured: unknown, fallbackText: string): Raw
   }
 
   log.warn({ fallbackText: fallbackText.slice(0, 200) }, 'Agent tuzilgan javob qaytarmadi');
-  return { reply: fallbackText.trim() || null, state: 'negotiating' };
+  return { reply: fallbackText.trim() || null };
 }
 
 export function toTurnOutput(
@@ -88,15 +103,11 @@ export function toTurnOutput(
     reply: sanitize(parsed.reply),
     replySecond: sanitize(parsed.replySecond),
     sessionId,
-    promise:
-      parsed.promise && parsed.promise.amount && parsed.promise.date
-        ? {
-            amount: Number(parsed.promise.amount),
-            promisedDate: parsed.promise.date,
-            quote: sanitize(parsed.promise.quote),
-          }
-        : null,
-    nextState: parsed.state ?? null,
+    stage: agentBosqichi(parsed.stage),
+    courseId: typeof parsed.courseId === 'string' && parsed.courseId.trim() ? parsed.courseId.trim() : null,
+    // Faqat aniq `true`: "true" satri yoki boshqa qiymat karta yubormaydi.
+    sendCard: parsed.sendCard === true,
+    installment: parsed.installment === true,
     escalate: parsed.escalate ? { reason: sanitize(parsed.escalate) ?? 'sabab ko\'rsatilmagan' } : null,
     internalNote: sanitize(parsed.note),
     lesson:
@@ -111,7 +122,6 @@ export function toTurnOutput(
         }
       : null,
     interlocutor: toInterlocutor(parsed.interlocutor),
-    paymentClaim: parsed.paymentClaim === true,
     usage,
   };
 }

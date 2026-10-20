@@ -117,7 +117,7 @@ export class RuntimeSettings {
       weekdays: stored.weekdays ?? [1, 2, 3, 4, 5, 6],
       killSwitch: stored.killSwitch ?? config.KILL_SWITCH,
       agentAutoReply: stored.agentAutoReply ?? config.AGENT_AUTO_REPLY,
-      personaName: stored.personaName ?? 'Madina',
+      personaName: stored.personaName ?? 'Lola',
       promiseReminder: stored.promiseReminder ?? true,
       promiseReminderUntil: stored.promiseReminderUntil ?? '12:00',
       promiseThanksUntil: stored.promiseThanksUntil ?? '18:00',

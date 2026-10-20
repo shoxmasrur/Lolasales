@@ -23,12 +23,10 @@ const log = childLogger('agent');
 const TURN_LOG: Record<TurnMode, string> = {
   first: 'Birinchi murojaat tayyorlandi',
   reply: 'Agent javob berdi',
-  reminder: 'Va\'da kuni eslatmasi tayyorlandi',
-  thanks: 'To\'lov uchun rahmat tayyorlandi',
-  nudge: 'Sukutdan keyingi qayta murojaat tayyorlandi',
+  nudge: 'Eslatma tayyorlandi',
   operator: 'Operator topshirig\'i bo\'yicha xabar tayyorlandi',
   receipt_confirmed: 'Chek tasdig\'i uchun rahmat tayyorlandi',
-  oylik_eslatma: 'Oylik to\'lov eslatmasi tayyorlandi',
+  receipt_rejected: 'Rad etilgan chek bo\'yicha xabar tayyorlandi',
 };
 
 /**
@@ -49,15 +47,7 @@ export class ClaudeAgentEngine implements IAgentEngine {
     return this.run(input, 'reply');
   }
 
-  async composePromiseReminder(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
-    return this.run({ ...input, incoming: null }, 'reminder');
-  }
-
-  async composePaymentThanks(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
-    return this.run({ ...input, incoming: null }, 'thanks');
-  }
-
-  async composeSilenceNudge(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
+  async composeNudge(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
     return this.run({ ...input, incoming: null }, 'nudge');
   }
 
@@ -69,8 +59,8 @@ export class ClaudeAgentEngine implements IAgentEngine {
     return this.run({ ...input, incoming: null }, 'receipt_confirmed');
   }
 
-  async composeMonthlyReminder(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
-    return this.run({ ...input, incoming: null }, 'oylik_eslatma');
+  async composeReceiptRejected(input: Omit<AgentTurnInput, 'incoming'>): Promise<AgentTurnOutput> {
+    return this.run({ ...input, incoming: null }, 'receipt_rejected');
   }
 
   private async run(input: AgentTurnInput, mode: TurnMode): Promise<AgentTurnOutput> {
@@ -82,12 +72,7 @@ export class ClaudeAgentEngine implements IAgentEngine {
       throw new AbortedError('Agent javobi to\'xtatildi');
     }
 
-    const systemPrompt = buildSystemPrompt(
-      this.persona,
-      input.stage,
-      mode === 'first' ? 'new' : input.conversationState,
-      input.knowledge,
-    );
+    const systemPrompt = buildSystemPrompt(this.persona, input.knowledge.companyName ?? '', input.knowledge);
     const userPrompt = buildUserPrompt(input, mode, new Date());
 
     const started = Date.now();
@@ -191,10 +176,9 @@ export class ClaudeAgentEngine implements IAgentEngine {
     log.info(
       {
         conversationId: input.conversationId,
-        stage: input.stage,
         ms: Date.now() - started,
-        state: parsed.state,
-        hasPromise: Boolean(parsed.promise),
+        stage: parsed.stage,
+        sendCard: parsed.sendCard === true,
         escalate: Boolean(parsed.escalate),
         costUsd: usage?.costUsd,
       },

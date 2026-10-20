@@ -25,7 +25,7 @@ function account(personaName: string | null): TelegramAccount {
   };
 }
 
-const GLOBAL = 'Madina';
+const GLOBAL = 'Lola';
 
 const NAME_CASES: Array<{ holat: string; acc: TelegramAccount | null; kutilgan: string }> = [
   { holat: 'akkauntda ism bor', acc: account('Shoxsanam'), kutilgan: 'Shoxsanam' },
@@ -48,7 +48,7 @@ for (const c of NAME_CASES) {
 // ─── {ism} o'rnini bosuvchi ────────────────────────────────────────────
 
 const knowledge = (personaName: string): AgentKnowledgeBlocks => ({
-  rules: 'Misol: "Men {ism}, Xon Saroy Group\'dan yozyapman."',
+  rules: 'Misol: "Men {ism}, kurslar bo\'yicha yozyapman."',
   lessons: 'Saboq: {ism} nomidan yozilgan xabarlar yaxshi ishlaydi.',
   clientMemory: 'Mijoz {ism} bilan avval gaplashgan.',
   personaName,
@@ -60,11 +60,11 @@ function checkPrompt(holat: string, kutilgan: (p: string) => boolean, prompt: st
   console.log(`${ok ? '✓' : '✗'} ${holat}`);
 }
 
-const shoxsanam = buildSystemPrompt(DEFAULT_PERSONA, 'soft', 'new', knowledge('Shoxsanam'));
+const shoxsanam = buildSystemPrompt(DEFAULT_PERSONA, 'SMM Akademiya', knowledge('Shoxsanam'));
 
 checkPrompt(
   'qoidalar blokidagi {ism} almashdi',
-  (p) => p.includes('Men Shoxsanam, Xon Saroy Group\'dan yozyapman.'),
+  (p) => p.includes('Men Shoxsanam, kurslar bo\'yicha yozyapman.'),
   shoxsanam,
 );
 checkPrompt(
@@ -84,15 +84,33 @@ checkPrompt(
 );
 checkPrompt(
   'ism sarlavhada ham to\'g\'ri',
-  (p) => p.includes('isming Shoxsanam'),
+  (p) => p.includes('Siz Shoxsanamsiz, SMM Akademiya kompaniyasining sotuv menejeri.'),
   shoxsanam,
 );
 
-const standart = buildSystemPrompt(DEFAULT_PERSONA, 'soft', 'new', knowledge(''));
+const standart = buildSystemPrompt(DEFAULT_PERSONA, '  ', knowledge(''));
 checkPrompt(
   'personaName bo\'sh bo\'lsa DEFAULT_PERSONA ishlatiladi',
-  (p) => p.includes('isming Madina') && !p.includes('{ism}'),
+  (p) => p.includes('Siz Lolasiz') && !p.includes('{ism}'),
   standart,
+);
+checkPrompt(
+  'kompaniya nomi bo\'sh bo\'lsa standart nom',
+  (p) => p.includes('LolaSales kompaniyasining sotuv menejeri'),
+  standart,
+);
+checkPrompt(
+  'bo\'limlar tartibi: qoidalar → sotuv bosqichlari → taqiqlar → saboqlar → format',
+  (p) => {
+    const i = ['Misol:', '## SOTUV BOSQICHLARI', '## QAT\'IY TAQIQLAR', 'Saboq:', 'Mijoz Shoxsanam', '## TIL VA ALIFBO', '## OHANG', '## JAVOB FORMATI'].map((x) => p.indexOf(x));
+    return i.every((v, k) => v >= 0 && (k === 0 || v > i[k - 1]!));
+  },
+  shoxsanam,
+);
+checkPrompt(
+  'qarzga oid bosqich va bosim yo\'q',
+  (p) => !/undir|bosim vosita|ESKALATSIYA BOSQICHI/i.test(p),
+  shoxsanam,
 );
 
 console.log(failed ? `\n${failed} ta test yiqildi` : '\nHammasi o\'tdi');

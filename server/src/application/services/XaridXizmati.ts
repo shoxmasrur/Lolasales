@@ -88,4 +88,31 @@ export class XaridXizmati {
     this.events.publish({ type: 'client.updated', clientId });
     return updated;
   }
+
+  /**
+   * Agent kontekstidagi xarid: faol bo'lsa o'sha, bo'lmasa eng oxirgisi.
+   * `faolXarid` dan farqi — hech narsa OCHMAYDI (kontekst o'qish yon ta'sirsiz).
+   */
+  async joriyXarid(clientId: string): Promise<Purchase | null> {
+    return (await this.purchases.findActiveByClient(clientId)) ?? (await this.purchases.findLatestByClient(clientId));
+  }
+
+  /** Mijoz to'liq to'lagan kurslarning id lari. */
+  async tolanganKurslar(clientId: string): Promise<string[]> {
+    return this.purchases.listPaidCourseIds(clientId);
+  }
+
+  /**
+   * Agent "bo'lib to'lash" tanlanganini bildirdi. Faqat karta yuborilishidan
+   * oldingi bosqichlarda va faqat `true` ga o'zgartiriladi: model har
+   * navbatda `installment: false` qaytaradi, uni yozsak mijozning oldingi
+   * tanlovi o'chib ketardi.
+   */
+  async bolibTolash(clientId: string): Promise<boolean> {
+    const xarid = await this.faolXarid(clientId);
+    if (xarid.installment || !KURS_ALMASHADI.includes(xarid.stage)) return false;
+    await this.purchases.setInstallment(xarid.id, true);
+    this.events.publish({ type: 'client.updated', clientId });
+    return true;
+  }
 }

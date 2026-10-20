@@ -1,5 +1,5 @@
 import type { Course } from '@/domain/entities/Course';
-import type { Purchase } from '@/domain/entities/Purchase';
+import type { Purchase, XaridBosqichi } from '@/domain/entities/Purchase';
 
 /** Sozlamalardagi to'lov kartasi. `number` — 16 ta raqam, bo'shliqsiz. */
 export interface PaymentCard {
@@ -48,4 +48,18 @@ export function kartaXabari(card: PaymentCard, amount: number | null): string {
   const qatorlar = ["To'lov uchun karta:", raqam, `Egasi: ${card.holder}`, `Bank: ${card.bank}`];
   if (amount !== null) qatorlar.push(`Summa: ${minglik(amount)} so'm`);
   return qatorlar.join('\n');
+}
+
+/**
+ * Agent `sendCard: true` qaytarganda kartani yuborish mumkinmi (takror himoyasi).
+ *
+ * Karta faqat to'lovdan OLDINGI bosqichlarda yoki keyingi qism uchun
+ * (`qisman_toladi`) ketadi. `karta_yuborildi` — karta chatda allaqachon
+ * turibdi; `chek_keldi` — chek tekshiruvda; `toladi`/`rad_etdi` — xarid
+ * yopiq. Bu bosqichlarda model `sendCard` ni takrorlasa ham ikkinchi
+ * karta ketmaydi. Xarid umuman yo'q (`null`) bo'lsa — ruxsat:
+ * `KartaYuboruvchi` o'zi xarid ochadi yoki kurs yo'qligini menejerga beradi.
+ */
+export function agentKartaYuborsinmi(stage: XaridBosqichi | null): boolean {
+  return stage === null || stage === 'yangi' || stage === 'suhbatda' || stage === 'qiziqdi' || stage === 'qisman_toladi';
 }

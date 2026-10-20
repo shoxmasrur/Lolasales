@@ -64,7 +64,7 @@ interface AgentTurnResult {
   sent: boolean;
   reply: string | null;
   escalated: boolean;
-  promiseRecorded: boolean;
+  cardSent: boolean;
 }
 
 type Filter = 'all' | 'needsHuman' | 'unread' | 'blocked' | 'nomalum';

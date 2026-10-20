@@ -158,7 +158,7 @@ function build(opts: {
   const agent = {
     paymentThanks: async () => {
       rahmatlar += 1;
-      return { sent: true, reply: 'rahmat', escalated: false, promiseRecorded: false };
+      return { sent: true, reply: 'rahmat', escalated: false, cardSent: false };
     },
   } as unknown as AgentRunner;
 
@@ -196,7 +196,9 @@ function build(opts: {
   );
   check('kanal aniqlandi', out.kind === 'confirmed' && out.paymentType === 'xonpay');
   check('tekshiruv yopildi', m.yopilgan[0]?.status === 'confirmed');
-  check('agent rahmat aytdi', m.rahmatlar === 1, String(m.rahmatlar));
+  // Sotuv agentida to'lov faqat menejer tasdig'i bilan qabul qilinadi —
+  // CRM kuzatuvi rahmat YOZMAYDI (`crm_watch` 10-vazifada o'chiriladi).
+  check('CRM kuzatuvi rahmat yozmadi', m.rahmatlar === 0 && out.kind === 'confirmed' && !out.thanked, String(m.rahmatlar));
 }
 
 // ─── Ochiq va'da bor — rahmatni PromiseWatcher aytadi ────────────────────

@@ -1,7 +1,9 @@
+import type { ICourseRepository } from '@/domain/repositories/ICourseRepository';
+import type { XaridXizmati } from '@/application/services/XaridXizmati';
+import type { KartaYuboruvchi } from '@/application/services/KartaYuboruvchi';
 import { AgentRunner } from '@/application/services/AgentRunner';
 import type { Conversation } from '@/domain/entities/Conversation';
 import type { Client, TelegramLookupStatus } from '@/domain/entities/Client';
-import type { PaymentPromise } from '@/domain/entities/PaymentPromise';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
@@ -9,7 +11,7 @@ import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 /**
  * Qo'lda ishga tushiriladi: npm run test:blocked-reminder --workspace=server
  *
- * Bizni bloklagan mijozga va'da kuni eslatmasi yuborilmasligi kerak:
+ * Bizni bloklagan mijozga eslatma yuborilmasligi kerak:
  * `USER_IS_BLOCKED` qaytadi, xabar `failed` bo'lib qoladi va har kuni
  * qaytariladi. Model chaqiruvi ham bekorga sarflanadi, shuning uchun
  * tekshiruv AGENT CHAQIRUVIDAN OLDIN turishi shart.
@@ -31,8 +33,7 @@ function build(status: TelegramLookupStatus): AgentRunner {
         clientId: 'c1',
         agentEnabled: true,
         needsHuman: false,
-        state: 'promised',
-        stage: 'soft',
+        state: 'contacted',
       }) as unknown as Conversation,
   } as unknown as IConversationRepository;
 
@@ -50,19 +51,20 @@ function build(status: TelegramLookupStatus): AgentRunner {
 
   const bosh = {} as never;
   return new AgentRunner(
-    bosh, clients, bosh, conversations, bosh, bosh,
+    bosh, clients, conversations, bosh,
     bosh, settings, bosh, { publish: () => undefined } as never, bosh,
-    bosh, bosh, bosh, bosh, bosh, bosh, bosh, bosh, bosh, bosh,
+    bosh, bosh, bosh, bosh, bosh, bosh, bosh,
+    { list: async () => [], listKnowledge: async () => [] } as unknown as ICourseRepository,
+    { joriyXarid: async () => null, tolanganKurslar: async () => [], kursBelgila: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
+    { yubor: async () => ({ sent: false }) } as unknown as KartaYuboruvchi,
   );
 }
-
-const promise = { id: 'p1', amount: 1_000_000, promisedDate: new Date('2026-08-10') } as PaymentPromise;
 
 // ─── Bloklagan mijoz ─────────────────────────────────────────────────────
 {
   const runner = build('blocked');
   let xato: unknown = null;
-  const result = await runner.promiseReminder('cv1', promise).catch((e) => {
+  const result = await runner.nudge('cv1', 'qiziqdi').catch((e: unknown) => {
     xato = e;
     return null;
   });
@@ -82,7 +84,7 @@ const promise = { id: 'p1', amount: 1_000_000, promisedDate: new Date('2026-08-1
 {
   const runner = build('found');
   let xato: unknown = null;
-  await runner.promiseReminder('cv1', promise).catch((e) => {
+  await runner.nudge('cv1', 'qiziqdi').catch((e: unknown) => {
     xato = e;
   });
   check('bloklanmagan mijozda ish davom etdi', xato === PAST_GUARD, String(xato));

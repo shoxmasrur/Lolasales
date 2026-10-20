@@ -1,59 +1,51 @@
 import { buildUserPrompt, tarixQatori } from '@/infrastructure/ai/prompt/userPrompt';
-import type { AgentDebtContext, AgentTurnInput } from '@/domain/services/IAgentEngine';
+import type { AgentSalesContext, AgentTurnInput } from '@/domain/services/IAgentEngine';
 
 /**
  * Qo'lda ishga tushiriladi: npm run test:operator-vazifasi --workspace=server
  *
  * Operator suhbatni qo'lda boshlaydi: nima haqida gaplashishni yozadi,
- * xabarni agent o'zi tuzadi (2026-09-15). Real holat: va'da buzilgan,
- * mijoz jim — operator 10-sentyabrda salomni qo'lda yozdi, agent esa
- * davom ettira olmadi.
+ * xabarni agent o'zi tuzadi. Masalan mijoz kursga qiziqib jim qolgan —
+ * operator salomni qo'lda yozdi, agent esa davom ettirishi kerak.
  *
  * Uchta xavf qo'riqlanadi:
  *   1) topshiriq promptga tushmasa, agent nima haqida yozishni bilmaydi;
  *   2) qayd "chiquvchi xabar" deb sanalsa, agent bugun salomlashdim deb
  *      o'ylaydi va mijozga salomsiz yozadi;
  *   3) topshiriq qoidalardan ustun qo'yilsa, operatorning shoshilinch
- *      so'zlari ("qarzini to'lat") mijozga so'zma-so'z ketadi.
+ *      so'zlari ("bugunoq to'lasin") mijozga so'zma-so'z ketadi.
  */
 const NOW = new Date('2026-09-15T05:00:00Z'); // Toshkentda 15-sentyabr, 10:00
 const KECHA = new Date('2026-09-14T06:00:00Z');
 const BUGUN_ERTALAB = new Date('2026-09-15T04:30:00Z');
 
-const TOPSHIRIQ = 'Va\'da kuni to\'lamadi, yaqin kunlardan birini so\'ra';
+const TOPSHIRIQ = 'Kursga qiziqqan edi, bo\'lib to\'lash borligini ayt';
 
-const context: AgentDebtContext = {
+const context: AgentSalesContext = {
   clientName: 'Djumanazarova Aygerim',
   clientFirstName: 'Aygerim',
-  contracts: [],
-  debtFirst: 0,
-  debtMonthly: 15_759_000,
-  debtSum: 15_759_000,
-  daysOverdue: 52,
+  source: 'reklama',
+  sourceGroup: null,
+  sourceComment: null,
+  purchase: { stage: 'qiziqdi', courseId: null, totalAmount: null, paidAmount: 0, installment: false },
+  coursesOnSale: [],
+  nextCourse: null,
+  boughtCourses: [],
 };
 
 const prompt = (over: Partial<AgentTurnInput> = {}): string => {
   const input: AgentTurnInput = {
     conversationId: 'c1',
     clientId: 'k1',
-    contractId: 's1',
-    stage: 'soft',
-    conversationState: 'negotiating',
-    knowledge: { rules: '', lessons: '', clientMemory: '', personaName: 'Madina' },
+    knowledge: { rules: '', lessons: '', clientMemory: '', personaName: 'Lola' },
     context,
     history: [
-      { role: 'agent', text: 'Бугун ўзингиз айтган кун — тўловни бугун қила оласизми?', at: KECHA },
+      { role: 'agent', text: 'Курс ҳақида яна саволларингиз борми?', at: KECHA },
       { role: 'operator', text: TOPSHIRIQ, at: BUGUN_ERTALAB },
     ],
     incoming: null,
     sessionId: null,
-    brokenPromise: { amount: 15_759_000, date: '2026-08-28' },
-    bayram: null,
-    openPromise: null,
     receiptPending: false,
-    paymentReceived: null,
-    nudgeAttempt: null,
-    nudgeLast: null,
     operatorInstruction: TOPSHIRIQ,
     ...over,
   };
@@ -73,8 +65,8 @@ check('operator vazifasi bo\'limi chiqadi', asosiy.includes('## VAZIFA — OPERA
 check('topshiriq matni promptda', asosiy.includes(TOPSHIRIQ), asosiy);
 check('qoidalar topshiriqdan ustun', asosiy.includes('topshiriqdan USTUN'), asosiy);
 check('"operator aytdi" deyish taqiqlanadi', asosiy.includes('"operator aytdi"'), asosiy);
-check('suhbatni agent o\'zi boshlaydi', asosiy.includes('bu xabarni sen boshlayapsan'), asosiy);
-check('buzilgan va\'da bloki saqlanadi', asosiy.includes('## BUZILGAN VA\'DA'), asosiy);
+check('suhbatni agent o\'zi boshlaydi', asosiy.includes('bu xabarni siz boshlayapsiz'), asosiy);
+check('kurs konteksti saqlanadi', asosiy.includes('## SOTUVDAGI KURSLAR'), asosiy);
 
 // ─── 2. Tarixda qayd ─────────────────────────────────────────────────────
 check(
@@ -106,10 +98,7 @@ const javob = buildUserPrompt(
   {
     conversationId: 'c1',
     clientId: 'k1',
-    contractId: 's1',
-    stage: 'soft',
-    conversationState: 'negotiating',
-    knowledge: { rules: '', lessons: '', clientMemory: '', personaName: 'Madina' },
+    knowledge: { rules: '', lessons: '', clientMemory: '', personaName: 'Lola' },
     context,
     history: [
       { role: 'operator', text: TOPSHIRIQ, at: BUGUN_ERTALAB },
@@ -118,13 +107,7 @@ const javob = buildUserPrompt(
     ],
     incoming: 'Ваалейкум',
     sessionId: null,
-    brokenPromise: null,
-    bayram: null,
-    openPromise: null,
     receiptPending: false,
-    paymentReceived: null,
-    nudgeAttempt: null,
-    nudgeLast: null,
   },
   'reply',
   NOW,

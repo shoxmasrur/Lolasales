@@ -31,7 +31,7 @@ const check = (name: string, ok: boolean, izoh = ''): void => {
   console.log(`${ok ? '✓' : '✗'} ${name}${ok ? '' : `  ${izoh}`}`);
 };
 
-const OK: AgentTurnResult = { sent: true, reply: 'Ассалому алайкум', escalated: false, promiseRecorded: false };
+const OK: AgentTurnResult = { sent: true, reply: 'Ассалому алайкум', escalated: false, cardSent: false };
 const TOPSHIRIQ = '  Va\'da kuni to\'lamadi, yaqin kunlardan birini so\'ra  ';
 
 interface Harness {

@@ -100,14 +100,10 @@ export class InstructAgentUseCase {
       throw new ValidationError('Suhbat hali boshlanmagan — avval birinchi xabar yuborilsin');
     }
 
-    // CRM ham qayd yozilishidan OLDIN tekshiriladi. Agent summani faqat
-    // CRM'dan aytadi va u javob bermasa xabar yozilmaydi — o'shanda chatda
-    // "topshiriq berildi" qaydi qolib, mijozga hech narsa ketmagan bo'lardi.
-    // Ommaviy qayta aloqa navbati bunday suhbatni o'tkazib yuboradi va
-    // keyinroq qayta urinadi: har urinish yangi qayd qoldirmasligi kerak.
-    //
-    // Narxi — shu yo'lda CRM ikki marta so'raladi (bu yerda va agent
-    // chaqiruvida). Topshiriq kamdan-kam va qo'lda beriladi, arzimas.
+    // Agent konteksti (mijoz, xarid, sotuvdagi kurslar) qayd yozilishidan
+    // OLDIN quriladi: u yiqilsa chatda "topshiriq berildi" qaydi qolib,
+    // mijozga hech narsa ketmagan bo'lardi. Ommaviy qayta aloqa navbati
+    // bunday suhbatni o'tkazib yuboradi va keyinroq qayta urinadi.
     await this.agent.buildContext(conversation.clientId);
 
     // Qayd, bayroq va chaqiruv navbat qulfi ICHIDA: aks holda debouncer

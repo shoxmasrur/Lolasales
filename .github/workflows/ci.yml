@@ -86,30 +86,11 @@ jobs:
           # YUBORADIGAN yo'lni qo'riqlaydi — ro'yxatda bo'lmasa, qulf yo'q.
           npm run test:sukut --workspace=server
           npm run test:silence-watcher --workspace=server
-          npm run test:silence-watcher-pause --workspace=server
-          npm run test:sukut-vazifasi --workspace=server
-          npm run test:sukut-buzilgan-vada --workspace=server
-          npm run test:sukut-partiya --workspace=server
-          npm run test:sukut-yakshanba --workspace=server
-          npm run test:sukut-chegara --workspace=server
           # Operator topshirig'i — mijozga XABAR YUBORADIGAN yo'l.
           npm run test:agent-topshirigi --workspace=server
           npm run test:operator-vazifasi --workspace=server
-          # Mijozga aytiladigan summaning yagona manbai — CRM. Bu testlar
-          # ham XABAR YUBORADIGAN yo'lni qo'riqlaydi: CRM javob bermasa
-          # xabar ketmasligi va raqam va'da arifmetikasidan olinmasligi.
-          npm run test:crm-konteksti --workspace=server
-          npm run test:crm-summa-manbai --workspace=server
+          # CRM javob bermaganda debouncer buferi yo'qolmaydi (14-vazifagacha).
           npm run test:debounce-crm --workspace=server
-          npm run test:sukut-crm --workspace=server
-          npm run test:vada-crm --workspace=server
-          # Kontekst bloki `AgentRunner` orqali `shared/config` ni tortadi.
-          npm run test:context-block --workspace=server
-          # "To'ladim" kuzatuvi `AgentRunner` orqali `shared/config` ni tortadi.
-          npm run test:toladim-kuzatuv --workspace=server
-          npm run test:javob-vazifasi --workspace=server
-          npm run test:rahmat-vazifasi --workspace=server
-          npm run test:eslatma-vazifasi --workspace=server
           # Qayta aloqa ro'yxati — operator tanlaydi, agent mijozga YOZADI.
           npm run test:qayta-aloqa --workspace=server
           npm run test:mavzu-tekshiruvi --workspace=server
@@ -129,11 +110,8 @@ jobs:
           npm run test:chek-javobi --workspace=server
           npm run test:chek-sukut --workspace=server
           npm run test:chek-tasdiqi --workspace=server
-          npm run test:chek-takroriy-rahmat --workspace=server
           npm run test:chek-tasdiq-route --workspace=server
           npm run test:chek-poygasi --workspace=server
-          npm run test:oylik-eslatma --workspace=server
-          npm run test:oylik-eslatma-vazifasi --workspace=server
           npm run test:uslub-versiyasi --workspace=server
           npm run test:prompt-composer --workspace=server
           npm run test:uslub-tamgasi --workspace=server
@@ -209,14 +187,24 @@ jobs:
           npm run test:stats-qamrov --workspace=server
           # Fayl yetkazilgach yiqilgan hisob yozuvi xabarni "failed" qilmaydi.
           npm run test:dispatcher-fayl --workspace=server
-          # Bu shoxda tegilgan, `shared/config` ni tortadigan specs: va'da
-          # kuzatuvchisi va shartnoma sinxi (avval CI'da umuman yo'q edi).
-          npm run test:promise-watcher --workspace=server
+          # Bu shoxda tegilgan, `shared/config` ni tortadigan specs: shartnoma
+          # sinxi (avval CI'da umuman yo'q edi).
           npm run test:contract-sync --workspace=server
           # Kiruvchi oqim: faqat shaxsiy chat va haqiqiy foydalanuvchi.
           npm run test:kiruvchi-filtr --workspace=server
           # To'lov kartasi xabari: tanlash, summa, tayyorlik, matn.
           npm run test:karta --workspace=server
+          # Sotuv konteksti va javob sxemasi `systemPrompt` orqali `shared/config` ni tortadi.
+          npm run test:sales-context --workspace=server
+          npm run test:agent-output-sales --workspace=server
+          # Shaxs, kompaniya nomi, {ism} va tizim prompti bo'limlari tartibi.
+          npm run test:persona-name --workspace=server
+          npm run test:tuzatilgan-belgisi --workspace=server
+          # `AgentRunner.apply()` sotuv qadamlari: kurs, bosqich, karta (takror himoyasi, xato → menejer).
+          npm run test:agent-sotuv-navbati --workspace=server
+          # Ketayotgan navbatni uzish va bloklagan mijozga eslatma yozmaslik.
+          npm run test:agent-abort --workspace=server
+          npm run test:blocked-reminder --workspace=server
 
       - name: Build
         run: npm run build

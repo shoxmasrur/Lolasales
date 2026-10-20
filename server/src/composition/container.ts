@@ -85,8 +85,6 @@ import { config } from '@/shared/config';
 import { CrmUnavailableError } from '@/shared/errors';
 import { IncomingMediaProcessor } from '@/application/services/IncomingMediaProcessor';
 import { OutreachScheduler } from '@/application/services/OutreachScheduler';
-import { PromiseWatcher } from '@/application/services/PromiseWatcher';
-import { SilenceWatcher } from '@/application/services/SilenceWatcher';
 import { AccountAssigner } from '@/application/services/AccountAssigner';
 import { AccountLabels } from '@/application/services/AccountLabels';
 import { AccountChecker } from '@/application/services/AccountChecker';
@@ -242,11 +240,11 @@ export function createContainer() {
 
   const promptComposer = new PromptComposer(agentRules, lessons, clientProfiles);
   const agent = new AgentRunner(
-    engineFactory, clients, contracts, conversations, messages, promises,
+    engineFactory, clients, conversations, messages,
     dispatcher, settings, audit, events, clock,
     promptComposer, lessons, clientProfiles,
-    contractPayments, contractSync, telegramAccounts, accountLabels, paymentChecks,
-    agentUsage, holidays,
+    telegramAccounts, accountLabels, paymentChecks,
+    agentUsage, courses, xaridXizmati, kartaYuboruvchi,
   );
 
   // Shartnoma raqami bo'yicha mijoz yaratish — operator tugmasi ham, noma'lum
@@ -351,9 +349,8 @@ export function createContainer() {
   // to'lovni o'zi qidiradi va topilsa rahmat aytadi.
   const paymentCheckService = new PaymentCheckService(
     paymentChecks, conversations, contracts, contractPayments, promises,
-    contractSync, agent, audit, events, clock, settings,
+    contractSync, agent, audit, events, clock, settings, purchases,
   );
-  agent.setPaymentClaimWatch((conversationId) => paymentCheckService.open(conversationId, null));
   // Ovozli xabarni XonzodaAI'ga ham yuboradi — faqat Aisha bilan solishtirish.
   const sttTaqqoslash = new SttTaqqoslash(xonzodaStt, mediaStorage, messages, events);
   const handleIncoming = new HandleIncomingMessageUseCase(
@@ -404,15 +401,8 @@ export function createContainer() {
   const scheduler = new OutreachScheduler(
     campaigns, telegramAccounts, startConversation, settings, audit, events, clock, holidays,
   );
-  const promiseWatcher = new PromiseWatcher(
-    promises, conversations, agent, settings, audit, events, clock,
-    contracts, contractPayments, contractSync, accountLabels, holidays, paymentChecks, talabnomaSukuti,
-  );
-  // Jim qolgan suhbatlarni kuzatib, esingizda bo'lsin deb yana bir
-  // xabar yuboradi.
-  const silenceWatcher = new SilenceWatcher(
-    conversations, promises, contracts, agent, settings, audit, clock, holidays, talabnomaSukuti,
-  );
+  // Va'da kuzatuvchisi (`PromiseWatcher`) o'chirildi; sukut kuzatuvchisi
+  // (`SilenceWatcher`) o'rniga 11-vazifada `EslatmaKuzatuvchi` keladi.
 
   const spamWatcher = new SpamStatusWatcher(telegramAccounts, telegram, audit, events);
   // Cheklovlarni uch manbadan yig'ib, akkaunt kartasiga chiqaradi.
@@ -437,7 +427,7 @@ export function createContainer() {
       recontactList, recontactTopics, llmModels, bulkJobs, nomalumSuhbatlar, courses, purchases,
     },
     services: {
-      telegram, resolver, dispatcher, agent, scheduler, promiseWatcher, silenceWatcher, accountLabels,
+      telegram, resolver, dispatcher, agent, scheduler, accountLabels,
       speechToText, sttTaqqoslash, mediaStorage, mediaProcessor, assigner, spamWatcher, accountChecker, connectionWatcher, promptComposer,
       bulkLookup, bulkStart, bulkStartPlanner, contractGateway, contractSync,
       appLogCleaner,

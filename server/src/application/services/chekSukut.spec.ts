@@ -1,7 +1,9 @@
+import type { ICourseRepository } from '@/domain/repositories/ICourseRepository';
+import type { XaridXizmati } from '@/application/services/XaridXizmati';
+import type { KartaYuboruvchi } from '@/application/services/KartaYuboruvchi';
 import { AgentRunner } from '@/application/services/AgentRunner';
 import type { AgentEngineFactory } from '@/application/services/AgentEngineFactory';
 import type { AccountLabels } from '@/application/services/AccountLabels';
-import type { ContractSyncService } from '@/application/services/ContractSyncService';
 import type { MessageDispatcher } from '@/application/services/MessageDispatcher';
 import type { PromptComposer } from '@/application/services/PromptComposer';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
@@ -18,13 +20,9 @@ import type {
 } from '@/domain/repositories/IAgentKnowledgeRepository';
 import type { IAgentUsageRepository } from '@/domain/repositories/IAgentUsageRepository';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractPaymentRepository } from '@/domain/repositories/IContractPaymentRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentCheckRepository';
-import type { IPaymentPromiseRepository } from '@/domain/repositories/IPaymentPromiseRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { AgentTurnOutput, IAgentEngine } from '@/domain/services/IAgentEngine';
@@ -122,8 +120,10 @@ const JAVOB: AgentTurnOutput = {
   reply: 'Assalomu alaykum, xabarimni ko\'rdingizmi?',
   replySecond: null,
   sessionId: null,
-  promise: null,
-  nextState: null,
+  stage: null,
+  courseId: null,
+  sendCard: false,
+  installment: false,
   escalate: null,
   internalNote: null,
   lesson: null,
@@ -134,7 +134,7 @@ function build(openCheck: PaymentCheck | null) {
   let modelChaqiruvlari = 0;
   const yuborilgan: string[] = [];
   const engine = {
-    composeSilenceNudge: async () => {
+    composeNudge: async () => {
       modelChaqiruvlari += 1;
       return JAVOB;
     },
@@ -151,13 +151,8 @@ function build(openCheck: PaymentCheck | null) {
   const runner = new AgentRunner(
     engines,
     { findById: async () => ({ id: 'c1', fullName: 'Komiljonov Doniyorbek', firstName: 'Doniyorbek', telegramStatus: 'found' }) } as unknown as IClientRepository,
-    { findByClientId: async () => [] } as unknown as IContractRepository,
     { findById: async () => SUHBAT, update: async () => SUHBAT } as unknown as IConversationRepository,
     { recentByConversation: async () => [], create: async () => ({ id: 'x1' }) } as unknown as IMessageRepository,
-    {
-      findActiveByConversation: async () => null,
-      findLatestByConversation: async () => null,
-    } as unknown as IPaymentPromiseRepository,
     { send: async ({ body }: { body: string }) => void yuborilgan.push(body) } as unknown as MessageDispatcher,
     { get: async () => ({ agentAutoReply: true, personaName: 'Nodira', weekdays: [1, 2, 3, 4, 5, 6] }) } as unknown as RuntimeSettings,
     { record: async () => undefined } as unknown as IAuditRepository,
@@ -166,13 +161,13 @@ function build(openCheck: PaymentCheck | null) {
     { renderSections: async () => '', renderLessons: async () => '', renderClientMemory: async () => '' } as unknown as PromptComposer,
     { recordProposal: async () => undefined } as unknown as ILessonRepository,
     { upsert: async () => undefined, find: async () => null } as unknown as IClientProfileRepository,
-    { findUnpaidMonths: async () => [], listRecentPayments: async () => [] } as unknown as IContractPaymentRepository,
-    { syncIfStale: async () => null } as unknown as ContractSyncService,
     { findById: async () => null } as unknown as ITelegramAccountRepository,
     { labelOf: () => null } as unknown as AccountLabels,
     { findOpenByConversation: async () => openCheck } as unknown as IPaymentCheckRepository,
     { record: async () => undefined } as unknown as IAgentUsageRepository,
-    { list: async () => [] } as unknown as IHolidayRepository,
+    { list: async () => [], listKnowledge: async () => [] } as unknown as ICourseRepository,
+    { joriyXarid: async () => null, tolanganKurslar: async () => [], kursBelgila: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
+    { yubor: async () => ({ sent: false }) } as unknown as KartaYuboruvchi,
   );
 
   return { runner, yuborilgan, modelChaqiruvlari: () => modelChaqiruvlari };
@@ -180,26 +175,26 @@ function build(openCheck: PaymentCheck | null) {
 
 {
   const m = build(chek('tolov'));
-  const r = await m.runner.silenceNudge('cv1', 1, false);
+  const r = await m.runner.nudge('cv1', 'qiziqdi');
   check('ochiq tolov cheki: yuborilmadi', r.sent === false && m.yuborilgan.length === 0, JSON.stringify(r));
   check('ochiq tolov cheki: model chaqirilmadi', m.modelChaqiruvlari() === 0, String(m.modelChaqiruvlari()));
 }
 
 {
   const m = build(chek('aniqlanmagan'));
-  const r = await m.runner.silenceNudge('cv1', 1, false);
+  const r = await m.runner.nudge('cv1', 'qiziqdi');
   check('aniqlanmagan + needs_human yo\'q: yuboriladi', r.sent === true && m.yuborilgan.length === 1, JSON.stringify(r));
 }
 
 {
   const m = build(chek('tolov', new Date(NOW.getTime() - 8 * 24 * 60 * 60 * 1000)));
-  const r = await m.runner.silenceNudge('cv1', 1, false);
+  const r = await m.runner.nudge('cv1', 'qiziqdi');
   check('7 kundan eski tolov cheki: sukut xabari ketadi', r.sent === true && m.yuborilgan.length === 1, JSON.stringify(r));
 }
 
 {
   const m = build(null);
-  const r = await m.runner.silenceNudge('cv1', 1, false);
+  const r = await m.runner.nudge('cv1', 'qiziqdi');
   check('tekshiruv yo\'q: odatdagidek yuboriladi', r.sent === true, JSON.stringify(r));
 }
 

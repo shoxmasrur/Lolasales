@@ -90,8 +90,6 @@ async function bootstrap(): Promise<void> {
   });
 
   container.services.scheduler.start();
-  container.services.promiseWatcher.start();
-  container.services.silenceWatcher.start();
   container.services.paymentCheckService.start();
   container.services.spamWatcher.start();
   container.services.appLogCleaner.start();
@@ -167,11 +165,6 @@ async function bootstrap(): Promise<void> {
       }
     }
     await container.services.scheduler.stop();
-    container.services.promiseWatcher.stop();
-    // KUTILADI: qayta murojaat hisoblagichni chaqiruvdan oldin oshiradi,
-    // ya'ni yarim yo'lda uzilgan partiya suhbatning urinishini sarflab,
-    // xabarni yubormay qoldirardi.
-    await container.services.silenceWatcher.stop();
     container.services.paymentCheckService.stop();
     container.services.spamWatcher.stop();
     container.services.appLogCleaner.stop();

@@ -248,7 +248,7 @@ try {
       killSwitch: false, silenceNudgeMax: 2, minDebt: 1,
     }),
   } as unknown as RuntimeSettings;
-  const agent = { execute: async () => ({ sent: true, reply: 'x', escalated: false, promiseRecorded: false }) } as unknown as InstructAgentUseCase;
+  const agent = { execute: async () => ({ sent: true, reply: 'x', escalated: false, cardSent: false }) } as unknown as InstructAgentUseCase;
   const clock: IClock = { now: () => new Date('2026-10-20T06:00:00Z'), todayIso: () => '2026-10-20' };
   const yangi = () => new BulkRecontact(
     agent, recontactList, settings, { list: async () => [] } as unknown as IHolidayRepository,

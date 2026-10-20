@@ -31,7 +31,7 @@ const SUHBAT_ID = 's1';
 /** Sinov tez o'tsin — haqiqiy oyna 8 soniya. */
 const KUTISH_MS = 20;
 
-const NATIJA = { sent: true, reply: 'javob', escalated: false, promiseRecorded: false } as AgentTurnResult;
+const NATIJA = { sent: true, reply: 'javob', escalated: false, cardSent: false } as AgentTurnResult;
 
 /** Berilgan shart bajarilguncha kutamiz. */
 async function kut(shart: () => boolean, nima: string, urinish = 200): Promise<void> {

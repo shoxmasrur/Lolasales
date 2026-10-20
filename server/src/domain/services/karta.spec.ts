@@ -1,6 +1,6 @@
 import type { Course } from '@/domain/entities/Course';
 import type { Purchase } from '@/domain/entities/Purchase';
-import { kartaSummasi, kartaTayyorligi, kartaXabari, tanlanganKarta, type PaymentCard } from '@/domain/services/karta';
+import { agentKartaYuborsinmi, kartaSummasi, kartaTayyorligi, kartaXabari, tanlanganKarta, type PaymentCard } from '@/domain/services/karta';
 
 /** Qo'lda: npm run test:karta --workspace=server */
 let failed = 0;
@@ -38,6 +38,14 @@ check('tayyor', kartaTayyorligi({ cards: [K2], course: COURSE, purchase: P }), {
 check('matn', kartaXabari({ id: 'a', number: '8600123456789012', holder: 'ALIYEV ALI', bank: 'Kapitalbank', active: true }, 1_500_000),
   "To'lov uchun karta:\n8600 1234 5678 9012\nEgasi: ALIYEV ALI\nBank: Kapitalbank\nSumma: 1 500 000 so'm");
 check('summasiz', kartaXabari(K2, null).includes('Summa'), false);
+// Agentning `sendCard` takror himoyasi.
+check('karta: qiziqdi — ha', agentKartaYuborsinmi('qiziqdi'), true);
+check('karta: xarid yo\'q — ha', agentKartaYuborsinmi(null), true);
+check('karta: keyingi qism — ha', agentKartaYuborsinmi('qisman_toladi'), true);
+check('karta: allaqachon yuborilgan — yo\'q', agentKartaYuborsinmi('karta_yuborildi'), false);
+check('karta: chek kelgan — yo\'q', agentKartaYuborsinmi('chek_keldi'), false);
+check('karta: to\'ladi — yo\'q', agentKartaYuborsinmi('toladi'), false);
+check('karta: rad etdi — yo\'q', agentKartaYuborsinmi('rad_etdi'), false);
 check('raqam bo\'shliqlari tozalanadi', kartaXabari({ ...K2, number: '8600 4444 5555 6666' }, null).includes('8600 4444 5555 6666'), true);
 
 if (failed) {

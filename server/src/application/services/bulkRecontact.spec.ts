@@ -47,7 +47,7 @@ const item = (conversationId: string): RecontactItem => ({
   lastPromise: null,
 });
 
-const SENT: AgentTurnResult = { sent: true, reply: 'matn', escalated: false, promiseRecorded: false };
+const SENT: AgentTurnResult = { sent: true, reply: 'matn', escalated: false, cardSent: false };
 
 interface Muhit {
   service: BulkRecontact;

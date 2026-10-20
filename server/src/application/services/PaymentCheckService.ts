@@ -6,20 +6,19 @@ import {
   type PaymentCheck,
   type ReceiptSource,
 } from '@/domain/entities/PaymentCheck';
-import { canAgentReply } from '@/domain/entities/Conversation';
 import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IContractPaymentRepository } from '@/domain/repositories/IContractPaymentRepository';
 import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentCheckRepository';
 import type { IPaymentPromiseRepository } from '@/domain/repositories/IPaymentPromiseRepository';
+import type { IPurchaseRepository } from '@/domain/repositories/IPurchaseRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IClock, IEventBus } from '@/domain/services/support';
 import type { AgentRunner } from '@/application/services/AgentRunner';
 import type { ContractSyncService } from '@/application/services/ContractSyncService';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
-import { kechikishYopildi } from '@/domain/entities/Contract';
 import { faqatYoziladiganlar } from '@/domain/entities/shartnomaHolati';
-import { AbortedError, NotFoundError } from '@/shared/errors';
+import { NotFoundError } from '@/shared/errors';
 import { childLogger } from '@/shared/logger';
 
 const log = childLogger('payment-check');
@@ -83,6 +82,12 @@ export class PaymentCheckService {
     private readonly clock: IClock,
     /** Kill switch — tugmadan keyingi rahmat uchun. */
     private readonly settings: RuntimeSettings,
+    /**
+     * Rahmatdagi to'langan/qolgan summa shu yerdan (joriy xarid). Ixtiyoriy:
+     * berilmasa summalar 0 — sinov dublyorlari uchun. 10-vazifada servis
+     * qayta yoziladi.
+     */
+    private readonly purchases?: IPurchaseRepository,
   ) {}
 
   start(): void {
@@ -239,26 +244,23 @@ export class PaymentCheckService {
     const runtime = await this.settings.get();
     if (runtime.killSwitch) return { kind: 'not_sent', reason: 'kill_switch' };
 
-    // "Kechikkan to'lovingiz yo'q" faqat yangi CRM faktidan aytiladi.
-    for (const c of faqatYoziladiganlar(await this.contracts.findByClientId(check.clientId))) {
-      try {
-        await this.contractSync.syncOne(c.id);
-      } catch (err) {
-        log.warn({ checkId: check.id, contractId: c.id, err }, 'Tasdiqdan keyin shartnoma yangilanmadi');
-      }
-    }
-    const contracts = faqatYoziladiganlar(await this.contracts.findByClientId(check.clientId));
-    const debtCleared = kechikishYopildi(contracts, 0);
-
-    // Chek oynasida CRM'da birorta ham to'lov yo'q — bank to'lovi hali
-    // tushmagan va tizimdagi qoldiq ESKI: uni aytish endigina to'lagan
-    // mijozni ayblash bo'lardi.
-    const oynaBoshi = this.windowStart(new Date(`${check.sinceIso}T00:00:00Z`));
-    const mentionRemaining =
-      (await this.payments.sumPaidSince({ clientId: check.clientId, contractId: null, sinceIso: oynaBoshi })) > 0;
+    // Summalar joriy xariddan. Tasdiqlangan summani `paid_amount` ga qo'shish
+    // 10-vazifada keladi — hozircha xariddagi holat aytiladi, havola yuborilmaydi.
+    const xarid = this.purchases
+      ? ((await this.purchases.findActiveByClient(check.clientId)) ??
+        (await this.purchases.findLatestByClient(check.clientId)))
+      : null;
+    const totalAmount = xarid?.totalAmount ?? 0;
+    const paidAmount = xarid?.paidAmount ?? 0;
+    const confirmed = {
+      paidAmount,
+      totalAmount,
+      remaining: Math.max(0, totalAmount - paidAmount),
+      linkWillBeSent: false,
+    };
 
     try {
-      const result = await this.agent.receiptConfirmedThanks(check.conversationId, { debtCleared, mentionRemaining });
+      const result = await this.agent.receiptConfirmedThanks(check.conversationId, confirmed);
       return result.sent ? { kind: 'thanked' } : { kind: 'not_sent', reason: 'agent_disabled' };
     } catch (err) {
       // `AbortedError` ham shu yerga: operator agentni o'chirgan. Tekshiruv
@@ -404,59 +406,16 @@ export class PaymentCheckService {
     return { kind: 'confirmed', amount, paymentType, thanked };
   }
 
-  /** Va'dasiz kelgan to'lov uchun rahmat. */
+  /**
+   * CRM kuzatuvi bo'yicha topilgan to'lov uchun rahmat.
+   *
+   * Sotuv agentida bu yo'l yo'q (`crm_watch` 10-vazifada o'chiriladi): to'lov
+   * faqat menejer chekni tasdiqlaganda qabul qilinadi. Shu sababli rahmat
+   * yozilmaydi — to'lov topilgani audit yozuvida qoladi.
+   */
   private async thank(check: PaymentCheck, amount: number): Promise<boolean> {
-    const conversation = await this.conversations.findById(check.conversationId);
-    if (!conversation || !canAgentReply(conversation)) return false;
-
-    // "Kechikkan to'lovingiz yo'q" jumlasi faqat shu qaror asosida
-    // aytiladi — agentga taxmin qildirilmaydi.
-    //
-    // `minDebt` EMAS, 0: bu DA'VO. Chegara faqat "yozmay jim turish"ga
-    // ruxsat beradi — mijozga "qarzingiz yo'q" deb aytish uchun yig'indi
-    // AYNAN nolga tenglashishi kerak, aks holda mijoz qoldiqni ko'rib
-    // hisob-kitobga ishonchini yo'qotadi.
-    const contracts = faqatYoziladiganlar(await this.contracts.findByClientId(check.clientId));
-    const debtCleared = kechikishYopildi(contracts, 0);
-
-    try {
-      const result = await this.agent.paymentThanks(check.conversationId, null, {
-        newMoney: amount,
-        totalPaid: amount,
-        promisedAmount: null,
-        remaining: null,
-        debtCleared,
-      });
-      // Bu yozuv MUVAFFAQIYATLI rahmatdan KEYIN — yiqilsa ham rahmat
-      // yuborilgani fakt, shuning uchun xato yutiladi: aks holda pastdagi
-      // `catch` uni qayta otib, `confirm()` ni audit yozuvi va
-      // `conversation.updated` / `stats.invalidate` hodisalarigacha
-      // yetmay uzib qo'yardi.
-      if (result.sent) {
-        try {
-          await this.checks.markThanksSent(check.conversationId, this.clock.now());
-        } catch (belgiXato) {
-          log.warn({ conversationId: check.conversationId, err: belgiXato }, 'thanks_sent_at yozilmadi');
-        }
-      }
-      return result.sent;
-    } catch (err) {
-      // Operator agentni o'chirgani uchun uzilish — nosozlik emas, shuning
-      // uchun yuqoriga otilmaydi: aks holda `confirm()` yarim yo'lda uzilib,
-      // tekshiruv "confirmed" bo'lib yopilgani holda audit yozuvi ham,
-      // `conversation.updated` / `stats.invalidate` hodisalari ham
-      // yozilmay qolardi — dashboard eski raqamni ko'rsatib turardi. Uning
-      // ustiga tsikl buni "Kvitansiya tekshirilmadi" deb ogohlantirardi.
-      //
-      // To'lov TOPILGANI fakt bo'lib qoladi, faqat rahmat aytilmadi:
-      // `thanked = false` bilan davom etamiz.
-      if (!(err instanceof AbortedError)) throw err;
-      log.info(
-        { conversationId: check.conversationId },
-        'Rahmat xabari to\'xtatildi (agent o\'chirilgan)',
-      );
-      return false;
-    }
+    log.info({ conversationId: check.conversationId, amount }, 'CRM kuzatuvi bo\'yicha rahmat yozilmaydi (sotuv agenti)');
+    return false;
   }
 
   /** Muddat tugadi — endi odam ko'rishi kerak. */

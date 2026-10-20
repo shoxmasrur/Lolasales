@@ -31,7 +31,7 @@ const check = (name: string, ok: boolean, izoh = ''): void => {
   console.log(`${ok ? '✓' : '✗'} ${name}${ok ? '' : `  ${izoh}`}`);
 };
 
-const OK: AgentTurnResult = { sent: true, reply: 'javob', escalated: false, promiseRecorded: false };
+const OK: AgentTurnResult = { sent: true, reply: 'javob', escalated: false, cardSent: false };
 
 function msg(id: string, direction: 'in' | 'out', body: string, at: string): Message {
   return {

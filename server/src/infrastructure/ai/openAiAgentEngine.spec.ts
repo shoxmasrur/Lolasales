@@ -15,36 +15,27 @@ const JAVOB = {
   usage: { prompt_tokens: 1200, completion_tokens: 40, prompt_tokens_details: { cached_tokens: 200 } },
 };
 
-// `AgentTurnInput` ning to'liq shakli — brief namunasidagi `clientName`/
-// `contract` bu tipda yo'q (`clientId`+`context`, `contractId` bo'lardi),
-// shuning uchun `as never` kerak emas: maydonlar to'g'ri nomlar bilan.
+// `AgentTurnInput` ning to'liq shakli — sotuv konteksti bilan.
 const kirish: AgentTurnInput = {
   conversationId: 'c1',
   clientId: 'cl1',
-  contractId: null,
-  stage: 'soft',
-  conversationState: 'negotiating',
-  knowledge: { rules: 'QOIDA', lessons: '', clientMemory: '', personaName: 'Madina' },
+  knowledge: { rules: 'QOIDA', lessons: '', clientMemory: '', personaName: 'Lola', companyName: 'LolaSales' },
   context: {
     clientName: 'Sinov Mijoz',
     clientFirstName: 'Sinov',
-    contracts: [],
-    debtFirst: 0,
-    debtMonthly: 0,
-    debtSum: 0,
-    daysOverdue: 0,
+    source: 'reklama',
+    sourceGroup: null,
+    sourceComment: null,
+    purchase: null,
+    coursesOnSale: [],
+    nextCourse: null,
+    boughtCourses: [],
   },
   history: [],
   incoming: null,
   sessionId: null,
   signal: undefined,
-  brokenPromise: null,
-  bayram: null,
-  nudgeAttempt: null,
-  nudgeLast: null,
-  openPromise: null,
   receiptPending: false,
-  paymentReceived: null,
 };
 
 let sorov: { url: string; init: RequestInit } | null = null;

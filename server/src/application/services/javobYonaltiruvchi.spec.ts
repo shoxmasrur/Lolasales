@@ -76,8 +76,7 @@ for (const nomalumMi of [true, false]) {
   const suhbat = {
     id: 's1',
     clientId: 'n1',
-    state: 'negotiating',
-    stage: 'soft',
+    state: 'contacted',
     agentEnabled: true,
     needsHuman: false,
   } as unknown as Conversation;
@@ -90,13 +89,11 @@ for (const nomalumMi of [true, false]) {
   const runner = new YasalganRunner(
     { forAccount: dvigatel, standart: dvigatel } as unknown as AgentEngineFactory,
     { findById: async () => ({ id: 'n1', nomalum: true }) } as unknown as IClientRepository,
-    {} as never,
     { findById: async () => suhbat } as unknown as IConversationRepository,
     {
       recentByConversation: dvigatel,
       create: dvigatel,
     } as unknown as IMessageRepository,
-    {} as never,
     {
       send: async () => {
         yuborildi += 1;
@@ -115,7 +112,7 @@ for (const nomalumMi of [true, false]) {
     }
   };
   await urinish('operatorTurn', () => runner.operatorTurn('s1'));
-  await urinish('silenceNudge', () => runner.silenceNudge('s1', 1, false));
+  await urinish('nudge', () => runner.nudge('s1', 'qiziqdi'));
   await urinish('reply', () => runner.reply('s1', 'salom'));
   check('model chaqirilmadi', dvigatelChaqirildi === 0, String(dvigatelChaqirildi));
   check('Telegramga hech narsa ketmadi', yuborildi === 0);

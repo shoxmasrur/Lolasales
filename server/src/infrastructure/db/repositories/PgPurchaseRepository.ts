@@ -20,6 +20,16 @@ export class PgPurchaseRepository implements IPurchaseRepository {
     return rows[0] ? mapPurchase(rows[0]) : null;
   }
 
+  async listPaidCourseIds(clientId: string): Promise<string[]> {
+    const { rows } = await query(
+      `SELECT DISTINCT course_id FROM purchases
+        WHERE client_id = $1 AND stage = 'toladi' AND course_id IS NOT NULL
+        ORDER BY course_id`,
+      [clientId],
+    );
+    return rows.map((r) => String(r.course_id));
+  }
+
   async findCurrentByClients(clientIds: string[]): Promise<Map<string, Purchase>> {
     const out = new Map<string, Purchase>();
     if (clientIds.length === 0) return out;

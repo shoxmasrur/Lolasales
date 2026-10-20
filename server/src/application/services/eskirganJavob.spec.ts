@@ -1,29 +1,27 @@
+import type { ICourseRepository } from '@/domain/repositories/ICourseRepository';
+import type { XaridXizmati } from '@/application/services/XaridXizmati';
+import type { KartaYuboruvchi } from '@/application/services/KartaYuboruvchi';
 import { AgentRunner } from '@/application/services/AgentRunner';
 import type { AgentEngineFactory } from '@/application/services/AgentEngineFactory';
 import type { AgentTurnInput, AgentTurnOutput, IAgentEngine } from '@/domain/services/IAgentEngine';
 import type { Conversation } from '@/domain/entities/Conversation';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
-import type { IPaymentPromiseRepository } from '@/domain/repositories/IPaymentPromiseRepository';
 import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentCheckRepository';
 import type {
   AgentUsageEntry,
   IAgentUsageRepository,
 } from '@/domain/repositories/IAgentUsageRepository';
-import type { IContractPaymentRepository } from '@/domain/repositories/IContractPaymentRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type {
   IClientProfileRepository,
   ILessonRepository,
 } from '@/domain/repositories/IAgentKnowledgeRepository';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import type { PromptComposer } from '@/application/services/PromptComposer';
 import type { MessageDispatcher } from '@/application/services/MessageDispatcher';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
-import type { ContractSyncService } from '@/application/services/ContractSyncService';
 import type { AccountLabels } from '@/application/services/AccountLabels';
 import type { IClock, IEventBus } from '@/domain/services/support';
 
@@ -70,8 +68,10 @@ const JAVOB: AgentTurnOutput = {
   reply: 'Xo\'p, yarmini deysiz — rahmat. Aniq qaysi kunga yozib qo\'yay?',
   replySecond: null,
   sessionId: 'sess-2',
-  promise: null,
-  nextState: 'promised',
+  stage: null,
+  courseId: null,
+  sendCard: false,
+  installment: false,
   escalate: null,
   internalNote: null,
   lesson: null,
@@ -156,8 +156,8 @@ function build(): {
   const engine = {
     respond: modelTaqlidi,
     composeFirstContact: modelTaqlidi,
-    composePromiseReminder: modelTaqlidi,
-    composePaymentThanks: modelTaqlidi,
+    composeNudge: modelTaqlidi,
+    composeReceiptConfirmed: modelTaqlidi,
   } as unknown as IAgentEngine;
 
   // Akkaunt biriktirilmagan sinov — `forAccount` va `standart` bir xil
@@ -178,7 +178,6 @@ function build(): {
         telegramStatus: null,
       }),
     } as unknown as IClientRepository,
-    { findByClientId: async () => [] } as unknown as IContractRepository,
     {
       findById: async () => suhbat,
       update: async (_id: string, patch: unknown) => {
@@ -192,11 +191,6 @@ function build(): {
         return { id: 'x1' };
       },
     } as unknown as IMessageRepository,
-    {
-      findActiveByConversation: async () => null,
-      updateStatus: async () => undefined,
-      create: async () => ({ id: 'p1' }),
-    } as unknown as IPaymentPromiseRepository,
     {
       send: async ({ body }: { body: string }) => {
         kuzatuv.yuborilgan.push(body);
@@ -215,11 +209,6 @@ function build(): {
     } as unknown as PromptComposer,
     { recordProposal: async () => undefined } as unknown as ILessonRepository,
     { upsert: async () => undefined } as unknown as IClientProfileRepository,
-    {
-      findUnpaidMonths: async () => [],
-      listRecentPayments: async () => [],
-    } as unknown as IContractPaymentRepository,
-    { syncIfStale: async () => null } as unknown as ContractSyncService,
     { findById: async () => null } as unknown as ITelegramAccountRepository,
     { labelOf: () => null } as unknown as AccountLabels,
     { findOpenByConversation: async () => null } as unknown as IPaymentCheckRepository,
@@ -228,7 +217,9 @@ function build(): {
         kuzatuv.narxYozuvlari.push(e);
       },
     } as unknown as IAgentUsageRepository,
-    { list: async () => [] } as unknown as IHolidayRepository,
+    { list: async () => [], listKnowledge: async () => [] } as unknown as ICourseRepository,
+    { joriyXarid: async () => null, tolanganKurslar: async () => [], kursBelgila: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
+    { yubor: async () => ({ sent: false }) } as unknown as KartaYuboruvchi,
   );
 
   // Haqiqiy hayotda bu `ReplyDebouncer` — u xabarni buferga qo'yib,

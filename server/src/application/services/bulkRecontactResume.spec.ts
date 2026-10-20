@@ -32,7 +32,7 @@ const BUGUN = '2026-10-14';
 /** 10:00 Toshkent — ish vaqti ichida. */
 const HOZIR = new Date('2026-10-14T05:00:00Z');
 const PAUZA_MS = 60_000;
-const SENT: AgentTurnResult = { sent: true, reply: 'matn', escalated: false, promiseRecorded: false };
+const SENT: AgentTurnResult = { sent: true, reply: 'matn', escalated: false, cardSent: false };
 
 const item = (conversationId: string): RecontactItem => ({
   conversationId,

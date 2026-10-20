@@ -22,7 +22,7 @@ const at = new Date('2026-09-10T08:00:00Z');
   check('mijoz qatori o\'zgarmaydi', mijoz === 'MIJOZ: pul yo\'q hozir', mijoz);
 
   const biz = tarixQatori({ role: 'agent', text: '15-sanaga yozaymi?', at });
-  check('oddiy chiquvchi qator o\'zgarmaydi', biz === 'SEN: 15-sanaga yozaymi?', biz);
+  check('oddiy chiquvchi qator o\'zgarmaydi', biz === 'SIZ: 15-sanaga yozaymi?', biz);
 }
 
 // 2. Tuzatilgan xabar — yangi matn va belgi.

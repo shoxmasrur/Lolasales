@@ -1,3 +1,7 @@
+import type { IPurchaseRepository } from '@/domain/repositories/IPurchaseRepository';
+import type { ICourseRepository } from '@/domain/repositories/ICourseRepository';
+import type { XaridXizmati } from '@/application/services/XaridXizmati';
+import type { KartaYuboruvchi } from '@/application/services/KartaYuboruvchi';
 import { AgentRunner, type AgentTurnResult } from '@/application/services/AgentRunner';
 import type { AgentEngineFactory } from '@/application/services/AgentEngineFactory';
 import type { AccountLabels } from '@/application/services/AccountLabels';
@@ -14,13 +18,12 @@ import type {
 } from '@/domain/repositories/IAgentKnowledgeRepository';
 import type { IAgentUsageRepository } from '@/domain/repositories/IAgentUsageRepository';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractPaymentRepository, SumPaidSinceParams } from '@/domain/repositories/IContractPaymentRepository';
+import type { IContractPaymentRepository } from '@/domain/repositories/IContractPaymentRepository';
 import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type {
   ConversationPatch,
   IConversationRepository,
 } from '@/domain/repositories/IConversationRepository';
-import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentCheckRepository';
 import type { IPaymentPromiseRepository } from '@/domain/repositories/IPaymentPromiseRepository';
@@ -40,7 +43,7 @@ import { AbortedError } from '@/shared/errors';
  *     suhbat operatordan qaytadi, agent summasiz rahmat yozadi;
  *   • ikkinchi bosish — `no_review`, rahmat ikkinchi marta ketmaydi;
  *   • rahmat avvalroq ketgan (`thanks_sent_at`) — tekshiruv rahmatsiz yopiladi;
- *   • CRM'da chek oynasida to'lov yo'q — qoldiq aytilmaydi.
+ *   • rahmatdagi to'langan/qolgan summa joriy xariddan; havola hali yuborilmaydi.
  */
 let failed = 0;
 const check = (name: string, ok: boolean, izoh = ''): void => {
@@ -78,17 +81,17 @@ const chek = (over: Partial<Qator> = {}): Qator => ({
 
 function build(opts: {
   qator?: Qator;
-  paidInWindow?: number;
-  debtMonthly?: number;
+  /** Joriy xarid: `null` — xarid yo'q. */
+  xarid?: { totalAmount: number | null; paidAmount: number } | null;
   killSwitch?: boolean;
   agent?: () => Promise<AgentTurnResult>;
 }) {
   const qator = opts.qator ?? chek();
   const patches: ConversationPatch[] = [];
   const jurnal: AuditEntry[] = [];
-  const rahmatlar: Array<{ debtCleared: boolean; mentionRemaining: boolean }> = [];
-  const sinxronlar: string[] = [];
-  const oynalar: SumPaidSinceParams[] = [];
+  type Tasdiq = { paidAmount: number; totalAmount: number; remaining: number; linkWillBeSent: boolean };
+  const rahmatlar: Tasdiq[] = [];
+  const xarid = opts.xarid === undefined ? { totalAmount: 1_500_000, paidAmount: 500_000 } : opts.xarid;
 
   const checks = {
     findOpenByConversation: async () => (qator.status === 'reviewing' || qator.status === 'watching' ? qator : null),
@@ -109,32 +112,27 @@ function build(opts: {
         return {} as Conversation;
       },
     } as unknown as IConversationRepository,
-    {
-      findByClientId: async () => [
-        { id: 'ct1', virtualStatus: 'sold', debtFirst: 0, debtMonthly: opts.debtMonthly ?? 12_000_000 },
-      ],
-    } as unknown as IContractRepository,
-    {
-      sumPaidSince: async (p: SumPaidSinceParams) => {
-        oynalar.push(p);
-        return opts.paidInWindow ?? 5_000_000;
-      },
-    } as unknown as IContractPaymentRepository,
+    {} as unknown as IContractRepository,
+    {} as unknown as IContractPaymentRepository,
     {} as unknown as IPaymentPromiseRepository,
-    { syncOne: async (id: string) => void sinxronlar.push(id) } as unknown as ContractSyncService,
+    {} as unknown as ContractSyncService,
     {
-      receiptConfirmedThanks: async (_id: string, r: { debtCleared: boolean; mentionRemaining: boolean }) => {
+      receiptConfirmedThanks: async (_id: string, r: Tasdiq) => {
         rahmatlar.push(r);
-        return opts.agent ? opts.agent() : { sent: true, reply: 'rahmat', escalated: false, promiseRecorded: false };
+        return opts.agent ? opts.agent() : { sent: true, reply: 'rahmat', escalated: false, cardSent: false };
       },
     } as unknown as AgentRunner,
     { record: async (e: AuditEntry) => void jurnal.push(e) } as unknown as IAuditRepository,
     { publish: () => undefined } as unknown as IEventBus,
     { now: () => NOW, todayIso: () => '2026-09-17' } as unknown as IClock,
     { get: async () => ({ killSwitch: opts.killSwitch ?? false }) } as unknown as RuntimeSettings,
+    {
+      findActiveByClient: async () => xarid,
+      findLatestByClient: async () => null,
+    } as unknown as IPurchaseRepository,
   );
 
-  return { service, qator, patches, jurnal, rahmatlar, sinxronlar, oynalar };
+  return { service, qator, patches, jurnal, rahmatlar };
 }
 
 // ─── 1. Tugma — tasdiq, audit, rahmat ────────────────────────────────────
@@ -161,10 +159,12 @@ function build(opts: {
     JSON.stringify(yozuv),
   );
   check('rahmat bir marta so\'raldi', m.rahmatlar.length === 1, String(m.rahmatlar.length));
-  check('shartnoma CRM\'dan yangilandi', m.sinxronlar.includes('ct1'));
-  check('kechikish yopilmagan', m.rahmatlar[0]?.debtCleared === false);
-  check('chek oynasida to\'lov bor — qoldiq aytiladi', m.rahmatlar[0]?.mentionRemaining === true);
-  check('oyna chek kunidan 7 kun orqaga', m.oynalar[0]?.sinceIso === '2026-09-10' && m.oynalar[0]?.contractId === null, JSON.stringify(m.oynalar));
+  check(
+    'xariddan summalar: to\'langan, jami, qolgan',
+    m.rahmatlar[0]?.paidAmount === 500_000 && m.rahmatlar[0]?.totalAmount === 1_500_000 && m.rahmatlar[0]?.remaining === 1_000_000,
+    JSON.stringify(m.rahmatlar[0]),
+  );
+  check('havola hali yuborilmaydi', m.rahmatlar[0]?.linkWillBeSent === false);
 
   // ─── 2. Ikkinchi bosish ────────────────────────────────────────────────
   const ikkinchi = await m.service.confirmReceipt('cv1', OPERATOR);
@@ -181,18 +181,19 @@ function build(opts: {
   check('thanks_sent_at bor — tekshiruv baribir yopildi', m.qator.status === 'confirmed_by_operator');
 }
 
-// ─── 4. CRM'da oynada to'lov yo'q ────────────────────────────────────────
+// ─── 4. To'liq to'langan — qolgan summa nol ──────────────────────────────
 {
-  const m = build({ paidInWindow: 0 });
+  const m = build({ xarid: { totalAmount: 1_500_000, paidAmount: 1_500_000 } });
   await m.service.confirmReceipt('cv1', OPERATOR);
-  check('CRM\'da to\'lov yo\'q — mentionRemaining yolg\'on', m.rahmatlar[0]?.mentionRemaining === false, JSON.stringify(m.rahmatlar));
+  check('to\'liq to\'langan — remaining 0', m.rahmatlar[0]?.remaining === 0, JSON.stringify(m.rahmatlar));
 }
 
-// ─── 5. Kechikish yopilgan ───────────────────────────────────────────────
+// ─── 5. Xarid yo'q — summalar nol, rahmat baribir ────────────────────────
 {
-  const m = build({ debtMonthly: 0 });
-  await m.service.confirmReceipt('cv1', OPERATOR);
-  check('kechikish yo\'q — debtCleared rost', m.rahmatlar[0]?.debtCleared === true, JSON.stringify(m.rahmatlar));
+  const m = build({ xarid: null });
+  const out = await m.service.confirmReceipt('cv1', OPERATOR);
+  check('xarid yo\'q — rahmat', out.kind === 'thanked', JSON.stringify(out));
+  check('xarid yo\'q — summalar 0', m.rahmatlar[0]?.totalAmount === 0 && m.rahmatlar[0]?.remaining === 0, JSON.stringify(m.rahmatlar));
 }
 
 // ─── 6. Ochiq chek yo'q ──────────────────────────────────────────────────
@@ -211,7 +212,7 @@ function build(opts: {
   check('kill switch — agent chaqirilmadi', kill.rahmatlar.length === 0);
   check('kill switch — tekshiruv yopildi', kill.qator.status === 'confirmed_by_operator');
 
-  const ochiq = build({ agent: async () => ({ sent: false, reply: null, escalated: false, promiseRecorded: false }) });
+  const ochiq = build({ agent: async () => ({ sent: false, reply: null, escalated: false, cardSent: false }) });
   const o = await ochiq.service.confirmReceipt('cv1', OPERATOR);
   check('agent yozmadi — agent_disabled', o.kind === 'not_sent' && o.reason === 'agent_disabled', JSON.stringify(o));
 
@@ -229,8 +230,10 @@ function runner(suhbat: Partial<Conversation>) {
     reply: 'To\'lovingiz qabul qilindi, rahmat!',
     replySecond: null,
     sessionId: null,
-    promise: null,
-    nextState: null,
+    stage: null,
+    courseId: null,
+    sendCard: false,
+    installment: false,
     escalate: null,
     internalNote: null,
     lesson: null,
@@ -240,8 +243,7 @@ function runner(suhbat: Partial<Conversation>) {
     id: 'cv1',
     clientId: 'c1',
     telegramAccountId: null,
-    state: 'negotiating',
-    stage: 'soft',
+    state: 'contacted',
     agentEnabled: true,
     needsHuman: false,
     humanKind: null,
@@ -267,10 +269,8 @@ function runner(suhbat: Partial<Conversation>) {
   const r = new AgentRunner(
     engines,
     { findById: async () => ({ id: 'c1', fullName: 'Komiljonov Doniyorbek', firstName: 'Doniyorbek', telegramStatus: 'found' }) } as unknown as IClientRepository,
-    { findByClientId: async () => [] } as unknown as IContractRepository,
     { findById: async () => SUHBAT, update: async () => SUHBAT } as unknown as IConversationRepository,
     { recentByConversation: async () => [], create: async () => ({ id: 'x1' }) } as unknown as IMessageRepository,
-    { findActiveByConversation: async () => null } as unknown as IPaymentPromiseRepository,
     { send: async ({ body }: { body: string }) => void yuborilgan.push(body) } as unknown as MessageDispatcher,
     // `agentAutoReply: false` — tugmani operator bosgan, xabar baribir darhol ketishi kerak.
     { get: async () => ({ agentAutoReply: false, personaName: 'Nodira', weekdays: [1, 2, 3, 4, 5, 6] }) } as unknown as RuntimeSettings,
@@ -280,29 +280,29 @@ function runner(suhbat: Partial<Conversation>) {
     { renderSections: async () => '', renderLessons: async () => '', renderClientMemory: async () => '' } as unknown as PromptComposer,
     { recordProposal: async () => undefined } as unknown as ILessonRepository,
     { upsert: async () => undefined, find: async () => null } as unknown as IClientProfileRepository,
-    { findUnpaidMonths: async () => [], listRecentPayments: async () => [] } as unknown as IContractPaymentRepository,
-    { syncIfStale: async () => null } as unknown as ContractSyncService,
     { findById: async () => null } as unknown as ITelegramAccountRepository,
     { labelOf: () => null } as unknown as AccountLabels,
     { findOpenByConversation: async () => null } as unknown as IPaymentCheckRepository,
     { record: async () => undefined } as unknown as IAgentUsageRepository,
-    { list: async () => [] } as unknown as IHolidayRepository,
+    { list: async () => [], listKnowledge: async () => [] } as unknown as ICourseRepository,
+    { joriyXarid: async () => null, tolanganKurslar: async () => [], kursBelgila: async () => null, bolibTolash: async () => false, bosqich: async () => null } as unknown as XaridXizmati,
+    { yubor: async () => ({ sent: false }) } as unknown as KartaYuboruvchi,
   );
   return { r, kirishlar, yuborilgan };
 }
 
 {
   const m = runner({});
-  const out = await m.r.receiptConfirmedThanks('cv1', { debtCleared: false, mentionRemaining: true });
+  const out = await m.r.receiptConfirmedThanks('cv1', { paidAmount: 500_000, totalAmount: 1_500_000, remaining: 1_000_000, linkWillBeSent: false });
   check('runner: xabar darhol ketdi', out.sent === true && m.yuborilgan.length === 1, JSON.stringify(out));
   check(
     'runner: tasdiq ma\'lumoti modelga berildi',
-    m.kirishlar[0]?.receiptConfirmed?.mentionRemaining === true && m.kirishlar[0]?.receiptConfirmed?.debtCleared === false,
+    m.kirishlar[0]?.receiptConfirmed?.remaining === 1_000_000 && m.kirishlar[0]?.receiptConfirmed?.linkWillBeSent === false,
     JSON.stringify(m.kirishlar[0]?.receiptConfirmed),
   );
 
   const yopiq = runner({ agentEnabled: false });
-  const o = await yopiq.r.receiptConfirmedThanks('cv1', { debtCleared: false, mentionRemaining: false });
+  const o = await yopiq.r.receiptConfirmedThanks('cv1', { paidAmount: 0, totalAmount: 0, remaining: 0, linkWillBeSent: false });
   check('runner: agent o\'chiq — yuborilmaydi', o.sent === false && yopiq.kirishlar.length === 0);
 }
 

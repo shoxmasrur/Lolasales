@@ -4,6 +4,8 @@ export interface IPurchaseRepository {
   findActiveByClient(clientId: string): Promise<Purchase | null>;
   findLatestByClient(clientId: string): Promise<Purchase | null>;
   /** Bir nechta mijozning faol (yo'q bo'lsa oxirgi) xaridi — ro'yxat uchun. */
+  /** Mijoz to'liq to'lagan (`toladi`) xaridlarining kurs id lari, takrorsiz. */
+  listPaidCourseIds(clientId: string): Promise<string[]>;
   findCurrentByClients(clientIds: string[]): Promise<Map<string, Purchase>>;
   create(data: { clientId: string; courseId: string | null; totalAmount: number | null }): Promise<Purchase>;
   setStage(id: string, stage: XaridBosqichi): Promise<Purchase>;
