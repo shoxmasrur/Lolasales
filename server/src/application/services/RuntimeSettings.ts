@@ -49,14 +49,6 @@ export interface OutreachSettings {
    * chegarasi — suhbat umri davomidagi jami emas.
    */
   silenceNudgeMax: number;
-  /** Yangi oylik to'lov sanasi kelganda avval yozilgan mijozga eslatma. */
-  oylikEslatma: boolean;
-  /** B guruhi (faqat shu oy qolgan): sanadan necha kun OLDIN. */
-  oylikEslatmaOldinKun: number;
-  /** C guruhi (oldingi oylardan ham qolgan): sanadan necha kun KEYIN, 0 — sana kuni. */
-  oylikEslatmaKeyinKun: number;
-  /** Bir kunda eng ko'pi nechta eslatma — yetkazib olish navbati shunga bo'linadi. */
-  oylikEslatmaKunlik: number;
   /**
    * Bitta akkauntning ikki Telegram operatsiyasi orasidagi tasodifiy tanaffus.
    *
@@ -127,10 +119,6 @@ export class RuntimeSettings {
       silenceNudge: stored.silenceNudge ?? true,
       silenceNudgeDays: stored.silenceNudgeDays ?? 1,
       silenceNudgeMax: stored.silenceNudgeMax ?? 2,
-      oylikEslatma: stored.oylikEslatma ?? false,
-      oylikEslatmaOldinKun: stored.oylikEslatmaOldinKun ?? 2,
-      oylikEslatmaKeyinKun: stored.oylikEslatmaKeyinKun ?? 0,
-      oylikEslatmaKunlik: stored.oylikEslatmaKunlik ?? 60,
       gateMessageMinSec: stored.gateMessageMinSec ?? 5,
       gateMessageMaxSec: stored.gateMessageMaxSec ?? 20,
       gateOtherMinSec: stored.gateOtherMinSec ?? 1,

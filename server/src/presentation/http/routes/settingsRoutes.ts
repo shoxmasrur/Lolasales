@@ -31,12 +31,6 @@ const updateSchema = z.object({
   silenceNudgeDays: z.number().int().min(1).max(7).optional(),
   // 3 tadan ko'pi ta'qib. Chegara kodda emas, shu yerda turadi.
   silenceNudgeMax: z.number().int().min(1).max(3).optional(),
-  oylikEslatma: z.boolean().optional(),
-  // 7 kundan ko'p oldin yozilgan "sana yaqinlashyapti" eslatma unutiladi.
-  oylikEslatmaOldinKun: z.number().int().min(0).max(7).optional(),
-  oylikEslatmaKeyinKun: z.number().int().min(0).max(7).optional(),
-  // Yuqori chegara akkauntlarning jami kunlik imkoniyatidan oshmasin.
-  oylikEslatmaKunlik: z.number().int().min(1).max(300).optional(),
   // Akkaunt navbatidagi tanaffus. Yuqori chegara ataylab past (5 daqiqa):
   // undan katta qiymat kampaniyani amalda to'xtatib qo'yadi.
   gateMessageMinSec: z.number().int().min(0).max(300).optional(),

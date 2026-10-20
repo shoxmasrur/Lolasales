@@ -20,8 +20,7 @@ import { Avatar, ErrorNote, Spinner } from '@/components/ui';
 import { ClientPhonesCard } from '@/components/ClientPhonesCard';
 
 /*
- * Mijoz kartasi — «Mijozlar» sahifasidan ajratilgan: «Talabnomalar»
- * sahifasining «Batafsil» oynasi ham aynan shu kartani chizadi.
+ * Mijoz kartasi — «Mijozlar» sahifasidan ajratilgan komponent.
  */
 
 interface SchedulePayment {
@@ -585,8 +584,8 @@ export interface ClientDetailBodyProps {
   canDelete: boolean;
   canEdit: boolean;
   /*
-   * Qidiruv/suhbat amallari ixtiyoriy: «Talabnomalar» → «Batafsil» oynasi
-   * kartani faqat ko'rish uchun chizadi (`writable=false`) va ularni bermaydi.
+   * Qidiruv/suhbat amallari ixtiyoriy: karta ba'zan
+   * faqat ko'rish uchun chizadi (`writable=false`) va ularni bermaydi.
    * Berilmasa amallar bloki chizilmaydi.
    */
   lookup?: UseMutationResult<{ outcome: string }, Error, string>;
@@ -603,7 +602,7 @@ export interface ClientDetailBodyProps {
 /**
  * Mijoz kartasining mazmuni — kompyuterda yonma-yon `<aside>` panelida
  * ham, telefonda `Sheet` ichida ham aynan shu bitta komponent chiziladi
- * («Talabnomalar» → «Batafsil» oynasi ham, faqat ko'rish rejimida).
+ * (shuningdek faqat ko'rish rejimida).
  */
 export function ClientDetailBody({
   detailQuery,

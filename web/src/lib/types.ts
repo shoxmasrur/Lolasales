@@ -516,10 +516,6 @@ export interface OutreachSettings {
   silenceNudge: boolean;
   silenceNudgeDays: number;
   silenceNudgeMax: number;
-  oylikEslatma: boolean;
-  oylikEslatmaOldinKun: number;
-  oylikEslatmaKeyinKun: number;
-  oylikEslatmaKunlik: number;
   /**
    * Bitta akkauntning ikki Telegram operatsiyasi orasidagi tasodifiy tanaffus.
    * Kampaniya pauzasidan farqli: u ikki MIJOZ orasidagi oraliq, bu esa

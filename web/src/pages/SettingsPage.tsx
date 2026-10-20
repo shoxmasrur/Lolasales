@@ -842,66 +842,6 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="font-medium">Oylik to'lov eslatmasi</div>
-              <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
-                Avval yozilgan mijozga yangi oy to'lovi sanasi kelganda agent bir marta
-                eslatadi. Faqat shu oy to'lovi qolganlarga — sanadan oldin, oldingi
-                oylardan ham qolganlarga — sana kuni, jami summa bilan. Javob bo'lmasa
-                keyin yuqoridagi "qayta yozish" qoidasi ishlaydi.
-              </p>
-            </div>
-            <Toggle
-              checked={form.oylikEslatma}
-              disabled={!admin}
-              onChange={(v) => patch('oylikEslatma', v)}
-            />
-          </div>
-
-          <div className="max-w-xs">
-            <label className="label">Faqat shu oy qolganlarga: necha kun oldin</label>
-            <input
-              type="number"
-              min={0}
-              max={7}
-              className="input"
-              value={form.oylikEslatmaOldinKun}
-              disabled={!admin || !form.oylikEslatma}
-              onChange={(e) => patch('oylikEslatmaOldinKun', Number(e.target.value))}
-            />
-          </div>
-
-          <div className="max-w-xs">
-            <label className="label">Oldingi oydan qolganlarga: necha kun keyin</label>
-            <input
-              type="number"
-              min={0}
-              max={7}
-              className="input"
-              value={form.oylikEslatmaKeyinKun}
-              disabled={!admin || !form.oylikEslatma}
-              onChange={(e) => patch('oylikEslatmaKeyinKun', Number(e.target.value))}
-            />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
-              0 — to'lov sanasi kuni. Sana yakshanba yoki bayramga tushsa, eslatma
-              ish kuniga suriladi.
-            </p>
-          </div>
-
-          <div className="max-w-xs">
-            <label className="label">Kuniga eng ko'pi nechta eslatma</label>
-            <input
-              type="number"
-              min={1}
-              max={300}
-              className="input"
-              value={form.oylikEslatmaKunlik}
-              disabled={!admin || !form.oylikEslatma}
-              onChange={(e) => patch('oylikEslatmaKunlik', Number(e.target.value))}
-            />
-          </div>
-
           <div className="max-w-xs">
             <label className="label">Minimal qarzdorlik chegarasi (so'm)</label>
             <input
@@ -958,10 +898,6 @@ export default function SettingsPage() {
                   silenceNudge: form.silenceNudge,
                   silenceNudgeDays: form.silenceNudgeDays,
                   silenceNudgeMax: form.silenceNudgeMax,
-                  oylikEslatma: form.oylikEslatma,
-                  oylikEslatmaOldinKun: form.oylikEslatmaOldinKun,
-                  oylikEslatmaKeyinKun: form.oylikEslatmaKeyinKun,
-                  oylikEslatmaKunlik: form.oylikEslatmaKunlik,
                   minDebt: form.minDebt,
                 })
               }

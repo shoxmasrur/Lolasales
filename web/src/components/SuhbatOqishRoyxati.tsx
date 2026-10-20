@@ -14,8 +14,7 @@ const hechNarsa = (): void => undefined;
 /**
  * Suhbatning oxirgi xabarlari — FAQAT O'QISH (sahifadan chiqmasdan).
  *
- * «Qayta aloqa» paneli va «Talabnomalar» → «Batafsil» oynasi ikkalasi shu
- * ro'yxatni chizadi. Yozish chat sahifasida qoladi: ikki joyda yozish
+ * «Qayta aloqa» paneli shu ro'yxatni chizadi. Yozish chat sahifasida qoladi: ikki joyda yozish
  * qoralama, fayl va tahrir mantiqini ikki marta saqlashni talab qilardi.
  * Shuning uchun `MessageBubble` ning barcha amallari o'chiq.
  *
