@@ -16,6 +16,7 @@ import { PgPaymentPromiseRepository } from '@/infrastructure/db/repositories/PgP
 import { PgCourseRepository } from '@/infrastructure/db/repositories/PgCourseRepository';
 import { PgPurchaseRepository } from '@/infrastructure/db/repositories/PgPurchaseRepository';
 import { XaridXizmati } from '@/application/services/XaridXizmati';
+import { KartaYuboruvchi } from '@/application/services/KartaYuboruvchi';
 import { PgPaymentCheckRepository } from '@/infrastructure/db/repositories/PgPaymentCheckRepository';
 import { PaymentCheckService } from '@/application/services/PaymentCheckService';
 import { MissedMessageSync } from '@/application/services/MissedMessageSync';
@@ -213,6 +214,7 @@ export function createContainer() {
     messages, conversations, telegramAccounts, telegram, settings, events, clock, mediaStorage,
     clients, audit,
   );
+  const kartaYuboruvchi = new KartaYuboruvchi(settings, courses, xaridXizmati, conversations, dispatcher, audit, events);
   // Tashqi shartnomalar bazasi — kechikkan to'lov, to'lov grafigi va
   // telefon raqamlarining manbai. Implementatsiyani almashtirish uchun
   // faqat shu qator o'zgaradi.
@@ -442,7 +444,7 @@ export function createContainer() {
       paymentCheckService, missedSync, bulkRecontact, xulosaBoti, llmKaliti,
       bulkJobStore, bulkJobResumer,
       nomalumAgent, shartnomaBoglovchi, javobYonaltiruvchi,
-      qamrovTekshiruvchi, xaridXizmati,
+      qamrovTekshiruvchi, xaridXizmati, kartaYuboruvchi,
     },
     useCases: {
       login, importDebtors, importPhones, startConversation,

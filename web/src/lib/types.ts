@@ -551,6 +551,14 @@ export interface BulkStartPreview {
   reassigned: number;
 }
 
+export interface PaymentCard {
+  id: string;
+  number: string;
+  holder: string;
+  bank: string;
+  active: boolean;
+}
+
 export interface OutreachSettings {
   dailyLimit: number;
   minDelaySec: number;
@@ -565,6 +573,8 @@ export interface OutreachSettings {
   sotuvRaqami: string;
   /** Noma'lum yozuvchilarga agent o'zi javob bersinmi. */
   nomalumAgent: boolean;
+  paymentCards: PaymentCard[];
+  kompaniyaNomi: string;
   promiseReminder: boolean;
   promiseReminderUntil: string;
   /** "Pul tushdi" xabari shu vaqtgacha yuboriladi (HH:mm). */

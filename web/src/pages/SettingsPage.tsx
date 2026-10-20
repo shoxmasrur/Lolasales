@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useCan } from '@/store/auth';
-import type { LlmModel, OutreachSettings } from '@/lib/types';
+import type { LlmModel, OutreachSettings, PaymentCard } from '@/lib/types';
 import { relative } from '@/lib/format';
 import { ErrorNote, Spinner, Toggle } from '@/components/ui';
 import { RecontactTopicsSettings } from '@/components/recontact/RecontactTopicsSettings';
@@ -746,6 +746,8 @@ export default function SettingsPage() {
 
         <LlmSettingsPanel />
 
+        <KartalarPanel />
+
         <div className="card space-y-4">
           <h2 className="text-sm font-medium">Va'da kunidagi eslatma</h2>
 
@@ -1016,6 +1018,125 @@ export default function SettingsPage() {
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * To'lov kartalari. Agent karta raqamini o'zi yozmaydi: tizim birinchi FAOL kartani
+ * xabar qilib yuboradi. Ro'yxatda faqat oxirgi 4 raqam; to'liq raqam faqat tahrir formasida.
+ * Panel o'zi saqlaydi (PATCH /settings, faqat `paymentCards`).
+ */
+function KartalarPanel() {
+  const admin = useCan('settings.edit');
+  const qc = useQueryClient();
+  const settingsQuery = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get<{ settings: OutreachSettings }>('/settings'),
+  });
+  const cards = settingsQuery.data?.settings.paymentCards ?? [];
+
+  const save = useMutation({
+    mutationFn: (paymentCards: PaymentCard[]) =>
+      api.patch<{ settings: OutreachSettings }>('/settings', { paymentCards }),
+    onSuccess: () => {
+      setEdit(null);
+      void qc.invalidateQueries({ queryKey: ['settings'] });
+    },
+  });
+
+  const [edit, setEdit] = useState<PaymentCard | null>(null);
+  const raqamToza = edit ? edit.number.replace(/\D/g, '') : '';
+  const yaroqli = !!edit && /^\d{16}$/.test(raqamToza) && edit.holder.trim() !== '' && edit.bank.trim() !== '';
+
+  const submit = () => {
+    if (!edit || !yaroqli) return;
+    const yangi = { ...edit, number: raqamToza, holder: edit.holder.trim(), bank: edit.bank.trim() };
+    const bor = cards.some((c) => c.id === yangi.id);
+    save.mutate(bor ? cards.map((c) => (c.id === yangi.id ? yangi : c)) : [...cards, yangi]);
+  };
+
+  return (
+    <div className="card space-y-3">
+      <h2 className="text-sm font-medium">To'lov kartalari</h2>
+      <p className="text-xs text-ink-500">
+        Mijozga birinchi faol karta yuboriladi. Karta raqamini agent yozmaydi — tizim aniq qiymatni yuboradi.
+      </p>
+      {cards.length === 0 ? <p className="text-sm text-ink-500">Karta qo'shilmagan.</p> : null}
+      <ul className="space-y-2">
+        {cards.map((c) => (
+          <li key={c.id} className="flex items-center justify-between gap-3 text-sm">
+            <div>
+              <span className="font-mono">•••• {c.number.slice(-4)}</span>{' '}
+              <span className="text-ink-200">{c.holder}</span>{' '}
+              <span className="text-ink-500">· {c.bank}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Toggle
+                checked={c.active}
+                disabled={!admin || save.isPending}
+                onChange={(v) => save.mutate(cards.map((x) => (x.id === c.id ? { ...x, active: v } : x)))}
+              />
+              {admin ? (
+                <>
+                  <button type="button" className="btn-ghost !py-0.5 text-xs" onClick={() => setEdit({ ...c })}>
+                    Tahrirlash
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost !py-0.5 text-xs text-red-300"
+                    disabled={save.isPending}
+                    onClick={() => save.mutate(cards.filter((x) => x.id !== c.id))}
+                  >
+                    O'chirish
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      {edit ? (
+        <div className="space-y-2 rounded border border-ink-700 p-3">
+          <input
+            className="input font-mono"
+            placeholder="Karta raqami (16 ta raqam)"
+            inputMode="numeric"
+            value={edit.number}
+            onChange={(e) => setEdit({ ...edit, number: e.target.value })}
+          />
+          <input
+            className="input"
+            placeholder="Egasi (masalan ALIYEV ALI)"
+            value={edit.holder}
+            onChange={(e) => setEdit({ ...edit, holder: e.target.value })}
+          />
+          <input
+            className="input"
+            placeholder="Bank"
+            value={edit.bank}
+            onChange={(e) => setEdit({ ...edit, bank: e.target.value })}
+          />
+          <div className="flex gap-2">
+            <button type="button" className="btn-primary" disabled={!yaroqli || save.isPending} onClick={submit}>
+              Saqlash
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => setEdit(null)}>
+              Bekor qilish
+            </button>
+          </div>
+        </div>
+      ) : admin ? (
+        <button
+          type="button"
+          className="btn-ghost text-xs"
+          onClick={() => setEdit({ id: crypto.randomUUID(), number: '', holder: '', bank: '', active: true })}
+        >
+          + Karta qo'shish
+        </button>
+      ) : null}
+      {save.error ? <ErrorNote error={save.error} /> : null}
     </div>
   );
 }

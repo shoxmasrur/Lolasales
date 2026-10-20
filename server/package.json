@@ -211,7 +211,8 @@
     "test:ruxsat-guruhlari": "tsx src/domain/entities/permissionGroups.spec.ts",
     "test:kiruvchi-filtr": "tsx src/infrastructure/telegram/kiruvchiFiltr.spec.ts",
     "test:course": "tsx src/domain/entities/course.spec.ts",
-    "test:purchase": "tsx src/domain/entities/purchase.spec.ts"
+    "test:purchase": "tsx src/domain/entities/purchase.spec.ts",
+    "test:karta": "tsx src/domain/services/karta.spec.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.220",

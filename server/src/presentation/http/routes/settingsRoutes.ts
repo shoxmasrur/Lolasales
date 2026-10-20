@@ -41,6 +41,19 @@ const updateSchema = z.object({
   // qiymat oylik to'lovdan oshib ketadi va butun kampaniyani jimgina
   // o'chirib qo'yardi.
   minDebt: z.number().int().min(0).max(10_000_000).optional(),
+  paymentCards: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(64),
+        number: z.string().regex(/^\d{16}$/),
+        holder: z.string().trim().min(1).max(80),
+        bank: z.string().trim().min(1).max(80),
+        active: z.boolean(),
+      }),
+    )
+    .max(20)
+    .optional(),
+  kompaniyaNomi: z.string().trim().min(1).max(80).optional(),
 });
 
 // Token uzunligi cheklanadi: bazaga tasodifan butun fayl yopishtirilmasin.
@@ -65,7 +78,10 @@ export function settingsRoutes(container: Container): Router {
       action: 'settings.updated',
       entity: 'settings',
       entityId: 'outreach',
-      payload: patch,
+      // To'liq karta raqami auditga tushmaydi — faqat oxirgi 4 raqam.
+      payload: patch.paymentCards
+        ? { ...patch, paymentCards: patch.paymentCards.map((c) => ({ ...c, number: `****${c.number.slice(-4)}` })) }
+        : patch,
     });
 
     res.json({ settings });

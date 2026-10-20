@@ -1,4 +1,5 @@
 import type { ISettingsRepository } from '@/domain/repositories/ISupportRepositories';
+import type { PaymentCard } from '@/domain/services/karta';
 import { config } from '@/shared/config';
 
 export interface OutreachSettings {
@@ -90,6 +91,10 @@ export interface OutreachSettings {
   sotuvRaqami: string;
   /** Noma'lum mijoz agenti yoqilganmi; o'chiqda suhbat operatorga tushadi. */
   nomalumAgent: boolean;
+  /** To'lov kartalari; xabarga birinchi faol karta tushadi (LLM raqam yozmaydi). */
+  paymentCards: PaymentCard[];
+  /** Kompaniya nomi (agent matnlarida). */
+  kompaniyaNomi: string;
 }
 
 export const SETTINGS_KEY = 'outreach';
@@ -126,6 +131,8 @@ export class RuntimeSettings {
       minDebt: stored.minDebt ?? 100_000,
       sotuvRaqami: stored.sotuvRaqami ?? '71 200 74 00',
       nomalumAgent: stored.nomalumAgent ?? true,
+      paymentCards: stored.paymentCards ?? [],
+      kompaniyaNomi: stored.kompaniyaNomi ?? 'LolaSales',
     };
   }
 

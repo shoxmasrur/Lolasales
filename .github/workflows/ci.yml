@@ -215,6 +215,8 @@ jobs:
           npm run test:contract-sync --workspace=server
           # Kiruvchi oqim: faqat shaxsiy chat va haqiqiy foydalanuvchi.
           npm run test:kiruvchi-filtr --workspace=server
+          # To'lov kartasi xabari: tanlash, summa, tayyorlik, matn.
+          npm run test:karta --workspace=server
 
       - name: Build
         run: npm run build
