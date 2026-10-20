@@ -54,6 +54,7 @@ const SPAM_BOT = '@SpamBot';
 const SPAM_POLL_ATTEMPTS = 6;
 const SPAM_POLL_DELAY_MS = 1200;
 import { childLogger } from '@/shared/logger';
+import { kiruvchigaQabul } from './kiruvchiFiltr';
 
 const log = childLogger('telegram');
 
@@ -1304,7 +1305,17 @@ export class MtprotoTelegramGateway implements ITelegramGateway {
 
     for (const dialog of dialogs) {
       const entity = dialog.entity;
-      if (!(entity instanceof Api.User) || entity.bot) continue;
+      if (
+        !(entity instanceof Api.User) ||
+        !kiruvchigaQabul({
+          peerKind: 'user',
+          senderIsUser: true,
+          senderIsBot: Boolean(entity.bot),
+          senderId: String(entity.id),
+        })
+      ) {
+        continue;
+      }
 
       // Suhbatdagi oxirgi harakat `since` dan eski — undan keyingilari
       // ham eski (ro'yxat vaqt bo'yicha tartiblangan).
@@ -1401,7 +1412,17 @@ export class MtprotoTelegramGateway implements ITelegramGateway {
         if (!message || message.out) return;
 
         const sender = await message.getSender();
-        if (!(sender instanceof Api.User) || sender.bot) return;
+        if (
+          !kiruvchigaQabul({
+            peerKind: peerKindOf(message.peerId),
+            senderIsUser: sender instanceof Api.User,
+            senderIsBot: sender instanceof Api.User && Boolean(sender.bot),
+            senderId: sender instanceof Api.User ? String(sender.id) : '',
+          })
+        ) {
+          return;
+        }
+        if (!(sender instanceof Api.User)) return;
 
         const payload: IncomingMessage = {
           telegramAccountId: accountId,

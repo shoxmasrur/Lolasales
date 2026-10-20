@@ -235,7 +235,8 @@
     "test:qongiroq-mcp": "tsx src/presentation/mcp/qongiroqMcp.spec.ts",
     "test:phone-call-mapper": "tsx src/infrastructure/db/phoneCallMapper.spec.ts",
     "test:qongiroq-natijasi": "tsx src/application/services/qongiroqNatijasi.spec.ts",
-    "test:qongiroq-kartasi": "tsx src/domain/services/qongiroqKartasi.spec.ts"
+    "test:qongiroq-kartasi": "tsx src/domain/services/qongiroqKartasi.spec.ts",
+    "test:kiruvchi-filtr": "tsx src/infrastructure/telegram/kiruvchiFiltr.spec.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.220",

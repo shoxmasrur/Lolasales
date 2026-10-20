@@ -247,6 +247,8 @@ jobs:
           # kuzatuvchisi va shartnoma sinxi (avval CI'da umuman yo'q edi).
           npm run test:promise-watcher --workspace=server
           npm run test:contract-sync --workspace=server
+          # Kiruvchi oqim: faqat shaxsiy chat va haqiqiy foydalanuvchi.
+          npm run test:kiruvchi-filtr --workspace=server
 
       - name: Build
         run: npm run build
