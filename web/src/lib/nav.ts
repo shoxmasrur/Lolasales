@@ -32,6 +32,7 @@ export const NAV: NavItem[] = [
   { to: '/chat', label: 'Suhbatlar', short: 'Suhbat', Icon: IconChat, permission: 'conversations.view' },
   { to: '/clients', label: 'Mijozlar', short: 'Mijoz', Icon: IconClients, permission: 'clients.view' },
   { to: '/kurslar', label: 'Kurslar', short: 'Kurs', Icon: IconImport, permission: 'courses.view' },
+  { to: '/guruhlar', label: 'Guruhlar', short: 'Guruh', Icon: IconUsers, permission: 'comments.view' },
   { to: '/campaigns', label: 'Kampaniyalar', short: 'Kampan.', Icon: IconCampaign, permission: 'campaigns.view' },
   { to: '/import', label: 'Import', short: 'Import', Icon: IconImport, permission: 'import.view' },
   { to: '/telegram', label: 'Telegram', short: 'Telegram', Icon: IconTelegram, permission: 'telegram.view' },

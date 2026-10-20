@@ -17,6 +17,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import UsersPage from '@/pages/UsersPage';
 import AgentPage from '@/pages/AgentPage';
 import KurslarPage from '@/pages/KurslarPage';
+import GuruhlarPage from '@/pages/GuruhlarPage';
 import { LogsPage } from '@/pages/LogsPage';
 
 export default function App() {
@@ -103,6 +104,7 @@ export default function App() {
         <Route path="/chat/:conversationId" element={guard('conversations.view', <ChatPage />)} />
         <Route path="/clients" element={guard('clients.view', <ClientsPage />)} />
         <Route path="/kurslar" element={guard('courses.view', <KurslarPage />)} />
+        <Route path="/guruhlar" element={guard('comments.view', <GuruhlarPage />)} />
         <Route path="/campaigns" element={guard('campaigns.view', <CampaignsPage />)} />
         <Route path="/import" element={guard('import.view', <ImportPage />)} />
         <Route path="/telegram" element={guard('telegram.view', <TelegramPage />)} />

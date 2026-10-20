@@ -82,7 +82,13 @@ export interface OutreachSettings {
   paymentCards: PaymentCard[];
   /** Kompaniya nomi (agent matnlarida). */
   kompaniyaNomi: string;
+  /** Kanal izohlarini saralash uchun kalit so'zlar ("+" — faqat yolg'iz plyus). */
+  izohKalitSozlari: string[];
+  /** Bir yig'ishda barcha postlar bo'yicha jami o'qiladigan izohlar (50–2000). */
+  izohLimit: number;
 }
+
+export const IZOH_KALIT_SOZLARI = ['menga xabar bering', 'menga yozing', 'qiziqaman', 'narxi', '+'];
 
 export const SETTINGS_KEY = 'outreach';
 
@@ -117,6 +123,8 @@ export class RuntimeSettings {
       minDebt: stored.minDebt ?? 100_000,
       paymentCards: stored.paymentCards ?? [],
       kompaniyaNomi: stored.kompaniyaNomi ?? 'LolaSales',
+      izohKalitSozlari: stored.izohKalitSozlari ?? IZOH_KALIT_SOZLARI,
+      izohLimit: stored.izohLimit ?? 500,
     };
   }
 

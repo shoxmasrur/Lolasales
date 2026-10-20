@@ -27,6 +27,12 @@ export function kampaniyaNishonSql(
     '(cl.phone IS NOT NULL OR cl.telegram_user_id IS NOT NULL)',
   ];
 
+  if (filters.clientIds) {
+    // Bo'sh ro'yxat — hech kim (filtrsiz "hammasi" EMAS).
+    params.push(filters.clientIds);
+    where.push(`cl.id = ANY($${params.length}::uuid[])`);
+  }
+
   if (filters.source?.length) {
     params.push(filters.source);
     where.push(`cl.source = ANY($${params.length}::text[])`);

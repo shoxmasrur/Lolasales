@@ -89,6 +89,7 @@ import { SessiyaOgohlantiruvchi } from '@/application/services/SessiyaOgohlantir
 import { LoginUseCase } from '@/application/usecases/auth/LoginUseCase';
 import { ImportLeadsUseCase } from '@/application/usecases/import/ImportLeadsUseCase';
 import { MijozYaratuvchi } from '@/application/services/MijozYaratuvchi';
+import { IzohYiguvchi } from '@/application/services/IzohYiguvchi';
 import { StartConversationUseCase } from '@/application/usecases/messaging/StartConversationUseCase';
 import { HandleIncomingMessageUseCase } from '@/application/usecases/messaging/HandleIncomingMessageUseCase';
 import { SendManualMessageUseCase } from '@/application/usecases/messaging/SendManualMessageUseCase';
@@ -341,6 +342,8 @@ export function createContainer() {
     bulkJobs, clock, [bulkLookup, bulkStart, bulkRecontact], bulkJobStore,
   );
   const createCampaign = new CreateCampaignUseCase(campaigns, clients, settings, audit, events);
+  // Kanal izohlaridan lead: faqat o'qiydi, birinchi xabar kampaniya orqali.
+  const izohYiguvchi = new IzohYiguvchi(telegram, clients, mijozYaratuvchi, createCampaign, settings, audit, clock);
 
   // ─── Fon jarayonlari ────────────────────────────────────────────────────
   const scheduler = new OutreachScheduler(
@@ -380,7 +383,7 @@ export function createContainer() {
       appLogCleaner,
       paymentCheckService, missedSync, bulkRecontact, xulosaBoti, llmKaliti,
       bulkJobStore, bulkJobResumer,
-      mijozYaratuvchi,
+      mijozYaratuvchi, izohYiguvchi,
       qamrovTekshiruvchi, xaridXizmati, kartaYuboruvchi, eslatmaKuzatuvchi,
     },
     useCases: {

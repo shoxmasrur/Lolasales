@@ -21,6 +21,7 @@ import { statsRoutes } from '@/presentation/http/routes/statsRoutes';
 import { userRoutes } from '@/presentation/http/routes/userRoutes';
 import { agentRoutes } from '@/presentation/http/routes/agentRoutes';
 import { llmRoutes } from '@/presentation/http/routes/llmRoutes';
+import { commentRoutes } from '@/presentation/http/routes/commentRoutes';
 import { config } from '@/shared/config';
 
 export function createApp(container: Container): Express {
@@ -50,6 +51,8 @@ export function createApp(container: Container): Express {
   api.use('/campaigns', requirePermission('campaigns.view'), campaignRoutes(container));
   api.use('/import', requirePermission('import.view'), importRoutes(container));
   api.use('/telegram', requirePermission('telegram.view'), telegramRoutes(container));
+  // Kanal izohlari — faqat o'qish; leadga aylantirish ichkarida `comments.import`.
+  api.use('/comments', requirePermission('comments.view'), commentRoutes(container));
   api.use('/stats', requirePermission('dashboard.view'), statsRoutes(container));
   // Sozlamalar ichida audit ham bor — u alohida ruxsat talab qiladi,
   // shuning uchun mount darajasida umumiy to'siq qo'yilmaydi.

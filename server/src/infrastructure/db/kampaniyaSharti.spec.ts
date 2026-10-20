@@ -36,6 +36,12 @@ const check = (name: string, actual: unknown, expected: unknown): void => {
   check('qiymatlar SQL matniga qo\'shilmagan', ['reklama', 'yangi', '1111'].some((v) => sql.includes(v)), false);
 }
 {
+  const ids = ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'];
+  const { sql, params } = kampaniyaNishonSql({ clientIds: ids, source: ['guruh'], limit: 2 });
+  check('aniq mijozlar ro\'yxati parametrlangan', [sql.includes('cl.id = ANY($1::uuid[])'), params], [true, [ids, ['guruh'], 2]]);
+  check('bo\'sh ro\'yxat ham shart qo\'yadi', kampaniyaNishonSql({ clientIds: [] }).params, [[], 500]);
+}
+{
   const { sql, params } = kampaniyaNishonSql({ stage: ['yangi'] }, { cheklangan: true, obyektlar: ['A'] });
   check('qamrov: obyektlar parametr sifatida, limitdan oldin',
     [params, sql.includes('= ANY($2::text[])'), sql.includes('LIMIT $3')], [[['yangi'], ['A'], 500], true, true]);

@@ -86,6 +86,15 @@ export class PgClientRepository implements IClientRepository {
     return rows[0] ? mapClient(rows[0]) : null;
   }
 
+  async existingTelegramUserIds(tgUserIds: string[]): Promise<Set<string>> {
+    if (!tgUserIds.length) return new Set();
+    const { rows } = await query<{ telegram_user_id: string }>(
+      `SELECT c.telegram_user_id FROM clients c WHERE c.telegram_user_id = ANY($1::text[]) AND ${ALIVE}`,
+      [tgUserIds],
+    );
+    return new Set(rows.map((r) => r.telegram_user_id));
+  }
+
   async findByTelegramUserId(tgUserId: string): Promise<Client | null> {
     const { rows } = await query(
       `SELECT ${COLS} FROM clients c WHERE c.telegram_user_id = $1 AND ${ALIVE}`,

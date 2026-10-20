@@ -33,6 +33,10 @@ export const PERMISSIONS = [
   'courses.view',
   'courses.edit',
 
+  // Kanal izohlari (Guruhlar)
+  'comments.view',
+  'comments.import',
+
   // Kampaniyalar
   'campaigns.view',
   'campaigns.create',
@@ -166,6 +170,22 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         key: 'courses.edit',
         label: 'Tahrirlash',
         hint: 'Kurs yaratish, narx va sotuv davrini o\'zgartirish, ma\'lumot yozuvlari. Agent shu ma\'lumotdan javob beradi',
+      },
+    ],
+  },
+  {
+    section: 'comments',
+    label: 'Kanal izohlari',
+    items: [
+      {
+        key: 'comments.view',
+        label: 'Ko\'rish',
+        hint: 'Akkaunt a\'zo kanallardagi postlar va izohlarni o\'qish. Kanalga hech narsa yozilmaydi',
+      },
+      {
+        key: 'comments.import',
+        label: 'Mijoz qilish',
+        hint: 'Izoh yozganlarni lead qilib, ularga birinchi shaxsiy xabar kampaniyasini boshlash',
       },
     ],
   },

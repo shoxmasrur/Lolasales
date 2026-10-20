@@ -167,6 +167,8 @@ export interface IClientRepository {
   findByExternalId(externalId: string): Promise<Client | null>;
   findByPhone(phoneE164: string): Promise<Client | null>;
   findByTelegramUserId(tgUserId: string): Promise<Client | null>;
+  /** Berilgan Telegram id'lardan qaysilari tirik mijozga tegishli (bitta so'rov). */
+  existingTelegramUserIds(tgUserIds: string[]): Promise<Set<string>>;
   /**
    * Ro'yxat metodlarining oxirgi `qamrov` parametri — obyekt cheklovi.
    * Sukut `HAMMASI`: SQL o'zgarmaydi.

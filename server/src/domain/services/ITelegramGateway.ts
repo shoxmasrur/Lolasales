@@ -205,6 +205,51 @@ export interface GateOptions {
   readonly label: string;
 }
 
+/**
+ * Izohlari (muhokama guruhi) yoqilgan kanal.
+ *
+ * `memberOfLinked` — akkaunt muhokama guruhiga a'zomi. A'zo bo'lmasa,
+ * yopiq guruhning izohlarini o'qib bo'lmaydi (`CHANNEL_PRIVATE`).
+ */
+export interface ChannelInfo {
+  readonly peer: TelegramPeerRef;
+  readonly title: string;
+  readonly linkedChatId: string | null;
+  readonly memberOfLinked: boolean;
+}
+
+/** Kanaldagi post. `repliesCount` — izohlar soni (`message.replies`). */
+export interface ChannelPost {
+  readonly id: number;
+  readonly date: Date;
+  readonly text: string;
+  readonly repliesCount: number;
+}
+
+/**
+ * Izoh muallifi. `anonim` — kanal nomidan yoki yashirin admin yozgan:
+ * bunday muallifga shaxsiy xabar yozib bo'lmaydi.
+ */
+export type CommentAuthor =
+  | { readonly kind: 'user'; readonly peer: ResolvedPeer; readonly fullName: string }
+  | { readonly kind: 'anonim'; readonly title: string };
+
+export interface ChannelComment {
+  readonly id: number;
+  readonly postId: number;
+  readonly date: Date;
+  readonly text: string;
+  readonly author: CommentAuthor;
+}
+
+/**
+ * `getComments` natijasi. Oddiy massiv; Telegram sahifalash o'rtasida
+ * FLOOD_WAIT bersa, shu paytgacha yig'ilgani qaytadi va `partial` to'ldiriladi.
+ */
+export type ChannelCommentsResult = ChannelComment[] & {
+  partial?: { readonly reason: string; readonly retryAfterSec: number | null };
+};
+
 export interface ITelegramGateway {
   /** Saqlangan sessiyalar bilan barcha faol akkauntlarni ko'taradi. */
   bootstrap(): Promise<void>;
@@ -318,6 +363,27 @@ export interface ITelegramGateway {
     peer: TelegramPeerRef,
     options?: { limit?: number; offsetId?: number },
   ): Promise<TelegramHistoryMessage[]>;
+
+  /**
+   * Izohlari yoqilgan (muhokama guruhi bog'langan) kanallar — faqat O'QISH.
+   * Kanal va guruhga hech narsa yozilmaydi, qo'shilish so'rovi yuborilmaydi.
+   */
+  listCommentChannels(accountId: string): Promise<ChannelInfo[]>;
+
+  /** Kanal postlari (eng yangisidan). `sinceDays` — faqat oxirgi N kun. */
+  listChannelPosts(
+    accountId: string,
+    channel: TelegramPeerRef,
+    options: { limit: number; sinceDays?: number },
+  ): Promise<ChannelPost[]>;
+
+  /** Bitta postning izohlari (`messages.getReplies`). Faqat o'qiydi. */
+  getComments(
+    accountId: string,
+    channel: TelegramPeerRef,
+    postId: number,
+    options: { limit: number },
+  ): Promise<ChannelCommentsResult>;
 
   /** Jonli kuzatuv: filtrlanmagan xabar oqimi (kiruvchi ham, chiquvchi ham). */
   onRawMessage(handler: (msg: RawTelegramMessage) => void): () => void;

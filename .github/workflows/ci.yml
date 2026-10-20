@@ -34,6 +34,9 @@ jobs:
           npm run test:lead-boshlash --workspace=server
           npm run test:bulk-oldindan --workspace=server
           npm run test:kampaniya-sharti --workspace=server
+          npm run test:izoh-filtri --workspace=server
+          npm run test:izoh-muallifi --workspace=server
+          npm run test:izoh-yiguvchi --workspace=server
           npm run test:name-match --workspace=server
           npm run test:gender --workspace=server
           # Loyiha ildizi bundle'da ham to'g'ri (`server/dist` → `/opt` emas).

@@ -24,6 +24,7 @@ export type Permission =
   | 'contracts.sync'
   | 'courses.view' | 'courses.edit'
   | 'receipts.confirm'
+  | 'comments.view' | 'comments.import'
   | 'campaigns.view' | 'campaigns.create' | 'campaigns.control'
   | 'import.view' | 'import.run' | 'import.undo'
   | 'telegram.view' | 'telegram.manage' | 'telegram.inbox'
@@ -590,6 +591,10 @@ export interface OutreachSettings {
    * katta bo'lmagan mijozga yozilmaydi. 0 — chegara yo'q.
    */
   minDebt: number;
+  /** Kanal izohlarini saralash uchun kalit so'zlar ("+" — faqat yolg'iz plyus). */
+  izohKalitSozlari: string[];
+  /** Bir yig'ishda jami o'qiladigan izohlar (50–2000). */
+  izohLimit: number;
 }
 
 /**
@@ -687,4 +692,49 @@ export interface AppLogItem {
   akkaunt: string | null;
   mijoz: string | null;
   payload: Record<string, unknown>;
+}
+
+/** Izohlari yoqilgan kanal (Guruhlar sahifasi). */
+export interface CommentChannel {
+  peer: { peerId: string; accessHash: string | null; kind: 'channel' };
+  title: string;
+  linkedChatId: string | null;
+  memberOfLinked: boolean;
+}
+
+export interface ChannelPost {
+  id: number;
+  date: string;
+  text: string;
+  repliesCount: number;
+}
+
+export interface CommentPeer {
+  telegramUserId: string;
+  accessHash: string | null;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+}
+
+export type CommentAuthor =
+  | { kind: 'user'; peer: CommentPeer; fullName: string }
+  | { kind: 'anonim'; title: string };
+
+export interface ChannelCommentItem {
+  id: number;
+  postId: number;
+  date: string;
+  text: string;
+  author: CommentAuthor;
+  /** Shaxsiy xabar yozsa bo'ladi (anonim emas, access_hash bor). */
+  tanlasaBoladi: boolean;
+  /** Muallif bazada allaqachon mijoz. */
+  mavjudMijoz: boolean;
+}
+
+export interface CommentsFetchResult {
+  items: ChannelCommentItem[];
+  /** FLOOD_WAIT tufayli yig'ish erta to'xtagan bo'lsa. */
+  partial: { reason: string; retryAfterSec: number | null } | null;
 }

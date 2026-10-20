@@ -21,6 +21,11 @@ export interface CampaignFilters {
   courseId?: string;
   /** Faqat hali birorta ham suhbati yo'q mijozlar. */
   onlyWithoutConversation?: boolean;
+  /**
+   * Faqat shu mijozlar (aniq ro'yxat) — masalan kanal izohlaridan
+   * yaratilgan leadlar. Boshqa filtrlar bilan "va" bo'lib qo'shiladi.
+   */
+  clientIds?: string[];
   limit?: number;
 }
 

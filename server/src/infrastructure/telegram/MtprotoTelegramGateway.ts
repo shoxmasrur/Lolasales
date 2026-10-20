@@ -5,6 +5,10 @@ import type { TelegramAccount } from '@/domain/entities/TelegramAccount';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type {
   AccountProbe,
+  ChannelComment,
+  ChannelCommentsResult,
+  ChannelInfo,
+  ChannelPost,
   IncomingMessage,
   GateOptions,
   ITelegramGateway,
@@ -55,6 +59,7 @@ const SPAM_POLL_ATTEMPTS = 6;
 const SPAM_POLL_DELAY_MS = 1200;
 import { childLogger } from '@/shared/logger';
 import { kiruvchigaQabul } from './kiruvchiFiltr';
+import { izohMuallifi, type IzohFromId, type IzohUser } from '@/infrastructure/telegram/izohMuallifi';
 
 const log = childLogger('telegram');
 
@@ -1393,6 +1398,193 @@ export class MtprotoTelegramGateway implements ITelegramGateway {
       .reverse();
   }
 
+  // ─── Kanal izohlari (faqat O'QISH) ───────────────────────────────────────
+  //
+  // QATTIQ QOIDA: bu bo'limdagi hech bir chaqiruv kanal yoki guruhga
+  // yozmaydi, qo'shilmaydi, reaksiya qo'ymaydi — faqat GetFullChannel,
+  // getMessages va GetReplies (o'qish so'rovlari).
+
+  async listCommentChannels(accountId: string): Promise<ChannelInfo[]> {
+    return this.gate.run(
+      accountId,
+      { kind: 'other', priority: 'manual', label: 'izohlar' },
+      () => this.listCommentChannelsIchki(accountId),
+    );
+  }
+
+  private async listCommentChannelsIchki(accountId: string): Promise<ChannelInfo[]> {
+    const client = this.requireClient(accountId);
+    const dialogs = await client.getDialogs({ limit: 300 });
+    // A'zolik dialoglar bo'yicha: muhokama guruhi dialoglar ichida bo'lsa — a'zo.
+    const dialogIds = new Set(dialogs.filter((d) => d.entity).map((d) => String(d.entity!.id)));
+    const kanallar = dialogs
+      .map((d) => d.entity)
+      .filter((e): e is Api.Channel => e instanceof Api.Channel && Boolean(e.broadcast));
+
+    const out: ChannelInfo[] = [];
+    for (const [i, kanal] of kanallar.entries()) {
+      if (i > 0) await sleep(300);
+      let full: Api.messages.ChatFull;
+      try {
+        full = await client.invoke(new Api.channels.GetFullChannel({ channel: kanal }));
+      } catch (err) {
+        const t = this.translateError(err, accountId);
+        // FLOOD_WAIT: shu paytgacha topilganini qaytaramiz, qolganini keyin.
+        if (t instanceof TelegramError && t.telegramCode === 'FLOOD_WAIT' && out.length) {
+          log.warn({ accountId, topildi: out.length }, 'Kanallar ro\'yxati FLOOD_WAIT bilan qisqartirildi');
+          break;
+        }
+        if (t instanceof TelegramError) throw t;
+        // Bitta kanalning xatosi (masalan CHANNEL_PRIVATE) butun ro'yxatni to'xtatmasin.
+        log.debug({ accountId, kanal: String(kanal.id), err: t.message }, 'GetFullChannel o\'tkazib yuborildi');
+        continue;
+      }
+      const fullChat = full.fullChat;
+      const linked = fullChat instanceof Api.ChannelFull && fullChat.linkedChatId
+        ? String(fullChat.linkedChatId)
+        : null;
+      if (!linked) continue;
+      const linkedChat = full.chats.find((c) => String(c.id) === linked);
+      const azo = dialogIds.has(linked)
+        || (linkedChat instanceof Api.Channel && !linkedChat.left && !linkedChat.min);
+      out.push({
+        peer: {
+          peerId: String(kanal.id),
+          accessHash: kanal.accessHash ? String(kanal.accessHash) : null,
+          kind: 'channel',
+        },
+        title: kanal.title || 'Nomsiz kanal',
+        linkedChatId: linked,
+        memberOfLinked: azo,
+      });
+    }
+    return out;
+  }
+
+  async listChannelPosts(
+    accountId: string,
+    channel: TelegramPeerRef,
+    options: { limit: number; sinceDays?: number },
+  ): Promise<ChannelPost[]> {
+    return this.gate.run(
+      accountId,
+      { kind: 'other', priority: 'manual', label: 'izohlar' },
+      () => this.listChannelPostsIchki(accountId, channel, options),
+    );
+  }
+
+  private async listChannelPostsIchki(
+    accountId: string,
+    channel: TelegramPeerRef,
+    options: { limit: number; sinceDays?: number },
+  ): Promise<ChannelPost[]> {
+    const client = this.requireClient(accountId);
+    const sinceMs = options.sinceDays ? Date.now() - options.sinceDays * 86_400_000 : 0;
+    let messages: Api.Message[];
+    try {
+      messages = await client.getMessages(toInputPeer(channel), { limit: Math.max(1, Math.min(options.limit, 200)) });
+    } catch (err) {
+      throw this.translateError(err, accountId);
+    }
+    return messages
+      .filter((m) => m instanceof Api.Message && Boolean(m.post))
+      .map((m): ChannelPost => ({
+        id: Number(m.id),
+        date: new Date(Number(m.date) * 1000),
+        text: m.message ?? '',
+        repliesCount: m.replies?.replies ?? 0,
+      }))
+      .filter((p) => p.date.getTime() >= sinceMs);
+  }
+
+  async getComments(
+    accountId: string,
+    channel: TelegramPeerRef,
+    postId: number,
+    options: { limit: number },
+  ): Promise<ChannelCommentsResult> {
+    return this.gate.run(
+      accountId,
+      { kind: 'other', priority: 'manual', label: 'izohlar' },
+      () => this.getCommentsIchki(accountId, channel, postId, options),
+    );
+  }
+
+  private async getCommentsIchki(
+    accountId: string,
+    channel: TelegramPeerRef,
+    postId: number,
+    options: { limit: number },
+  ): Promise<ChannelCommentsResult> {
+    const client = this.requireClient(accountId);
+    const peer = toInputPeer(channel);
+    const limit = Math.max(1, options.limit);
+    const out: ChannelCommentsResult = [];
+    let offsetId = 0;
+
+    while (out.length < limit) {
+      const sorov = Math.min(100, limit - out.length);
+      let res: Api.messages.TypeMessages;
+      try {
+        res = await client.invoke(new Api.messages.GetReplies({
+          peer, msgId: postId, offsetId, offsetDate: 0, addOffset: 0,
+          limit: sorov, maxId: 0, minId: 0, hash: bigInt(0),
+        }));
+      } catch (err) {
+        const t = this.translateError(err, accountId);
+        if (t instanceof TelegramError && t.telegramCode === 'FLOOD_WAIT' && out.length) {
+          out.partial = { reason: t.message, retryAfterSec: t.retryAfterSec ?? null };
+          return out;
+        }
+        throw t;
+      }
+      if (res instanceof Api.messages.MessagesNotModified) break;
+
+      const users = new Map<string, IzohUser>();
+      const selfIds = new Set<string>();
+      for (const u of res.users) {
+        if (!(u instanceof Api.User)) continue;
+        if (u.self) selfIds.add(String(u.id));
+        users.set(String(u.id), {
+          id: String(u.id),
+          // `min` foydalanuvchining hash'i shaxsiy xabar uchun yaroqsiz.
+          accessHash: u.accessHash && !u.min ? String(u.accessHash) : null,
+          username: u.username ?? null,
+          firstName: u.firstName ?? null,
+          lastName: u.lastName ?? null,
+          bot: Boolean(u.bot),
+        });
+      }
+      const chats = new Map<string, { title: string }>();
+      for (const c of res.chats) {
+        if (c instanceof Api.Channel || c instanceof Api.Chat) chats.set(String(c.id), { title: c.title });
+      }
+
+      const batch = res.messages.filter((m): m is Api.Message => m instanceof Api.Message);
+      for (const m of batch) {
+        const fromId = izohFromId(m.fromId);
+        // O'zimizning akkauntimiz yozgan izoh — lead emas.
+        if (fromId.kind === 'user' && selfIds.has(fromId.id)) continue;
+        const author = izohMuallifi(fromId, users, chats);
+        if (!author) continue;
+        const izoh: ChannelComment = {
+          id: Number(m.id),
+          postId,
+          date: new Date(Number(m.date) * 1000),
+          text: m.message ?? '',
+          author,
+        };
+        out.push(izoh);
+        if (out.length >= limit) break;
+      }
+
+      if (res.messages.length < sorov || !res.messages.length) break;
+      offsetId = Math.min(...res.messages.map((m) => Number(m.id)));
+      await sleep(400);
+    }
+    return out;
+  }
+
   onRawMessage(handler: (msg: RawTelegramMessage) => void): () => void {
     this.rawHandlers.add(handler);
     return () => this.rawHandlers.delete(handler);
@@ -1687,6 +1879,14 @@ function peerIdOf(peer: Api.TypePeer): string {
   if (peer instanceof Api.PeerChat) return String(peer.chatId);
   if (peer instanceof Api.PeerChannel) return String(peer.channelId);
   return '';
+}
+
+/** Izoh muallifining `fromId` si — kutubxona turidan sof shaklga. */
+function izohFromId(peer: Api.TypePeer | undefined): IzohFromId {
+  if (peer instanceof Api.PeerUser) return { kind: 'user', id: String(peer.userId) };
+  if (peer instanceof Api.PeerChannel) return { kind: 'channel', id: String(peer.channelId) };
+  if (peer instanceof Api.PeerChat) return { kind: 'channel', id: String(peer.chatId) };
+  return { kind: 'none', id: '' };
 }
 
 function peerKindOf(peer: Api.TypePeer): TelegramPeerKind {

@@ -827,6 +827,43 @@ export default function SettingsPage() {
               </p>
             ) : null}
           </div>
+
+          <div className="border-t border-ink-800 pt-4">
+            <div className="font-medium">Kanal izohlari (Guruhlar)</div>
+            <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
+              Kanal postlari ostidagi izohlar shu so'zlar bo'yicha saralanadi. Har qatorda bitta
+              so'z yoki ibora; katta-kichik harf va tutuq belgisi turlari farq qilmaydi.
+              "+" — faqat izoh to'liq "+" bo'lsa mos keladi.
+            </p>
+          </div>
+
+          <div className="max-w-md">
+            <label className="label">Kalit so'zlar</label>
+            <textarea
+              className="input min-h-[7rem]"
+              value={form.izohKalitSozlari.join('\n')}
+              disabled={!admin}
+              onChange={(e) => patch('izohKalitSozlari', e.target.value.split('\n'))}
+            />
+          </div>
+
+          <div className="max-w-xs">
+            <label className="label">Bir yig'ishda jami izohlar</label>
+            <input
+              type="number"
+              min={50}
+              max={2000}
+              step={50}
+              className="input"
+              value={form.izohLimit}
+              disabled={!admin}
+              onChange={(e) => patch('izohLimit', Number(e.target.value))}
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
+              Barcha tanlangan postlar bo'yicha jami (50–2000). Ko'p o'qish akkauntni Telegram
+              cheklovlariga yaqinlashtiradi.
+            </p>
+          </div>
         </div>
 
         {saveMutation.error ? <ErrorNote error={saveMutation.error} /> : null}
@@ -853,6 +890,8 @@ export default function SettingsPage() {
                   eslatmaYoqilgan: form.eslatmaYoqilgan,
                   eslatmaSoat: form.eslatmaSoat,
                   minDebt: form.minDebt,
+                  izohKalitSozlari: form.izohKalitSozlari.map((k) => k.trim()).filter(Boolean),
+                  izohLimit: form.izohLimit,
                 })
               }
             >
