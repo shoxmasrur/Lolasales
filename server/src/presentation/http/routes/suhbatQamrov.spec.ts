@@ -20,7 +20,7 @@ import { mediaRoutes } from '@/presentation/http/routes/mediaRoutes';
  *   • `GET /conversations` va `/filters` repoga so'rovchining qamrovini beradi;
  *   • begona `/:id` va `/:id/*` — 404, repo/use case chaqirilmaydi;
  *     o'ziniki va cheklanmagan — avvalgidek;
- *   • `POST /reset` va `/:id/nomalum/*` — cheklanganga 403 `OBYEKT_CHEKLOVI`;
+ *   • `POST /reset` — cheklanganga 403 `OBYEKT_CHEKLOVI`;
  *   • `GET /media/:messageId` — begona xabar 404;
  *   • `/agent/client-profile/:clientId` — begona mijoz 404;
  *     `POST /agent/lessons` begona `conversationId` bilan — 404.
@@ -109,7 +109,6 @@ const container = {
     promises: { findActiveByConversation: async () => null },
     audit: { record: async () => undefined },
     paymentChecks: { findOpenByConversation: async () => null },
-    nomalumSuhbatlar: { find: async (id: string) => { amallar.push(`nomalum:${id}`); return null; } },
     telegramAccounts: { list: async () => [], findById: async () => null },
     agentRules: {},
     lessons: {
@@ -237,23 +236,12 @@ try {
   }
   eq('cheklanmaganda qamrov bazasiga so\'rov yo\'q', tekshiruvlar, []);
 
-  // ── Yopiq: reset va noma'lum amallari ──
+  // ── Yopiq: reset ──
   amallar.length = 0;
   const rs = await so('POST', '/conversations/reset', {}, C);
   eq('cheklangan POST /reset — 403 OBYEKT_CHEKLOVI, tozalanmadi',
     [rs.status, rs.json?.error?.code, amallar], [403, 'OBYEKT_CHEKLOVI', []]);
   eq('cheklanmagan POST /reset — 200', [(await so('POST', '/conversations/reset', {})).status, amallar], [200, ['resetAll']]);
-
-  for (const amal of ['boglash', 'tasdiqlash', 'rad-etish', 'mijoz-emas']) {
-    const body = amal === 'boglash' ? { shartnomaRaqami: 'VATAN-1' } : {};
-    amallar.length = 0;
-    const r = await so('POST', `/conversations/${VATAN_CV}/nomalum/${amal}`, body, C);
-    eq(`cheklangan nomalum/${amal} (o'z suhbati ham) — 403 OBYEKT_CHEKLOVI`,
-      [r.status, r.json?.error?.code, amallar], [403, 'OBYEKT_CHEKLOVI', []]);
-    const u = await so('POST', `/conversations/${BEGONA_CV}/nomalum/${amal}`, body);
-    // Soxta repoda noma'lum holati yo'q — avvalgidek 409.
-    eq(`cheklanmagan nomalum/${amal} — avvalgidek 409`, u.status, 409);
-  }
 
   // ── Media ──
   amallar.length = 0;

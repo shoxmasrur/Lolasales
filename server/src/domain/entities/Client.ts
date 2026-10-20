@@ -88,8 +88,23 @@ export interface NewClient {
   notes?: string | null;
   /** Qaysi import yaratdi — importni qaytarish shu bo'yicha ishlaydi. */
   createdImportBatchId?: string | null;
-  /** Faqat `NomalumMijozOchuvchi` beradi. */
-  nomalum?: boolean;
+  /** Mijoz manbasi; berilmasa bazadagi sukut ('qolda'). */
+  source?: ClientSource;
+  sourceGroup?: string | null;
+  sourceComment?: string | null;
+  /** Mijozni yaratish bilan birga Telegram shaxsi (kiruvchi xabar, guruh) — bitta INSERT. */
+  telegram?: NewClientTelegram;
+}
+
+export interface NewClientTelegram {
+  telegramUserId: string;
+  telegramUsername?: string | null;
+  telegramAccessHash?: string | null;
+  /** Hash'ni topgan akkaunt (hash faqat shu akkauntda ishlaydi). */
+  telegramHashAccountId: string;
+  telegramName?: string | null;
+  /** Mijoz biriktirilgan akkaunt. */
+  telegramAccountId?: string | null;
 }
 
 /** Mijozga xabar yuborish mumkinmi — sof domen qoidasi. */

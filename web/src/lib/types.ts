@@ -570,10 +570,6 @@ export interface OutreachSettings {
   killSwitch: boolean;
   agentAutoReply: boolean;
   personaName: string;
-  /** Noma'lum mijozlar so'ralganda aytiladigan sotuv bo'limi raqami. */
-  sotuvRaqami: string;
-  /** Noma'lum yozuvchilarga agent o'zi javob bersinmi. */
-  nomalumAgent: boolean;
   paymentCards: PaymentCard[];
   kompaniyaNomi: string;
   promiseReminder: boolean;
@@ -633,7 +629,7 @@ export interface Bayram {
 export interface ImportBatch {
   id: string;
   filename: string;
-  kind: 'debtors' | 'phones';
+  kind: 'debtors' | 'phones' | 'leads';
   rowsTotal: number;
   rowsOk: number;
   rowsFailed: number;
@@ -695,21 +691,4 @@ export interface AppLogItem {
   akkaunt: string | null;
   mijoz: string | null;
   payload: Record<string, unknown>;
-}
-
-export type NomalumHolat = 'kutilmoqda' | 'hujjat_kutilmoqda' | 'tasdiq_kutilmoqda' | 'operatorda' | 'mijoz_emas' | 'boglandi';
-
-/** Noma'lum Telegram yozuvchining bog'lash holati (`GET /conversations/:id`). */
-export interface NomalumSuhbat {
-  conversationId: string;
-  holat: NomalumHolat;
-  agentJavoblari: number;
-  urinishlar: number;
-  topilmagan: number;
-  shartnomaRaqami: string | null;
-  topilganClientId: string | null;
-  telegramTelefon: string | null;
-  sabab: string | null;
-  createdAt: string;
-  updatedAt: string;
 }

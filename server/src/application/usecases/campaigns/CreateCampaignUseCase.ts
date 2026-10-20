@@ -1,6 +1,7 @@
 import type { Campaign, CampaignFilters } from '@/domain/entities/Campaign';
 import type { ICampaignRepository } from '@/domain/repositories/ICampaignRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
+import type { IClientRepository } from '@/domain/repositories/IClientRepository';
+import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IEventBus } from '@/domain/services/support';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
@@ -16,6 +17,8 @@ export interface CreateCampaignInput {
   userEmail: string;
   /** Yaratilgandan keyin darhol ishga tushirish. */
   startNow?: boolean;
+  /** So'rov egasining obyekt cheklovi; berilmasa — cheklovsiz. */
+  qamrov?: MijozQamrovi;
 }
 
 export interface CreateCampaignResult {
@@ -23,11 +26,11 @@ export interface CreateCampaignResult {
   readonly targetsAdded: number;
 }
 
-/** Filtrga mos debitorlardan kampaniya navbatini yig'adi. */
+/** Filtrga mos mijozlardan (bosqich, manba, kurs, suhbatsiz) kampaniya navbatini yig'adi. */
 export class CreateCampaignUseCase {
   constructor(
     private readonly campaigns: ICampaignRepository,
-    private readonly contracts: IContractRepository,
+    private readonly clients: Pick<IClientRepository, 'findCampaignTargets'>,
     private readonly settings: RuntimeSettings,
     private readonly audit: IAuditRepository,
     private readonly events: IEventBus,
@@ -46,10 +49,10 @@ export class CreateCampaignUseCase {
       createdBy: input.userId ?? null,
     });
 
-    const targets = await this.contracts.findTargetsByFilters(input.filters);
+    const clientIds = await this.clients.findCampaignTargets(input.filters, input.qamrov ?? HAMMASI);
     const targetsAdded = await this.campaigns.addTargets(
       campaign.id,
-      targets.map((t) => ({ clientId: t.clientId, contractId: t.contractId })),
+      clientIds.map((clientId) => ({ clientId, contractId: null })),
     );
 
     const finalCampaign = input.startNow && targetsAdded > 0
@@ -70,8 +73,7 @@ export class CreateCampaignUseCase {
   }
 
   /** Kampaniya yaratmasdan, filtr nechta mijozni qamrashini ko'rsatadi. */
-  async preview(filters: CampaignFilters): Promise<number> {
-    const targets = await this.contracts.findTargetsByFilters(filters);
-    return targets.length;
+  async preview(filters: CampaignFilters, qamrov: MijozQamrovi = HAMMASI): Promise<number> {
+    return (await this.clients.findCampaignTargets(filters, qamrov)).length;
   }
 }

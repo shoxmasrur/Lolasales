@@ -24,6 +24,8 @@ import { mijozQatori } from '@/infrastructure/db/repositories/mijozQatori';
 import { mijozTartibi } from '@/infrastructure/db/repositories/mijozTartibi';
 import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 import { xaridShartlari } from '@/infrastructure/db/xaridSharti';
+import { kampaniyaNishonSql } from '@/infrastructure/db/kampaniyaSharti';
+import type { CampaignFilters } from '@/domain/entities/Campaign';
 import { mijozQamroviSharti } from '@/infrastructure/db/qamrovSharti';
 import { NotFoundError, ValidationError } from '@/shared/errors';
 
@@ -508,16 +510,31 @@ export class PgClientRepository implements IClientRepository {
     });
   }
 
+  async findCampaignTargets(filters: CampaignFilters, qamrov: MijozQamrovi = HAMMASI): Promise<string[]> {
+    const { sql, params } = kampaniyaNishonSql(filters, qamrov);
+    const { rows } = await query<{ client_id: string }>(sql, params);
+    return rows.map((r) => r.client_id);
+  }
+
   async create(data: NewClient): Promise<Client> {
+    const tg = data.telegram;
     const { rows } = await query(
       `INSERT INTO clients (external_id, full_name, first_name, phone, extra_phones, notes,
-                            created_import_batch_id, nomalum)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                            created_import_batch_id, source, source_group, source_comment,
+                            telegram_user_id, telegram_username, telegram_access_hash,
+                            telegram_hash_account_id, telegram_name, telegram_status,
+                            telegram_checked_at, telegram_account_id, account_assigned_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, 'qolda'), $9, $10,
+               $11, $12, $13, $14, $15, CASE WHEN $11::text IS NULL THEN 'unknown' ELSE 'found' END,
+               CASE WHEN $11::text IS NULL THEN NULL ELSE now() END, $16,
+               CASE WHEN $16::uuid IS NULL THEN NULL ELSE now() END)
        RETURNING *`,
       [
         data.externalId ?? null, data.fullName, data.firstName ?? null, data.phone ?? null,
         data.extraPhones ?? [], data.notes ?? null, data.createdImportBatchId ?? null,
-        data.nomalum ?? false,
+        data.source ?? null, data.sourceGroup ?? null, data.sourceComment ?? null,
+        tg?.telegramUserId ?? null, tg?.telegramUsername ?? null, tg?.telegramAccessHash ?? null,
+        tg?.telegramHashAccountId ?? null, tg?.telegramName ?? null, tg?.telegramAccountId ?? null,
       ],
     );
     return mapClient(rows[0]!);

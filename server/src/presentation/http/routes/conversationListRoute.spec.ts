@@ -45,7 +45,6 @@ const container = {
     promises: {},
     audit: {},
     paymentChecks: {},
-    nomalumSuhbatlar: {},
   },
   events: { publish: () => undefined },
   services: {},

@@ -1,5 +1,4 @@
 import type { Contract, ContractUpsert } from '@/domain/entities/Contract';
-import type { CampaignFilters } from '@/domain/entities/Campaign';
 import type { ContractQuery, IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { Page } from '@/domain/repositories/types';
 import { query } from '@/infrastructure/db/pool';
@@ -99,78 +98,6 @@ export class PgContractRepository implements IContractRepository {
     );
     const row = rows[0]!;
     return { contract: mapContract(row), created: Boolean(row.inserted) };
-  }
-
-  async findTargetsByFilters(filters: CampaignFilters): Promise<Array<{ clientId: string; contractId: string }>> {
-    // Nishonga faqat OYMA-OY to'lovda kechikishi borlar tushadi: agent
-    // shundan boshqa summani aytmaydi, kechikishi nol bo'lsa yozadigan
-    // gapi ham yo'q (StartConversationUseCase ni ham shu qoida to'sadi).
-    const where: string[] = [
-      'cl.do_not_contact = FALSE',
-      'cl.deleted_at IS NULL',
-      'ct.deleted_at IS NULL',
-      'ct.debt_monthly > 0',
-    ];
-    const params: unknown[] = [];
-
-    if (filters.onlyWithPhone !== false) where.push('cl.phone IS NOT NULL');
-    // Chegara ham oyma-oy kechikish bo'yicha — kampaniya nimani nishonga
-    // olayotgani bilan agent nimani aytayotgani bir xil bo'lishi kerak.
-    if (filters.minDebt !== undefined) {
-      params.push(filters.minDebt);
-      where.push(`ct.debt_monthly >= $${params.length}`);
-    }
-    if (filters.maxDebt !== undefined) {
-      params.push(filters.maxDebt);
-      where.push(`ct.debt_monthly <= $${params.length}`);
-    }
-    if (filters.minDaysOverdue !== undefined) {
-      params.push(filters.minDaysOverdue);
-      where.push(`ct.days_overdue >= $${params.length}`);
-    }
-    if (filters.maxDaysOverdue !== undefined) {
-      params.push(filters.maxDaysOverdue);
-      where.push(`ct.days_overdue <= $${params.length}`);
-    }
-    if (filters.objects?.length) {
-      params.push(filters.objects);
-      where.push(`ct.object_name = ANY($${params.length}::text[])`);
-    }
-    if (filters.categories?.length) {
-      params.push(filters.categories);
-      where.push(`ct.category = ANY($${params.length}::text[])`);
-    }
-    if (filters.statuses?.length) {
-      params.push(filters.statuses);
-      where.push(`ct.status = ANY($${params.length}::text[])`);
-    }
-    if (filters.excludeContacted) {
-      where.push(`NOT EXISTS (SELECT 1 FROM conversations cv
-                              WHERE cv.client_id = cl.id AND cv.deleted_at IS NULL
-                                AND cv.state <> 'new')`);
-    }
-
-    params.push(Math.min(filters.limit ?? 500, 5000));
-    const limitParam = params.length;
-
-    // Har bir mijozdan faqat oyma-oy kechikishi eng katta shartnoma olinadi,
-    // so'ng eng og'ir kechikkanlar birinchi bo'lib navbatga qo'yiladi.
-    const { rows } = await query<{ client_id: string; contract_id: string }>(
-      `SELECT t.client_id, t.contract_id FROM (
-         SELECT DISTINCT ON (cl.id)
-                cl.id AS client_id, ct.id AS contract_id,
-                ct.debt_monthly, ct.days_overdue
-           FROM contracts ct
-           JOIN clients cl ON cl.id = ct.client_id
-          WHERE ${where.join(' AND ')}
-          ORDER BY cl.id, ct.debt_monthly DESC NULLS LAST
-       ) t
-       ORDER BY t.debt_monthly DESC NULLS LAST, t.days_overdue DESC
-       LIMIT $${limitParam}`,
-      params,
-    );
-
-    return rows.map((r) => ({ clientId: r.client_id, contractId: r.contract_id }));
   }
 
   async obyektNomlari(): Promise<string[]> {

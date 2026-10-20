@@ -20,8 +20,6 @@ const updateSchema = z.object({
   killSwitch: z.boolean().optional(),
   agentAutoReply: z.boolean().optional(),
   personaName: z.string().min(2).max(40).optional(),
-  sotuvRaqami: z.string().trim().min(5).max(40).optional(),
-  nomalumAgent: z.boolean().optional(),
   promiseReminder: z.boolean().optional(),
   promiseReminderUntil: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   promiseThanksUntil: z.string().regex(/^\d{2}:\d{2}$/).optional(),

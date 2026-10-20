@@ -1,3 +1,6 @@
+import type { ClientSource } from '@/domain/entities/Client';
+import type { XaridBosqichi } from '@/domain/entities/Purchase';
+
 export type CampaignStatus = 'draft' | 'running' | 'paused' | 'completed' | 'cancelled';
 export type CampaignTargetState =
   | 'pending'
@@ -8,25 +11,16 @@ export type CampaignTargetState =
   | 'skipped'
   | 'failed';
 
-/** Kampaniyaga mijoz tanlash filtri (contracts jadvali bo'yicha). */
+/** Kampaniyaga mijoz tanlash filtri (mijozlar va ularning joriy xaridi bo'yicha). */
 export interface CampaignFilters {
-  /**
-   * DIQQAT: `OutreachSettings.minDebt` (`RuntimeSettings.ts`) BILAN
-   * ADASHTIRMANG — nom bir xil, ma'no teskari. Bu yerdagisi bitta
-   * SHARTNOMANING `debt_monthly` ustuniga qo'yilgan PASTKI chegara
-   * (nishonlarni TANLASH uchun, `PgContractRepository`), o'shanisi esa
-   * MIJOZNING jami kechikishiga qo'yilgan YUQORI chegara (yozishni
-   * TO'XTATISH uchun).
-   */
-  minDebt?: number;
-  maxDebt?: number;
-  minDaysOverdue?: number;
-  maxDaysOverdue?: number;
-  objects?: string[];
-  categories?: string[];
-  statuses?: string[];
-  onlyWithPhone?: boolean;
-  excludeContacted?: boolean;
+  /** Mijozning joriy xaridi shu bosqichlardan birida ("yoki"). Bo'sh — filtr yo'q. */
+  stage?: XaridBosqichi[];
+  /** Mijoz manbasi shulardan biri ("yoki"). Bo'sh — filtr yo'q. */
+  source?: ClientSource[];
+  /** Mijozning joriy xaridi shu kursga tegishli. */
+  courseId?: string;
+  /** Faqat hali birorta ham suhbati yo'q mijozlar. */
+  onlyWithoutConversation?: boolean;
   limit?: number;
 }
 

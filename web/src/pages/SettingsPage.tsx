@@ -714,34 +714,6 @@ export default function SettingsPage() {
               Telegram akkauntida o'z ismi ko'rsatilmagan bo'lsa shu ism ishlatiladi.
             </p>
           </div>
-
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm text-ink-200">Noma'lum mijozlarga agent javob bersin</p>
-              <p className="mt-0.5 text-xs text-ink-500">
-                Bazada yo'q odam yozsa agent salomlashib shartnoma raqamini so'raydi.
-                O'chirilganda — bunday suhbatlarga faqat operator javob beradi.
-              </p>
-            </div>
-            <Toggle
-              checked={form.nomalumAgent}
-              disabled={!admin}
-              onChange={(v) => patch('nomalumAgent', v)}
-            />
-          </div>
-
-          <div className="max-w-xs">
-            <label className="label">Sotuv bo'limi raqami</label>
-            <input
-              className="input"
-              value={form.sotuvRaqami}
-              disabled={!admin}
-              onChange={(e) => patch('sotuvRaqami', e.target.value)}
-            />
-            <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
-              Yangi xaridor yozganda agent shu raqamni aytadi.
-            </p>
-          </div>
         </div>
 
         <LlmSettingsPanel />
@@ -875,8 +847,6 @@ export default function SettingsPage() {
                   weekdays: form.weekdays,
                   agentAutoReply: form.agentAutoReply,
                   personaName: form.personaName,
-                  sotuvRaqami: form.sotuvRaqami,
-                  nomalumAgent: form.nomalumAgent,
                   promiseReminder: form.promiseReminder,
                   promiseReminderUntil: form.promiseReminderUntil,
                   promiseThanksUntil: form.promiseThanksUntil,

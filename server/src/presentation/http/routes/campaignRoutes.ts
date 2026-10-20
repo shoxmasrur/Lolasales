@@ -1,20 +1,19 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import type { CampaignFilters } from '@/domain/entities/Campaign';
 import type { Container } from '@/composition/container';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
 import { parseBody } from '@/presentation/http/middleware/validate';
+import { qamrov } from '@/presentation/http/middleware/qamrov';
+import { CLIENT_SOURCES } from '@/domain/entities/Client';
+import { XARID_BOSQICHLARI } from '@/domain/entities/Purchase';
 import { NotFoundError } from '@/shared/errors';
 
 const filtersSchema = z.object({
-  minDebt: z.number().nonnegative().optional(),
-  maxDebt: z.number().nonnegative().optional(),
-  minDaysOverdue: z.number().int().optional(),
-  maxDaysOverdue: z.number().int().optional(),
-  objects: z.array(z.string()).optional(),
-  categories: z.array(z.string()).optional(),
-  statuses: z.array(z.string()).optional(),
-  onlyWithPhone: z.boolean().optional(),
-  excludeContacted: z.boolean().optional(),
+  stage: z.array(z.enum(XARID_BOSQICHLARI)).optional(),
+  source: z.array(z.enum(CLIENT_SOURCES as [string, ...string[]])).optional(),
+  courseId: z.string().uuid().optional(),
+  onlyWithoutConversation: z.boolean().optional(),
   limit: z.number().int().min(1).max(5000).optional(),
 });
 
@@ -61,7 +60,7 @@ export function campaignRoutes(container: Container): Router {
   /** Kampaniya yaratmasdan qamrovni ko'rish. */
   router.post('/preview', requirePermission('campaigns.create'), async (req, res) => {
     const filters = parseBody(filtersSchema, req);
-    const count = await container.useCases.createCampaign.preview(filters);
+    const count = await container.useCases.createCampaign.preview(filters as CampaignFilters, qamrov(req));
     res.json({ count });
   });
 
@@ -70,6 +69,8 @@ export function campaignRoutes(container: Container): Router {
     const payload = parseBody(createSchema, req);
     const result = await container.useCases.createCampaign.execute({
       ...payload,
+      filters: payload.filters as CampaignFilters,
+      qamrov: qamrov(req),
       userId: user.id,
       userEmail: user.email,
     });

@@ -13,7 +13,6 @@ import type {
   ConversationListItem,
   ConversationState,
   Message,
-  NomalumSuhbat,
   Page,
   PaymentPromise,
 } from '@/lib/types';
@@ -29,7 +28,6 @@ import {
   STATE_LABEL,
 } from '@/lib/format';
 import { Avatar, EmptyState, ErrorNote, Spinner, Toggle } from '@/components/ui';
-import NomalumPanel from '@/components/NomalumPanel';
 import MessageBubble from '@/components/MessageBubble';
 import { ReceiptConfirmButton, SendLinkButton, type ReceiptReview } from '@/components/ReceiptConfirmButton';
 import { Sheet } from '@/components/Sheet';
@@ -56,8 +54,6 @@ interface ConversationDetail {
   debtTotal: number;
   daysOverdue: number;
   /** Noma'lum yozuvchi bo'lsa — bog'lash holati, aks holda null. */
-  nomalum: NomalumSuhbat | null;
-  topilganMijoz: { id: string; fullName: string } | null;
 }
 
 /** `POST /conversations/:id/agent-retry` javobi. */
@@ -68,7 +64,7 @@ interface AgentTurnResult {
   cardSent: boolean;
 }
 
-type Filter = 'all' | 'needsHuman' | 'unread' | 'blocked' | 'nomalum' | 'receipt';
+type Filter = 'all' | 'needsHuman' | 'unread' | 'blocked' | 'receipt';
 
 /** Suhbatlar ro'yxatining bitta sahifasi — pastga aylantirilganda keyingisi yuklanadi. */
 const LIST_PAGE_SIZE = 50;
@@ -128,7 +124,6 @@ export default function ChatPage() {
         needsHuman: filter === 'needsHuman' ? 'true' : undefined,
         unreadOnly: filter === 'unread' ? 'true' : undefined,
         blocked: filter === 'blocked' ? 'true' : undefined,
-        nomalum: filter === 'nomalum' ? 'true' : undefined,
         // "Chek keldi" — menejer tasdig'ini kutayotgan ochiq chek tekshiruvi bor suhbatlar.
         receiptPending: filter === 'receipt' ? 'true' : undefined,
         objectName: objectName || undefined,
@@ -382,7 +377,6 @@ export default function ChatPage() {
                 ['needsHuman', 'Inson kerak'],
                 ['unread', 'O\'qilmagan'],
                 ['blocked', 'Bloklaganlar'],
-                ['nomalum', 'Noma\'lum'],
                 ['receipt', 'Chek keldi'],
               ] as Array<[Filter, string]>
             ).map(([key, label]) => (
@@ -491,7 +485,7 @@ export default function ChatPage() {
                   <Avatar text={initials(item.clientName)} size={38} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
-                      <p className="truncate text-sm font-medium text-ink-100">{item.nomalum ? '? ' : ''}{item.clientName}</p>
+                      <p className="truncate text-sm font-medium text-ink-100">{item.clientName}</p>
                       <span className="shrink-0 text-[10px] text-ink-600">
                         {item.conversation.lastMessageAt ? relative(item.conversation.lastMessageAt) : ''}
                       </span>
@@ -505,11 +499,7 @@ export default function ChatPage() {
                         {STATE_LABEL[item.conversation.state]}
                       </span>
                       {/* Ro'yxatda oyma-oy kechikish — suhbat mavzusi shu. */}
-                      {item.nomalum ? (
-                        <span className="rounded bg-amber-500/15 px-1.5 text-[10px] text-amber-300">Noma'lum</span>
-                      ) : (
-                        <span className="chip bg-ink-800 text-ink-400">{somShort(item.debtMonthly)}</span>
-                      )}
+                      <span className="chip bg-ink-800 text-ink-400">{somShort(item.debtMonthly)}</span>
                       {item.conversation.needsHuman ? (
                         <span className="chip bg-orange-500/20 text-orange-300">!</span>
                       ) : null}
@@ -979,11 +969,6 @@ function ClientPanel({ detail }: { detail: ConversationDetail }) {
 /** Panelning mazmuni — keng ekrandagi ustunda ham, `Sheet` ichida ham shu. */
 function ClientPanelBody({ detail }: { detail: ConversationDetail }) {
   const { client, contracts, activePromise, debtMonthly, debtTotal, daysOverdue } = detail;
-
-  // Noma'lumda qarz ham, shartnoma ham yo'q — o'rniga bog'lash paneli.
-  if (client?.nomalum && detail.nomalum) {
-    return <NomalumPanel detail={{ conversation: detail.conversation, client, nomalum: detail.nomalum, topilganMijoz: detail.topilganMijoz }} />;
-  }
 
   return (
     <>

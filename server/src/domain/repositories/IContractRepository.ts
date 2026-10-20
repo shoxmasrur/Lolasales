@@ -1,5 +1,4 @@
 import type { Contract, ContractUpsert } from '@/domain/entities/Contract';
-import type { CampaignFilters } from '@/domain/entities/Campaign';
 import type { Page, Pagination } from '@/domain/repositories/types';
 
 export interface ContractQuery extends Pagination {
@@ -19,8 +18,6 @@ export interface IContractRepository {
   search(query: ContractQuery): Promise<Page<Contract>>;
   /** contract_no bo'yicha upsert — import qayta-qayta yurgizilishi mumkin. */
   upsert(data: ContractUpsert): Promise<{ contract: Contract; created: boolean }>;
-  /** Kampaniya filtriga mos mijoz+shartnoma juftliklari (eng katta kechikish birinchi). */
-  findTargetsByFilters(filters: CampaignFilters): Promise<Array<{ clientId: string; contractId: string }>>;
   /** Mijozning eng katta kechikishli shartnomasi — agent shu bo'yicha gaplashadi. */
   findPrimaryForClient(clientId: string): Promise<Contract | null>;
   /** Tirik shartnomalardagi obyekt nomlari (qirqilgan, takrorsiz, tartiblangan). */

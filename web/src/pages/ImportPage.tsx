@@ -9,6 +9,9 @@ import { EmptyState, ErrorNote, Spinner } from '@/components/ui';
 interface ImportResult {
   batch: ImportBatch;
   warnings: string[];
+  created: number;
+  existing: number;
+  totalRows: number;
 }
 
 /**
@@ -16,11 +19,9 @@ interface ImportResult {
  *
  * Noto'g'ri fayl yuklanishi — oddiy hodisa, va u minglab mijoz yaratib
  * yuborishi mumkin. Shuning uchun har bir import yozuvi yonida qaytarish
- * turadi: u SHU import yaratgan mijoz va shartnomalarni ro'yxatlardan
- * chiqaradi (bazadan o'chirmaydi).
- *
- * Import mavjud shartnomalarni YANGILAGAN bo'lsa, o'sha o'zgarishlar
- * qaytmaydi — eski qiymatlar saqlanmagan. Buni yashirmaymiz.
+ * turadi: u SHU import yaratgan mijozlarni ro'yxatlardan
+ * chiqaradi (bazadan o'chirmaydi). Allaqachon bor edi deb o'tkazilgan
+ * mijozlarga tegilmaydi.
  */
 function UndoButton({ batch }: { batch: ImportBatch }) {
   const queryClient = useQueryClient();
@@ -36,7 +37,7 @@ function UndoButton({ batch }: { batch: ImportBatch }) {
   const preview = useQuery({
     queryKey: ['import-undo-preview', batch.id],
     queryFn: () =>
-      api.get<{ preview: { clients: number; contracts: number } }>(
+      api.get<{ preview: { clients: number } }>(
         `/import/batches/${batch.id}/undo-preview`,
       ),
     enabled: confirming,
@@ -73,7 +74,7 @@ function UndoButton({ batch }: { batch: ImportBatch }) {
     );
   }
 
-  if (batch.kind !== 'debtors') return <span className="text-[11px] text-ink-700">—</span>;
+  if (batch.kind !== 'leads') return <span className="text-[11px] text-ink-700">—</span>;
 
   if (!confirming) {
     return (
@@ -95,15 +96,8 @@ function UndoButton({ batch }: { batch: ImportBatch }) {
         <p className="text-[11px] text-ink-500">Hisoblanmoqda…</p>
       ) : (
         <p className="text-[11px] text-ink-300">
-          <span className="font-semibold tabular-nums">{p.clients}</span> ta mijoz va{' '}
-          <span className="font-semibold tabular-nums">{p.contracts}</span> ta shartnoma
+          <span className="font-semibold tabular-nums">{p.clients}</span> ta mijoz
           ro'yxatlardan chiqadi. Ma'lumot bazada qoladi.
-          {batch.contractsUpdated > 0 ? (
-            <span className="mt-1 block text-amber-300/90">
-              Bu import {batch.contractsUpdated} ta mavjud shartnomani yangilagan — o'sha
-              o'zgarishlar qaytmaydi (eski qiymatlar saqlanmagan).
-            </span>
-          ) : null}
         </p>
       )}
       <div className="mt-2 flex gap-2">
@@ -145,8 +139,7 @@ export default function ImportPage() {
   });
 
   const upload = useMutation({
-    mutationFn: (payload: { kind: 'debtors' | 'phones'; file: File }) =>
-      api.upload<ImportResult>(`/import/${payload.kind}`, payload.file),
+    mutationFn: (file: File) => api.upload<ImportResult>('/import/leads', file),
     onSuccess: (data) => {
       setResult(data);
       void queryClient.invalidateQueries({ queryKey: ['import-batches'] });
@@ -160,33 +153,23 @@ export default function ImportPage() {
       <header className="hidden border-b border-ink-800 px-4 py-3 md:block md:px-6 md:py-4">
         <h1 className="text-base font-semibold">Import</h1>
         <p className="mt-0.5 text-xs text-ink-500">
-          Debitor eksporti va telefon raqamlari fayllarini yuklash (.xlsx yoki .csv)
+          Mijozlar ro'yxatini yuklash (.xlsx yoki .csv)
         </p>
       </header>
 
       <div className="space-y-5 p-4 md:p-6">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <UploadCard
-            title="1. Debitor eksporti"
-            description="Shartnomalar, mijozlar, to'lov summalari va kechikish kunlari. Ustunlar: ID, СТАТУС, № договора, Объект, Клиент, Долг (Общ) va h.k. Fayl qayta yuklansa — mavjud shartnomalar yangilanadi, dublikat yaratilmaydi."
-            accept=".xlsx,.xlsm,.csv"
-            disabled={!writable || upload.isPending}
-            onFile={(file) => upload.mutate({ kind: 'debtors', file })}
-          />
-
-          <UploadCard
-            title="2. Telefon raqamlari"
-            description="Debitor eksportida telefon ustuni bo'lmasa — raqamlarni alohida fayldan yuklang. Fayl mijozga shartnoma raqami (№ договора), ID yoki ism bo'yicha bog'lanadi. Telegramdan qidirish uchun raqam SHART."
-            accept=".xlsx,.xlsm,.csv"
-            disabled={!writable || upload.isPending}
-            onFile={(file) => upload.mutate({ kind: 'phones', file })}
-          />
-        </div>
+        <UploadCard
+          title="Mijozlar ro'yxati"
+          description="Ustunlar: Ism, Telefon va (ixtiyoriy) Kurs. Har bir yangi raqam 'Raqam' manbali mijoz bo'ladi; bazada bor raqamlar o'zgarmaydi. Kurs nomi kurslar ro'yxati bilan solishtiriladi. Fayl qayta yuklansa — dublikat yaratilmaydi."
+          accept=".xlsx,.xlsm,.csv"
+          disabled={!writable || upload.isPending}
+          onFile={(file) => upload.mutate(file)}
+        />
 
         {upload.isPending ? (
           <div className="card flex items-center gap-3">
             <Spinner />
-            <span className="text-sm text-ink-300">Fayl qayta ishlanmoqda… (1700+ qator uchun ~1 daqiqa)</span>
+            <span className="text-sm text-ink-300">Fayl qayta ishlanmoqda… </span>
           </div>
         ) : null}
 
@@ -197,18 +180,11 @@ export default function ImportPage() {
             <h2 className="text-sm font-medium">Import natijasi — {result.batch.filename}</h2>
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Metric label="Jami qator" value={result.batch.rowsTotal} />
-              <Metric label="Muvaffaqiyatli" value={result.batch.rowsOk} tone="good" />
+              <Metric label="Jami qator" value={result.totalRows} />
+              <Metric label="Yangi mijoz" value={result.created} tone="good" />
+              <Metric label="Allaqachon bor" value={result.existing} />
               <Metric label="Xatolar" value={result.batch.rowsFailed} tone={result.batch.rowsFailed ? 'bad' : 'default'} />
-              <Metric label="Yangi mijoz" value={result.batch.clientsCreated} />
             </div>
-
-            {result.batch.kind === 'debtors' ? (
-              <div className="grid grid-cols-2 gap-2">
-                <Metric label="Yangi shartnoma" value={result.batch.contractsCreated} />
-                <Metric label="Yangilangan shartnoma" value={result.batch.contractsUpdated} />
-              </div>
-            ) : null}
 
             {result.warnings.map((w, i) => (
               <p
@@ -267,7 +243,7 @@ export default function ImportPage() {
                     >
                       <td className="max-w-xs truncate px-4 py-2 text-ink-200">{b.filename}</td>
                       <td className="px-3 py-2 text-xs text-ink-500">
-                        {b.kind === 'debtors' ? 'Debitor' : 'Telefon'}
+                        {b.kind === 'leads' ? 'Mijozlar' : b.kind === 'debtors' ? 'Debitor' : 'Telefon'}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-ink-400">{b.rowsTotal}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-emerald-300">{b.rowsOk}</td>

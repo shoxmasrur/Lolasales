@@ -41,10 +41,9 @@ export function importRoutes(container: Container): Router {
   /**
    * Importni qaytarish — noto'g'ri fayl yuklanganda.
    *
-   * Faqat SHU import YARATGAN mijoz va shartnomalar ro'yxatlardan
-   * chiqadi (yumshoq o'chirish — bazadan yo'qolmaydi). Import mavjud
-   * shartnomani YANGILAGAN bo'lsa, eski qiymatlari saqlanmagani uchun
-   * qaytarilmaydi — javobda shu ham ko'rsatiladi.
+   * Faqat SHU import YARATGAN mijozlar ro'yxatlardan chiqadi (yumshoq
+   * o'chirish — bazadan yo'qolmaydi). Allaqachon bor edi deb o'tkazilgan
+   * mijozlarga tegilmaydi.
    */
   router.post('/batches/:id/undo', requirePermission('import.undo'), async (req, res) => {
     const user = currentUser(req);
@@ -52,11 +51,8 @@ export function importRoutes(container: Container): Router {
 
     const batch = await importBatches.findById(id);
     if (!batch) throw new NotFoundError('Import', id);
-    if (batch.kind !== 'debtors') {
-      throw new ValidationError(
-        'Faqat debitor importini qaytarish mumkin. Telefon importi mavjud mijozlarni '
-        + 'yangilaydi, yangi yozuv yaratmaydi.',
-      );
+    if (batch.kind !== 'leads') {
+      throw new ValidationError("Faqat mijozlar ro'yxati importini qaytarish mumkin.");
     }
 
     const summary = await importBatches.undo(id, user.email);
@@ -106,13 +102,13 @@ export function importRoutes(container: Container): Router {
     res.json({ summary });
   });
 
-  /** Debitor eksporti (shartnoma va to'lov ma'lumotlari). */
-  router.post('/debtors', requirePermission('import.run'), upload.single('file'), async (req, res) => {
+  /** Mijozlar ro'yxati (ism, telefon, kurs) — har yangi raqam manbasi 'raqam' bo'lgan mijoz. */
+  router.post('/leads', requirePermission('import.run'), upload.single('file'), async (req, res) => {
     const user = currentUser(req);
     const file = req.file;
     if (!file) throw new ValidationError('Fayl yuborilmadi (.xlsx yoki .csv)');
 
-    const result = await container.useCases.importDebtors.execute({
+    const result = await container.useCases.importLeads.execute({
       buffer: file.buffer,
       filename: file.originalname,
       userId: user.id,
@@ -120,10 +116,10 @@ export function importRoutes(container: Container): Router {
 
     await audit.record({
       actor: user.email,
-      action: 'import.debtors',
+      action: 'import.leads',
       entity: 'import_batch',
       entityId: result.batch.id,
-      payload: { filename: file.originalname, rowsOk: result.batch.rowsOk },
+      payload: { filename: file.originalname, created: result.created, existing: result.existing },
     });
 
     // Yangi mijozlar darhol akkauntlarga taqsimlanadi — biriktirish
@@ -134,30 +130,6 @@ export function importRoutes(container: Container): Router {
 
     container.events.publish({ type: 'stats.invalidate' });
     res.status(201).json({ ...result, assignment });
-  });
-
-  /** Telefon raqamlari fayli — mavjud mijozlarga bog'lanadi. */
-  router.post('/phones', requirePermission('import.run'), upload.single('file'), async (req, res) => {
-    const user = currentUser(req);
-    const file = req.file;
-    if (!file) throw new ValidationError('Fayl yuborilmadi (.xlsx yoki .csv)');
-
-    const result = await container.useCases.importPhones.execute({
-      buffer: file.buffer,
-      filename: file.originalname,
-      userId: user.id,
-    });
-
-    await audit.record({
-      actor: user.email,
-      action: 'import.phones',
-      entity: 'import_batch',
-      entityId: result.batch.id,
-      payload: { filename: file.originalname, matched: result.batch.rowsOk },
-    });
-
-    container.events.publish({ type: 'stats.invalidate' });
-    res.status(201).json(result);
   });
 
   return router;

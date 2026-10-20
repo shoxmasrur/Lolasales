@@ -78,10 +78,6 @@ export interface OutreachSettings {
    * — nom bir xil, ma'no teskari (u yerda izoh bor).
    */
   minDebt: number;
-  /** Noma'lum Telegram yozuvchilariga sotuv bo'limi telefoni (xaridorlar uchun). */
-  sotuvRaqami: string;
-  /** Noma'lum mijoz agenti yoqilganmi; o'chiqda suhbat operatorga tushadi. */
-  nomalumAgent: boolean;
   /** To'lov kartalari; xabarga birinchi faol karta tushadi (LLM raqam yozmaydi). */
   paymentCards: PaymentCard[];
   /** Kompaniya nomi (agent matnlarida). */
@@ -119,8 +115,6 @@ export class RuntimeSettings {
       gateOtherMinSec: stored.gateOtherMinSec ?? 1,
       gateOtherMaxSec: stored.gateOtherMaxSec ?? 4,
       minDebt: stored.minDebt ?? 100_000,
-      sotuvRaqami: stored.sotuvRaqami ?? '71 200 74 00',
-      nomalumAgent: stored.nomalumAgent ?? true,
       paymentCards: stored.paymentCards ?? [],
       kompaniyaNomi: stored.kompaniyaNomi ?? 'LolaSales',
     };

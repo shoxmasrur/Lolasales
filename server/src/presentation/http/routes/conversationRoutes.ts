@@ -9,7 +9,6 @@ import { canReply } from '@/domain/entities/TelegramAccount';
 import { chekTekshiruviFaolmi, type PaymentCheck } from '@/domain/entities/PaymentCheck';
 import { kutilganChekSummasi } from '@/domain/services/karta';
 import { NotFoundError, ValidationError } from '@/shared/errors';
-import { nomalumRoutes } from '@/presentation/http/routes/nomalumRoutes';
 import { qamrov, qamrovParam, yopiqCheklanganga } from '@/presentation/http/middleware/qamrov';
 
 // Telegramning o'z chegarasi 2 GB, lekin dashboard uchun MEDIA_MAX_MB yetarli.
@@ -27,7 +26,6 @@ const listQuery = z.object({
   needsHuman: z.enum(['true', 'false']).optional(),
   unreadOnly: z.enum(['true', 'false']).optional(),
   blocked: z.enum(['true', 'false']).optional(),
-  nomalum: z.enum(['true', 'false']).optional(),
   receiptPending: z.enum(['true', 'false']).optional(),
   objectName: z.string().optional(),
   telegramAccountId: z.string().uuid().optional(),
@@ -83,7 +81,7 @@ const patchSchema = z.object({
 
 export function conversationRoutes(container: Container): Router {
   const router = Router();
-  const { conversations, messages, clients, contracts, promises, audit, paymentChecks, nomalumSuhbatlar } = container.repositories;
+  const { conversations, messages, clients, contracts, promises, audit, paymentChecks } = container.repositories;
 
   /** Chek tasdig'i oynasidagi standart summa — chek bog'langan (yo'q bo'lsa faol) xariddan. */
   const kutilganSumma = async (check: PaymentCheck): Promise<number | null> => {
@@ -103,10 +101,6 @@ export function conversationRoutes(container: Container): Router {
    * ekanini use case o'zi tekshiradi. Cheklanmaganda hech narsa o'zgarmaydi.
    */
   router.param('id', qamrovParam((q, id) => container.services.qamrovTekshiruvchi.suhbat(q, id)));
-
-  // Noma'lum mijoz amallari: `/:id/nomalum/...` — boshqa yo'llar bilan to'qnashmaydi.
-  // Cheklangan foydalanuvchiga yopiq (nomalumRoutes ichida, 403 OBYEKT_CHEKLOVI).
-  router.use(nomalumRoutes(container));
 
   /**
    * Barcha yozishmalarni tozalab, sinovni noldan boshlash.
@@ -142,7 +136,6 @@ export function conversationRoutes(container: Container): Router {
       needsHuman: q.needsHuman === 'true' ? true : undefined,
       unreadOnly: q.unreadOnly === 'true' ? true : undefined,
       blocked: q.blocked === 'true' ? true : undefined,
-      nomalum: q.nomalum === 'true' ? true : undefined,
       receiptPending: q.receiptPending === 'true' ? true : undefined,
       objectName: q.objectName,
       telegramAccountId: q.telegramAccountId,
@@ -207,19 +200,15 @@ export function conversationRoutes(container: Container): Router {
     const conversation = await conversations.findById(id);
     if (!conversation) throw new NotFoundError('Suhbat', id);
 
-    const [client, clientContracts, activePromise, allAccounts, openCheck, nomalum] = await Promise.all([
+    const [client, clientContracts, activePromise, allAccounts, openCheck] = await Promise.all([
       clients.findById(conversation.clientId),
       contracts.findByClientId(conversation.clientId),
       promises.findActiveByConversation(id),
       container.repositories.telegramAccounts.list(),
       paymentChecks.findOpenByConversation(id),
-      nomalumSuhbatlar.find(id),
     ]);
     // "Havolani yuborish" tugmasi: qoida bajarilgan, havola bor, lekin hali ketmagan.
-    // Noma'lum mijozda xarid yo'q — so'ralmaydi.
-    const linkPending = client?.nomalum ? false : await container.services.paymentCheckService.havolaKutyaptimi(conversation.clientId);
-    // Agent topgan, tasdiq kutayotgan mijoz — operator kimga bog'layotganini ko'rsin.
-    const topilgan = nomalum?.topilganClientId ? await clients.findById(nomalum.topilganClientId) : null;
+    const linkPending = await container.services.paymentCheckService.havolaKutyaptimi(conversation.clientId);
 
     // Suhbatni davom ettirish uchun tanlash mumkin bo'lgan akkauntlar.
     // Faqat id va yorliq beriladi — sessiya va api_hash hech qachon
@@ -250,9 +239,6 @@ export function conversationRoutes(container: Container): Router {
       linkPending,
       // Operator va agent oyma-oy kechikish bilan ishlaydi; umumiy kechikish —
       // faqat ma'lumot uchun.
-      // Noma'lum mijoz suhbati holati (oddiy suhbatda `null`).
-      nomalum,
-      topilganMijoz: topilgan ? { id: topilgan.id, fullName: topilgan.fullName } : null,
       debtMonthly: clientContracts.reduce((s, c) => s + c.debtMonthly, 0),
       debtTotal: clientContracts.reduce((s, c) => s + c.debtTotal, 0),
       daysOverdue: clientContracts.reduce((m, c) => Math.max(m, c.daysOverdue), 0),
@@ -416,9 +402,8 @@ export function conversationRoutes(container: Container): Router {
     // joyda qayta urinilsa, u allaqachon `false` bo'lgan bayroqni o'qiydi
     // va o'zi to'xtaydi. Teskarisida oraliqda boshlangan navbat eski
     // `true` ni ko'rib davom etardi.
-    // Yo'naltiruvchi orqali — noma'lum suhbatda navbatni noma'lum agent ushlab turadi.
     if (patch.agentEnabled === false) {
-      container.services.javobYonaltiruvchi.abort(updated.id);
+      container.services.agent.abort(updated.id);
     }
 
     await container.repositories.audit.record({

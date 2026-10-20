@@ -27,6 +27,11 @@ jobs:
       - name: Birlik testlari
         run: |
           npm run test:column-map --workspace=server
+          npm run test:lead-columns --workspace=server
+          npm run test:import-leads --workspace=server
+          npm run test:mijoz-yaratuvchi --workspace=server
+          npm run test:reklama-oqimi --workspace=server
+          npm run test:kampaniya-sharti --workspace=server
           npm run test:name-match --workspace=server
           npm run test:gender --workspace=server
           # Loyiha ildizi bundle'da ham to'g'ri (`server/dist` → `/opt` emas).
@@ -50,8 +55,6 @@ jobs:
           npm run test:llm-narxi --workspace=server
           # Sof funksiya — `shared/config` ni tortmaydi, `.env` shart emas.
           npm run test:llm-tamgasi --workspace=server
-          # Noma'lum agent promptida mijoz ma'lumoti va "qarz" so'zi yo'q — sof fayl.
-          npm run test:nomalum-prompt --workspace=server
           npm run test:shartnoma-raqami --workspace=server
           npm run test:boglash-qarori --workspace=server
           # `mapClient` o'qiydigan har ustun `COLS` da bor — `nomalum` tanlanmasa himoya o'chadi. Statik.
@@ -82,7 +85,6 @@ jobs:
           # bo'lmasa, qulf yo'q.
           npm run test:minimal-qarz-darvozasi --workspace=server
           npm run test:eskirgan-javob --workspace=server
-          npm run test:javob-yonaltiruvchi --workspace=server
           npm run test:uzilgan-navbat --workspace=server
           # Sukutdan keyingi qayta murojaat. Bu testlar mijozga XABAR
           # YUBORADIGAN yo'lni qo'riqlaydi — ro'yxatda bo'lmasa, qulf yo'q.
@@ -132,8 +134,6 @@ jobs:
           npm run test:bulk-recontact-resume --workspace=server
           npm run test:stt-xonzoda --workspace=server
           npm run test:stt-taqqoslash --workspace=server
-          npm run test:nomalum-ochuvchi --workspace=server
-          npm run test:nomalum-xabar --workspace=server
           npm run test:start-takror-himoyasi --workspace=server
           # `llmKaliti.ts` → `shared/crypto` → `shared/config` zanjiri: bu
           # ham soxta env kerak bo'lgan guruhga tegishli, «Birlik testlari»
@@ -162,13 +162,6 @@ jobs:
           # «Birlik testlari»da emas. Kalitning javobga, audit yozuviga
           # yoki xato matniga sizib chiqmasligini tekshiradi.
           npm run test:llm-marshruti --workspace=server
-          # Notanish odamga model yozadi: holat darvozalari va 6 javob chegarasi.
-          npm run test:nomalum-agent --workspace=server
-          # Shartnoma raqami bo'yicha bog'lash: telefon mos kelmasa — faqat operator tasdig'i.
-          npm run test:shartnoma-boglovchi --workspace=server
-          npm run test:mijozga-boglash --workspace=server
-          # Operator marshrutlari: tasdiqlash 409, mijoz-emas, boglash 404/502.
-          npm run test:nomalum-route --workspace=server
           # Suhbatlar ro'yxati `clientId` filtri: UUID repoga, aks holda 422.
           npm run test:conversation-list-route --workspace=server
           # Obyekt cheklovi: foydalanuvchi `objects` (qirqilgan, takrorsiz) saqlanadi,

@@ -11,7 +11,6 @@ import { ContractSyncService } from '@/application/services/ContractSyncService'
 import { AppLogCleaner } from '@/application/services/AppLogCleaner';
 import { agentFailureReason } from '@/application/services/agentFailure';
 import { PgConversationRepository } from '@/infrastructure/db/repositories/PgConversationRepository';
-import { PgNomalumSuhbatRepository } from '@/infrastructure/db/repositories/PgNomalumSuhbatRepository';
 import { PgMessageRepository } from '@/infrastructure/db/repositories/PgMessageRepository';
 import { PgPaymentPromiseRepository } from '@/infrastructure/db/repositories/PgPaymentPromiseRepository';
 import { PgCourseRepository } from '@/infrastructure/db/repositories/PgCourseRepository';
@@ -51,18 +50,12 @@ import { BotApi } from '@/infrastructure/telegram/BotApi';
 import { XulosaBoti } from '@/application/services/XulosaBoti';
 import { AishaSpeechToText } from '@/infrastructure/stt/AishaSpeechToText';
 import { XonzodaSpeechToText } from '@/infrastructure/stt/XonzodaSpeechToText';
-import { NomalumMijozOchuvchi } from '@/application/services/NomalumMijozOchuvchi';
-import { NomalumMijozAgenti } from '@/application/services/NomalumMijozAgenti';
-import { NomalumHujjatQabul } from '@/application/services/NomalumHujjatQabul';
-import { ShartnomaBoglovchi } from '@/application/services/ShartnomaBoglovchi';
-import { JavobYonaltiruvchi } from '@/application/services/JavobYonaltiruvchi';
-import { MijozgaBoglashUseCase } from '@/application/usecases/conversations/MijozgaBoglashUseCase';
 import { ClaudeTuzilganLlm } from '@/infrastructure/ai/ClaudeTuzilganLlm';
 import { personaNameOf } from '@/domain/entities/TelegramAccount';
 import { SttTaqqoslash } from '@/application/services/SttTaqqoslash';
 import { ClaudeImageClassifier } from '@/infrastructure/vision/ClaudeImageClassifier';
 import { LocalMediaStorage } from '@/infrastructure/storage/LocalMediaStorage';
-import { XlsxDebtorParser } from '@/infrastructure/import/XlsxDebtorParser';
+import { XlsxLeadParser } from '@/infrastructure/import/XlsxLeadParser';
 import { SystemClock } from '@/infrastructure/support/SystemClock';
 import { BcryptPasswordHasher } from '@/infrastructure/support/BcryptPasswordHasher';
 import { JwtTokenService } from '@/infrastructure/support/JwtTokenService';
@@ -94,8 +87,8 @@ import { TelegramConnectionWatcher } from '@/application/services/TelegramConnec
 import { SessiyaOgohlantiruvchi } from '@/application/services/SessiyaOgohlantiruvchi';
 
 import { LoginUseCase } from '@/application/usecases/auth/LoginUseCase';
-import { ImportDebtorFileUseCase } from '@/application/usecases/import/ImportDebtorFileUseCase';
-import { ImportPhoneFileUseCase } from '@/application/usecases/import/ImportPhoneFileUseCase';
+import { ImportLeadsUseCase } from '@/application/usecases/import/ImportLeadsUseCase';
+import { MijozYaratuvchi } from '@/application/services/MijozYaratuvchi';
 import { StartConversationUseCase } from '@/application/usecases/messaging/StartConversationUseCase';
 import { HandleIncomingMessageUseCase } from '@/application/usecases/messaging/HandleIncomingMessageUseCase';
 import { SendManualMessageUseCase } from '@/application/usecases/messaging/SendManualMessageUseCase';
@@ -122,7 +115,7 @@ export function createContainer() {
   const events = new InMemoryEventBus();
   const hasher = new BcryptPasswordHasher();
   const tokens = new JwtTokenService();
-  const parser = new XlsxDebtorParser();
+  const parser = new XlsxLeadParser();
 
   // ─── Repozitoriylar ─────────────────────────────────────────────────────
   const clients = new PgClientRepository();
@@ -131,7 +124,6 @@ export function createContainer() {
   const contractPayments = new PgContractPaymentRepository();
   const conversations = new PgConversationRepository();
   const messages = new PgMessageRepository();
-  const nomalumSuhbatlar = new PgNomalumSuhbatRepository();
   const promises = new PgPaymentPromiseRepository();
   const paymentChecks = new PgPaymentCheckRepository();
   const courses = new PgCourseRepository();
@@ -254,57 +246,10 @@ export function createContainer() {
     clients, contracts, contractGateway, contractSync, audit, clock, config.CONTRACTS_SYNC_ENABLED,
   );
 
-  // ─── Noma'lum mijozlar ──────────────────────────────────────────────────
-  // Bog'liqlik tartibda quriladi: bog'lash → shartnoma tekshiruvchisi → agent.
-  //
-  // Bog'langandan keyingi asosiy agent javobi DEBOUNCER navbatiga qo'yiladi
-  // (R15): (1) operator HTTP so'rovi model javobini kutib osilib qolmaydi;
-  // (2) javob shu suhbatga kelgan yangi xabarlar bilan bir navbatda ketadi —
-  // ikki parallel navbat bo'lmaydi. Mijoz endi noma'lum emas, shuning uchun
-  // `JavobYonaltiruvchi` uni `AgentRunner` ga beradi.
-  //
-  // `replyDebouncer` pastroqda yaratiladi (u `javobYonaltiruvchi` ga, u esa shu
-  // use case'ga bog'liq). Yopilish o'zgaruvchini CHAQIRILGAN paytda o'qiydi —
-  // bu faqat ish vaqtida, konteyner qurilib bo'lgach sodir bo'ladi, TDZ yo'q.
-  // `async`: `push` sinxron xato bersa ham u rad etilgan promise'ga aylanadi
-  // va use case uni faqat jurnalga yozadi.
-  const mijozgaBoglash = new MijozgaBoglashUseCase({
-    clients, conversations, messages, nomalum: nomalumSuhbatlar, audit, events,
-    agentReply: async (conversationId, text) => { replyDebouncer.push(conversationId, text); },
-  });
-  const shartnomaBoglovchi = new ShartnomaBoglovchi({
-    contracts, clients, conversations, phoneBlocks, fromContract: createClientFromContract,
-    nomalum: nomalumSuhbatlar, boglash: mijozgaBoglash, dispatcher, events,
-  });
-  const nomalumAgent = new NomalumMijozAgenti({
-    llm: new ClaudeTuzilganLlm(),
-    nomalum: nomalumSuhbatlar, conversations, messages, dispatcher, settings, events,
-    // Asosiy agent bilan bir xil qoida (`AgentRunner.buildKnowledge`): akkauntning
-    // o'z persona ismi, bo'lmasa umumiy sozlama — odam bitta akkauntdan ikki xil
-    // ism ko'rmasin.
-    personaName: async (conversationId) => {
-      const [conversation, s] = await Promise.all([conversations.findById(conversationId), settings.get()]);
-      const account = conversation?.telegramAccountId
-        ? await telegramAccounts.findById(conversation.telegramAccountId)
-        : null;
-      return personaNameOf(account, s.personaName);
-    },
-    boglovchi: shartnomaBoglovchi,
-  });
-  // Kim javob berishi har navbatda qayta aniqlanadi: bog'langan suhbat
-  // keyingi xabardanoq asosiy agentga o'tadi.
-  const javobYonaltiruvchi = new JavobYonaltiruvchi(agent, nomalumAgent, async (conversationId) => {
-    const conversation = await conversations.findById(conversationId);
-    if (!conversation) return false;
-    const client = await clients.findById(conversation.clientId);
-    return Boolean(client?.nomalum);
-  });
-
   // Mijozning ketma-ket xabarlarini bitta javobga birlashtiradi va bir suhbat
   // uchun ikkita agent chaqiruvi bir vaqtda ketishiga yo'l qo'ymaydi.
-  // Noma'lum agent FAQAT shu yerdan chaqiriladi (suhbat bo'yicha navbat).
   const replyDebouncer = new ReplyDebouncer(
-    javobYonaltiruvchi,
+    agent,
     config.AGENT_REPLY_DEBOUNCE_MS,
     async (conversationId, err) => {
       // CRM yiqilishi AGENT xatosi emas: model ham, Telegram ham joyida,
@@ -338,8 +283,9 @@ export function createContainer() {
 
   // ─── Use case'lar ───────────────────────────────────────────────────────
   const login = new LoginUseCase(users, hasher, tokens, audit);
-  const importDebtors = new ImportDebtorFileUseCase(parser, clients, contracts, importBatches);
-  const importPhones = new ImportPhoneFileUseCase(parser, clients, contracts, importBatches, phoneBlocks);
+  // Reklama (kiruvchi), guruh va Excel raqamlari — hammasi shu yerda mijoz bo'ladi.
+  const mijozYaratuvchi = new MijozYaratuvchi(clients, xaridXizmati, events);
+  const importLeads = new ImportLeadsUseCase(parser, mijozYaratuvchi, courses, importBatches, clients);
   // "Bu raqam mijozniki emas" tugmasi ortidagi amal.
   const blockClientPhone = new BlockClientPhoneUseCase(clients, phoneBlocks, conversations, audit, paymentChecks);
   const startConversation = new StartConversationUseCase(
@@ -357,13 +303,8 @@ export function createContainer() {
   const handleIncoming = new HandleIncomingMessageUseCase(
     clients, contracts, conversations, messages, replyDebouncer, settings, mediaProcessor, events,
     paymentCheckService, sttTaqqoslash,
-    // Akkauntlar — o'zimizning Telegram hisoblarimiz noma'lum mijoz bo'lib
-    // ochilmasin; soat — eski (deploydan keyingi) xabarni ajratish uchun.
-    new NomalumMijozOchuvchi(clients, nomalumSuhbatlar, telegramAccounts, () => clock.now()),
-    new NomalumHujjatQabul({
-      nomalum: nomalumSuhbatlar, conversations, dispatcher, events,
-      abortAgent: (id) => { nomalumAgent.abort(id, 'stale'); },
-    }),
+    // Notanish yozuvchi — reklama leadi.
+    mijozYaratuvchi,
     // Chek kelganda faol xarid `chek_keldi` bosqichiga o'tadi.
     xaridXizmati,
   );
@@ -398,7 +339,7 @@ export function createContainer() {
   const bulkJobResumer = new BulkJobResumer(
     bulkJobs, clock, [bulkLookup, bulkStart, bulkRecontact], bulkJobStore,
   );
-  const createCampaign = new CreateCampaignUseCase(campaigns, contracts, settings, audit, events);
+  const createCampaign = new CreateCampaignUseCase(campaigns, clients, settings, audit, events);
 
   // ─── Fon jarayonlari ────────────────────────────────────────────────────
   const scheduler = new OutreachScheduler(
@@ -429,7 +370,7 @@ export function createContainer() {
       clients, contracts, contractSyncRepo, contractPayments, conversations, messages, promises, campaigns,
       telegramAccounts, users, roles, apiTokens, importBatches, settingsRepo, audit, stats,
       agentRules, lessons, clientProfiles, appLog, paymentChecks, agentUsage, phoneBlocks, holidays,
-      recontactList, recontactTopics, llmModels, bulkJobs, nomalumSuhbatlar, courses, purchases,
+      recontactList, recontactTopics, llmModels, bulkJobs, courses, purchases,
     },
     services: {
       telegram, resolver, dispatcher, agent, scheduler, accountLabels,
@@ -438,13 +379,13 @@ export function createContainer() {
       appLogCleaner,
       paymentCheckService, missedSync, bulkRecontact, xulosaBoti, llmKaliti,
       bulkJobStore, bulkJobResumer,
-      nomalumAgent, shartnomaBoglovchi, javobYonaltiruvchi,
+      mijozYaratuvchi,
       qamrovTekshiruvchi, xaridXizmati, kartaYuboruvchi, eslatmaKuzatuvchi,
     },
     useCases: {
-      login, importDebtors, importPhones, startConversation,
+      login, importLeads, startConversation,
       handleIncoming, sendManual, editMessage, deleteMessage, retryAgentTurn, instructAgent, createCampaign,
-      createClientFromContract, blockClientPhone, mijozgaBoglash,
+      createClientFromContract, blockClientPhone,
     },
   };
 }

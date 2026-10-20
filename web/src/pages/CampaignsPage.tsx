@@ -3,17 +3,24 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { api } from '@/lib/api';
 import { useCan } from '@/store/auth';
-import type { Campaign, Page } from '@/lib/types';
+import type { Campaign, ClientSource, Course, Page, XaridBosqichi } from '@/lib/types';
+import { BOSQICH_YORLIGI, MANBA_YORLIGI, XARID_BOSQICHLARI } from '@/lib/xarid';
 import { dateUz } from '@/lib/format';
 import { EmptyState, ErrorNote, Spinner } from '@/components/ui';
 
 interface Filters {
-  minDebt?: number;
-  minDaysOverdue?: number;
-  maxDaysOverdue?: number;
-  onlyWithPhone: boolean;
-  excludeContacted: boolean;
+  stage: XaridBosqichi[];
+  source: ClientSource[];
+  courseId?: string;
+  onlyWithoutConversation: boolean;
   limit?: number;
+}
+
+const MANBALAR = Object.keys(MANBA_YORLIGI) as ClientSource[];
+
+/** Ro'yxatda bor bo'lsa olib tashlaydi, yo'q bo'lsa qo'shadi. */
+function almashtir<T>(list: T[], item: T): T[] {
+  return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
 const STATUS_LABEL: Record<Campaign['status'], string> = {
@@ -41,10 +48,9 @@ export default function CampaignsPage() {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [filters, setFilters] = useState<Filters>({
-    minDebt: 1_000_000,
-    minDaysOverdue: 1,
-    onlyWithPhone: true,
-    excludeContacted: true,
+    stage: ['yangi'],
+    source: [],
+    onlyWithoutConversation: true,
     limit: 200,
   });
   const [dailyLimit, setDailyLimit] = useState(40);
@@ -55,15 +61,30 @@ export default function CampaignsPage() {
     refetchInterval: 15_000,
   });
 
+  const coursesQuery = useQuery({
+    queryKey: ['courses'],
+    queryFn: () => api.get<{ items: Course[] }>('/courses'),
+    enabled: showForm,
+  });
+
+  // Bo'sh ro'yxat va bo'sh kurs serverga yuborilmaydi — "filtr yo'q" ma'nosida.
+  const payloadFilters = {
+    ...(filters.stage.length ? { stage: filters.stage } : {}),
+    ...(filters.source.length ? { source: filters.source } : {}),
+    ...(filters.courseId ? { courseId: filters.courseId } : {}),
+    ...(filters.onlyWithoutConversation ? { onlyWithoutConversation: true } : {}),
+    ...(filters.limit ? { limit: filters.limit } : {}),
+  };
+
   const previewMutation = useMutation({
-    mutationFn: () => api.post<{ count: number }>('/campaigns/preview', filters),
+    mutationFn: () => api.post<{ count: number }>('/campaigns/preview', payloadFilters),
   });
 
   const createMutation = useMutation({
     mutationFn: (startNow: boolean) =>
       api.post<{ campaign: Campaign; targetsAdded: number }>('/campaigns', {
         name,
-        filters,
+        filters: payloadFilters,
         dailyLimit,
         startNow,
       }),
@@ -93,7 +114,7 @@ export default function CampaignsPage() {
         <div className="hidden md:block">
           <h1 className="text-base font-semibold">Kampaniyalar</h1>
           <p className="mt-0.5 text-xs text-ink-500">
-            Filtr bo'yicha debitorlar navbatga qo'yiladi va sekin tempda yoziladi
+            Filtr bo'yicha mijozlar navbatga qo'yiladi va sekin tempda yoziladi
           </p>
         </div>
         {writable ? (
@@ -112,38 +133,66 @@ export default function CampaignsPage() {
                 className="input max-w-md"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Masalan: Avgust — 3 oydan ortiq kechikkanlar"
+                placeholder="Masalan: Oktyabr — yangi reklama mijozlari"
               />
             </div>
 
             <div>
-              <label className="label" title="Долг (мес.) bo'yicha — agent shu summani aytadi">
-                Minimal oylik kechikish (so'm)
-              </label>
-              <input
-                type="number"
-                className="input"
-                value={filters.minDebt ?? ''}
-                onChange={(e) => setFilters((f) => ({ ...f, minDebt: numOrUndef(e.target.value) }))}
-              />
+              <label className="label">Bosqich</label>
+              <div className="flex flex-wrap gap-1.5">
+                {XARID_BOSQICHLARI.map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    className={clsx(
+                      'chip cursor-pointer border',
+                      filters.stage.includes(b)
+                        ? 'border-brand-500 bg-brand-500/15 text-brand-300'
+                        : 'border-ink-800 bg-ink-900 text-ink-400',
+                    )}
+                    onClick={() => setFilters((f) => ({ ...f, stage: almashtir(f.stage, b) }))}
+                  >
+                    {BOSQICH_YORLIGI[b]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-ink-600">Hech biri tanlanmasa — hamma bosqich</p>
             </div>
             <div>
-              <label className="label">Kechikish (kundan)</label>
-              <input
-                type="number"
-                className="input"
-                value={filters.minDaysOverdue ?? ''}
-                onChange={(e) => setFilters((f) => ({ ...f, minDaysOverdue: numOrUndef(e.target.value) }))}
-              />
+              <label className="label">Manba</label>
+              <div className="flex flex-wrap gap-1.5">
+                {MANBALAR.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    className={clsx(
+                      'chip cursor-pointer border',
+                      filters.source.includes(m)
+                        ? 'border-brand-500 bg-brand-500/15 text-brand-300'
+                        : 'border-ink-800 bg-ink-900 text-ink-400',
+                    )}
+                    onClick={() => setFilters((f) => ({ ...f, source: almashtir(f.source, m) }))}
+                  >
+                    {MANBA_YORLIGI[m]}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-ink-600">Hech biri tanlanmasa — hamma manba</p>
             </div>
             <div>
-              <label className="label">Kechikish (kungacha)</label>
-              <input
-                type="number"
+              <label className="label">Kurs</label>
+              <select
                 className="input"
-                value={filters.maxDaysOverdue ?? ''}
-                onChange={(e) => setFilters((f) => ({ ...f, maxDaysOverdue: numOrUndef(e.target.value) }))}
-              />
+                value={filters.courseId ?? ''}
+                onChange={(e) => setFilters((f) => ({ ...f, courseId: e.target.value || undefined }))}
+              >
+                <option value="">Hamma kurs</option>
+                {(coursesQuery.data?.items ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -171,18 +220,10 @@ export default function CampaignsPage() {
               <label className="flex items-center gap-2 text-sm text-ink-300">
                 <input
                   type="checkbox"
-                  checked={filters.onlyWithPhone}
-                  onChange={(e) => setFilters((f) => ({ ...f, onlyWithPhone: e.target.checked }))}
+                  checked={filters.onlyWithoutConversation}
+                  onChange={(e) => setFilters((f) => ({ ...f, onlyWithoutConversation: e.target.checked }))}
                 />
-                Faqat raqami borlar
-              </label>
-              <label className="flex items-center gap-2 text-sm text-ink-300">
-                <input
-                  type="checkbox"
-                  checked={filters.excludeContacted}
-                  onChange={(e) => setFilters((f) => ({ ...f, excludeContacted: e.target.checked }))}
-                />
-                Avval yozilganlarni chiqarib tashlash
+                Faqat suhbati yo'qlar
               </label>
             </div>
           </div>
@@ -240,7 +281,7 @@ export default function CampaignsPage() {
         ) : campaigns.length === 0 ? (
           <EmptyState
             title="Kampaniya yo'q"
-            hint="Yangi kampaniya yarating — filtrga mos debitorlar navbatga qo'yiladi."
+            hint="Yangi kampaniya yarating — filtrga mos mijozlar navbatga qo'yiladi."
           />
         ) : (
           <div className="space-y-3">

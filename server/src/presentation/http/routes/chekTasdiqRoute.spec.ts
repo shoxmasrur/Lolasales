@@ -60,7 +60,6 @@ const container = {
     audit: { record: async () => undefined },
     telegramAccounts: { list: async () => [] },
     paymentChecks: { findOpenByConversation: async () => ochiqTekshiruv },
-    nomalumSuhbatlar: { find: async () => null },
     purchases: {
       findById: async (id: string) =>
         id === 'p1' ? { id: 'p1', courseId: 'k1', totalAmount: 1_500_000, paidAmount: 500_000, installment: true } : null,

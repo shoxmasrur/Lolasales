@@ -1,4 +1,5 @@
 import type { Client, NewClient, TelegramLookupStatus } from '@/domain/entities/Client';
+import type { CampaignFilters } from '@/domain/entities/Campaign';
 import type { AloqaHolati } from '@/domain/entities/aloqaHolati';
 import type { ClientSource } from '@/domain/entities/Client';
 import type { XaridBosqichi } from '@/domain/entities/Purchase';
@@ -201,6 +202,8 @@ export interface IClientRepository {
   /** Filtr uchun: bazada uchraydigan shartnoma holatlari. */
   contractStatuses(qamrov?: MijozQamrovi): Promise<ContractStatusOption[]>;
   create(data: NewClient): Promise<Client>;
+  /** Kampaniya filtriga mos mijoz id'lari (qamrov bilan; eng eskilari birinchi). */
+  findCampaignTargets(filters: CampaignFilters, qamrov?: MijozQamrovi): Promise<string[]>;
   /**
    * Mijozni va unga bog'liq hamma narsani yumshoq o'chiradi.
    * Bazadan hech narsa yo'qolmaydi — faqat `deleted_at` qo'yiladi.

@@ -1,4 +1,4 @@
-export type ImportKind = 'debtors' | 'phones';
+export type ImportKind = 'debtors' | 'phones' | 'leads';
 
 export interface ImportRowError {
   readonly row: number;

@@ -7,14 +7,13 @@ import { logger } from '@/shared/logger';
 
 /**
  * Terminaldan import:
- *   npm run import --workspace=server -- debtors "/path/to/eksport.xlsx"
- *   npm run import --workspace=server -- phones  "/path/to/telefonlar.xlsx"
+ *   npm run import --workspace=server -- leads "/path/to/mijozlar.xlsx"
  */
 async function main(): Promise<void> {
   const [kind, filePath] = process.argv.slice(2);
 
-  if (!kind || !filePath || !['debtors', 'phones'].includes(kind)) {
-    logger.error('Foydalanish: npm run import -- <debtors|phones> <fayl yo\'li>');
+  if (!kind || !filePath || kind !== 'leads') {
+    logger.error('Foydalanish: npm run import -- leads <fayl yo\'li>');
     process.exitCode = 1;
     return;
   }
@@ -24,10 +23,7 @@ async function main(): Promise<void> {
   const buffer = await fs.readFile(filePath);
   const filename = path.basename(filePath);
 
-  const result =
-    kind === 'debtors'
-      ? await container.useCases.importDebtors.execute({ buffer, filename })
-      : await container.useCases.importPhones.execute({ buffer, filename });
+  const result = await container.useCases.importLeads.execute({ buffer, filename });
 
   logger.info(
     {
