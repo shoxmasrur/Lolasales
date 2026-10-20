@@ -433,7 +433,8 @@ export class AgentRunner {
   /**
    * Mijoz jim qolganda bitta yumshoq eslatma (`stage` — eslatma qaysi
    * bosqich uchun). Ruxsat, chek va bloklash tekshiruvi model chaqiruvidan
-   * OLDIN — model bekorga sarflanmasin.
+   * OLDIN — model bekorga sarflanmasin. `coldOutreach: true`: eslatma akkauntning
+   * kunlik kvotasiga sanaladi va unga amal qiladi (kvota kuzatuvchida oldindan tekshiriladi).
    */
   async nudge(conversationId: string, stage: XaridBosqichi): Promise<AgentTurnResult> {
     return this.withAbort(conversationId, undefined, async (signal) => {
@@ -464,7 +465,7 @@ export class AgentRunner {
         nudgeStage: stage,
       });
       return this.apply(conversation, context, output, {
-        autoSend: runtime.agentAutoReply, coldOutreach: false, kartaRuxsat: false, ishlatilgan, fallback,
+        autoSend: runtime.agentAutoReply, coldOutreach: true, kartaRuxsat: false, ishlatilgan, fallback,
       });
     });
   }

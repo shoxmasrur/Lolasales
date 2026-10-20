@@ -1,3 +1,5 @@
+import { canSend } from '@/domain/entities/TelegramAccount';
+import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import { canAgentReply } from '@/domain/entities/Conversation';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IPurchaseRepository } from '@/domain/repositories/IPurchaseRepository';
@@ -41,13 +43,22 @@ export class EslatmaKuzatuvchi {
     private readonly settings: RuntimeSettings,
     private readonly audit: IAuditRepository,
     private readonly clock: IClock,
-    /** Testlar uchun almashtiriladi. */
-    private readonly pause: (ms: number) => Promise<void> = sleep,
+    private readonly accounts: ITelegramAccountRepository,
+    /** Testlar uchun almashtiriladi. Berilmasa — `stop()` bilan uziladigan pauza. */
+    private readonly pause?: (ms: number) => Promise<void>,
   ) {}
+
+  private stopAbort = new AbortController();
+
+  private async kut(ms: number): Promise<void> {
+    if (this.pause) return this.pause(ms);
+    await sleep(ms, this.stopAbort.signal).catch(() => undefined);
+  }
 
   start(): void {
     if (this.timer) return;
     this.stopping = false;
+    this.stopAbort = new AbortController();
     log.info('Eslatma kuzatuvchisi ishga tushdi');
     void this.tick();
     this.timer = setInterval(() => void this.tick(), CHECK_INTERVAL_MS);
@@ -60,6 +71,7 @@ export class EslatmaKuzatuvchi {
    */
   async stop(): Promise<void> {
     this.stopping = true;
+    this.stopAbort.abort();
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
@@ -120,6 +132,11 @@ export class EslatmaKuzatuvchi {
         if (!conversation || !canAgentReply(conversation)) return null;
         const purchase = await this.xarid.joriyXarid(candidate.clientId);
         if (!purchase || purchase.id !== candidate.purchaseId) return null;
+        // Eslatma akkaunt kvotasiga sanaladi: sig'im yo'q bo'lsa belgilamaymiz,
+        // keyingi tsiklda qayta uriniladi.
+        if (!conversation.telegramAccountId) return null;
+        const account = await this.accounts.findById(conversation.telegramAccountId);
+        if (!account || !canSend(account, this.clock.now(), this.clock.todayIso())) return null;
         const ok = eslatmaKerakmi(
           {
             stage: purchase.stage,
@@ -138,7 +155,7 @@ export class EslatmaKuzatuvchi {
       if (processed > 0) {
         // Ketma-ket eslatmalar spam bo'lib ko'rinmasin. Pauza faqat haqiqiy
         // yuborishdan oldin: o'tkazib yuborilganlar oynani yemaydi.
-        await this.pause(
+        await this.kut(
           randomBetween(runtime.minDelaySec, Math.max(runtime.minDelaySec, runtime.maxDelaySec)) * 1000,
         );
         if (this.stopping) break;

@@ -334,6 +334,8 @@ export class PgConversationRepository implements IConversationRepository {
           AND (c.last_inbound_at IS NULL OR c.last_inbound_at < c.last_outbound_at)
           AND c.agent_enabled
           AND NOT c.needs_human
+          AND NOT cl.nomalum
+          AND c.state NOT IN ('closed', 'escalated', 'refused', 'unreachable')
           AND cl.telegram_status NOT IN ('blocked', 'deactivated')
           AND NOT EXISTS (
             SELECT 1 FROM payment_checks pc

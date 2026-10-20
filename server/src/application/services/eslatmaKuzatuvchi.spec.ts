@@ -24,11 +24,11 @@ const nomzod: EslatmaNomzodi = {
 
 interface Sozlama { eslatmaYoqilgan: boolean; killSwitch: boolean }
 
-function yasa(opts: { now: Date; sozlama?: Partial<Sozlama>; nomzodlar?: EslatmaNomzodi[]; qayta?: 'javob' | 'oddiy' }) {
+function yasa(opts: { now: Date; sozlama?: Partial<Sozlama>; nomzodlar?: EslatmaNomzodi[]; kvotaTugagan?: boolean; qayta?: 'javob' | 'oddiy' }) {
   const log: string[] = [];
   const nomzodlar = opts.nomzodlar ?? [nomzod];
   const conv = (n: EslatmaNomzodi) => ({
-    id: n.conversationId, agentEnabled: true, needsHuman: false, humanKind: null, state: 'active',
+    id: n.conversationId, telegramAccountId: 'a1', agentEnabled: true, needsHuman: false, humanKind: null, state: 'active',
     lastOutboundAt: n.lastOutboundAt,
     lastInboundAt: opts.qayta === 'javob' ? new Date(n.lastOutboundAt.getTime() + 1000) : n.lastInboundAt,
   });
@@ -56,11 +56,17 @@ function yasa(opts: { now: Date; sozlama?: Partial<Sozlama>; nomzodlar?: Eslatma
       weekdays: [1, 2, 3, 4, 5, 6], minDelaySec: 1, maxDelaySec: 2, ...opts.sozlama,
     }),
   };
+  const accounts = {
+    findById: async () => ({
+      id: 'a1', isEnabled: true, status: 'connected', floodWaitUntil: null, spamStatus: 'clean', spamUntil: null,
+      counterDate: '2026-11-05', sentToday: opts.kvotaTugagan ? 40 : 3, dailyLimit: 40,
+    }),
+  };
   const audit = { record: async () => undefined };
   const clock = { now: () => opts.now, todayIso: () => '2026-11-05' };
   const w = new EslatmaKuzatuvchi(
     conversations as never, agent as never, xarid as never, purchases as never,
-    settings as never, audit as never, clock, async () => undefined,
+    settings as never, audit as never, clock, accounts as never, async () => undefined,
   );
   return { w, log };
 }
@@ -95,6 +101,11 @@ async function main(): Promise<void> {
     const { w, log } = yasa({ now: ICHIDA, nomzodlar: [{ ...nomzod, remindedStages: ['qiziqdi'] }] });
     check('qayta o\'qishda bosqich allaqachon belgilangan -> o\'tkaziladi', await w.tekshir(), 0);
     check('  hech narsa chaqirilmagan', log, []);
+  }
+  {
+    const { w, log } = yasa({ now: ICHIDA, kvotaTugagan: true });
+    check('akkaunt kvotasi tugagan -> 0', await w.tekshir(), 0);
+    check('  belgilanmagan, nudge chaqirilmagan', log, []);
   }
   console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");
   process.exitCode = failed ? 1 : 0;

@@ -406,7 +406,7 @@ export function createContainer() {
   );
   // Jim qolgan mijozga bosqichiga bitta eslatma.
   const eslatmaKuzatuvchi = new EslatmaKuzatuvchi(
-    conversations, agent, xaridXizmati, purchases, settings, audit, clock,
+    conversations, agent, xaridXizmati, purchases, settings, audit, clock, telegramAccounts,
   );
 
   const spamWatcher = new SpamStatusWatcher(telegramAccounts, telegram, audit, events);
