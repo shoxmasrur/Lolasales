@@ -1,51 +1,25 @@
-import { useState } from 'react';
 import clsx from 'clsx';
 
 /**
- * "XON SAROY" logotipi — navbar va kirish sahifasida bir xil manbadan.
+ * "LolaSales" matnli logotipi — navbar va kirish sahifasida bir xil manbadan.
  *
- * Fayl `web/public/` da turadi va Vite uni ildizdan beradi. Formatni
- * almashtirish (png → svg) uchun faqat SHU qator o'zgaradi.
+ * Rasm fayli yo'q: nom matn bilan chiziladi, shuning uchun ikkala mavzuda
+ * ham `text-ink-100` rangini oladi va alohida teskarilash kerak emas.
+ *
+ * O'lcham kenglik bo'yicha beriladi. Juda tor joyda (yig'ilgan menyu)
+ * to'liq nom sig'maydi — u yerda qisqa "LS" belgisi chiqadi.
  */
-const LOGO_SRC = '/logo.png';
+const QISQA_CHEGARA = 60;
 
-/** Manba o'lchami: 200×106. Balandlik shundan hisoblanadi. */
-const RATIO = 106 / 200;
-
-/**
- * Logo SHAFFOF fonda OQ rangda chizilgan — shuning uchun u to'q panelning
- * o'ziga qo'yiladi. Ostiga oq yoki yorug' tagzamin QO'YILMAYDI: o'shanda
- * oq chiziqlar oq fonga qo'shilib, logo ko'rinmay qolardi.
- *
- * Aynan shu sabab YORUG' MAVZUDA logo teskarilanadi (`--logo-invert`):
- * oq chiziqlar qora bo'ladi. Alohida qora fayl kerak emas — manba bitta
- * qoladi va ikkalasi bir-biridan ajrab ketmaydi.
- *
- * O'lcham kenglik bo'yicha beriladi: logo cho'ziq (~1.9:1) va ichida
- * kompaniya nomi bor — balandlik bo'yicha o'lchansa yozuv o'qib
- * bo'lmaydigan darajada kichrayib ketadi.
- */
 export function Logo({ width = 132, className }: { width?: number; className?: string }) {
-  const [failed, setFailed] = useState(false);
-
-  // Logo yuklanmasa ilova buzilmaydi — nomi matn bilan qoladi.
-  if (failed) {
-    return (
-      <span className={clsx('text-sm font-semibold tracking-wide text-ink-100', className)}>
-        XON SAROY
-      </span>
-    );
-  }
-
+  const qisqa = width < QISQA_CHEGARA;
   return (
-    <img
-      src={LOGO_SRC}
-      alt="Xon Saroy"
-      width={width}
-      height={Math.round(width * RATIO)}
-      onError={() => setFailed(true)}
-      className={clsx('block object-contain', className)}
-      style={{ width, height: 'auto', filter: 'invert(var(--logo-invert))' }}
-    />
+    <span
+      aria-label="LolaSales"
+      className={clsx('block font-semibold tracking-tight text-ink-100 leading-none', className)}
+      style={{ width, fontSize: qisqa ? width * 0.45 : width / 6, textAlign: 'center' }}
+    >
+      {qisqa ? 'LS' : 'LolaSales'}
+    </span>
   );
 }
