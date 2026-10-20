@@ -139,6 +139,8 @@ jobs:
           npm run test:client-list-query --workspace=server
           npm run test:api-kalit --workspace=server
           npm run test:ruxsat-guruhlari --workspace=server
+          npm run test:course --workspace=server
+          npm run test:purchase --workspace=server
           npm run test:app-log-cleaner --workspace=server
           npm run test:bulk-job-store --workspace=server
           npm run test:bulk-job-resumer --workspace=server
