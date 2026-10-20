@@ -1,21 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import type { ClientSource, DashboardStats } from '@/lib/types';
 import { som, somShort } from '@/lib/format';
-import { BOSQICH_YORLIGI, MANBA_YORLIGI, XARID_BOSQICHLARI } from '@/lib/xarid';
+import { BOSQICH_CLASS, MANBA_YORLIGI } from '@/lib/xarid';
 import { EmptyState, StatCard } from '@/components/ui';
 import { chartColors, useTheme } from '@/store/theme';
 import { useIsMobile } from '@/lib/useBreakpoint';
@@ -36,15 +25,7 @@ export default function DashboardPage() {
 
   const s = data?.stats;
 
-  // Voronka bosqichlar tartibida — bo'sh bosqich ham 0 bilan ko'rinadi.
-  const voronka = s
-    ? XARID_BOSQICHLARI.map((stage) => ({
-        stage,
-        nom: BOSQICH_YORLIGI[stage],
-        soni: s.funnel.find((f) => f.stage === stage)?.count ?? 0,
-      }))
-    : [];
-  const bugungiJami = s ? s.newClientsToday.reduce((sum, r) => sum + r.count, 0) : 0;
+  const bugungiJami = s ? Object.values(s.bugunManbalar).reduce((sum, n) => sum + (n ?? 0), 0) : 0;
 
   const tooltipStyle = {
     background: chart.tooltipBg,
@@ -76,72 +57,69 @@ export default function DashboardPage() {
         />
       ) : (
         <div className="space-y-5 p-4 md:p-6">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <StatCard
               label="Bugun yangi mijozlar"
               value={bugungiJami}
-              sub={MANBALAR.map(
-                (m) => `${MANBA_YORLIGI[m]} ${s.newClientsToday.find((r) => r.source === m)?.count ?? 0}`,
-              ).join(' · ')}
+              sub={MANBALAR.map((m) => `${MANBA_YORLIGI[m]} ${s.bugunManbalar[m] ?? 0}`).join(' · ')}
             />
             <StatCard
               label="Bugun tasdiqlangan to'lovlar"
-              value={somShort(s.paymentsToday.amount)}
-              sub={`${s.paymentsToday.count} ta chek · ${som(s.paymentsToday.amount)}`}
+              value={somShort(s.bugunTolovlar.summa)}
+              sub={`${s.bugunTolovlar.soni} ta chek · ${som(s.bugunTolovlar.summa)}`}
               tone="good"
             />
             <StatCard
               label="Navbatdagi cheklar"
               value={
-                s.receiptsPending > 0 ? (
+                s.navbatdagiCheklar > 0 ? (
                   <Link to="/chat?filter=receipt" className="hover:underline">
-                    {s.receiptsPending}
+                    {s.navbatdagiCheklar}
                   </Link>
                 ) : (
                   0
                 )
               }
               sub="menejer tasdig'ini kutmoqda"
-              tone={s.receiptsPending > 0 ? 'warn' : 'default'}
+              tone={s.navbatdagiCheklar > 0 ? 'warn' : 'default'}
             />
+          </div>
+
+          <div className="card">
+            <h2 className="text-sm font-medium text-ink-200">Sotuv voronkasi</h2>
+            <p className="mb-4 mt-0.5 text-xs text-ink-500">
+              Har bir mijozning joriy xaridi qaysi bosqichda. Ulush — rad etilganlarsiz jami xaridga nisbatan
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {s.voronka.map((v) => (
+                <div
+                  key={v.stage}
+                  className="flex min-w-[104px] flex-1 flex-col justify-between rounded-lg border border-ink-800 p-3"
+                >
+                  <span className={BOSQICH_CLASS[v.stage]}>{v.label}</span>
+                  <div className="mt-3 text-xl font-semibold tabular-nums">{v.count}</div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded bg-ink-800">
+                    <div
+                      className={`h-full ${v.stage === 'rad_etdi' ? 'bg-red-400' : 'bg-brand-500'}`}
+                      style={{ width: `${Math.round(v.ulush * 100)}%` }}
+                    />
+                  </div>
+                  <div className="mt-1 text-[11px] text-ink-500">{Math.round(v.ulush * 100)}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard
               label="Inson kerak"
               value={s.conversationsNeedingHuman}
               sub={`${s.conversationsTotal} ta suhbatdan`}
               tone={s.conversationsNeedingHuman > 0 ? 'warn' : 'default'}
             />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard
-              label="Mijozlar"
-              value={s.clientsTotal}
-              sub={`${s.clientsOnTelegram} Telegramda`}
-            />
+            <StatCard label="Mijozlar" value={s.clientsTotal} sub={`${s.clientsOnTelegram} Telegramda`} />
             <StatCard label="Bugun yuborildi" value={s.messagesSentToday} />
             <StatCard label="Bugun javob keldi" value={s.messagesReceivedToday} />
-          </div>
-
-          <div className="card">
-            <h2 className="text-sm font-medium text-ink-200">Sotuv voronkasi</h2>
-            <p className="mb-4 mt-0.5 text-xs text-ink-500">
-              Har bir mijozning joriy xaridi qaysi bosqichda turibdi
-            </p>
-            <ResponsiveContainer width="100%" height={isMobile ? 260 : 280}>
-              <BarChart data={voronka} layout="vertical" margin={{ left: 8, right: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} horizontal={false} />
-                <XAxis type="number" stroke={chart.axis} fontSize={11} allowDecimals={false} />
-                <YAxis
-                  type="category"
-                  dataKey="nom"
-                  stroke={chart.axis}
-                  fontSize={11}
-                  width={isMobile ? 96 : 120}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="soni" name="Mijozlar" fill="#2b83f0" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
           </div>
 
           <div className="card">

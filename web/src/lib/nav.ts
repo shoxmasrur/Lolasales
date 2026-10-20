@@ -35,11 +35,11 @@ export const NAV: NavItem[] = [
   { to: '/guruhlar', label: 'Guruhlar', short: 'Guruh', Icon: IconUsers, permission: 'comments.view' },
   { to: '/campaigns', label: 'Kampaniyalar', short: 'Kampan.', Icon: IconCampaign, permission: 'campaigns.view' },
   { to: '/import', label: 'Import', short: 'Import', Icon: IconImport, permission: 'import.view' },
+  { to: '/agent', label: 'Agent', short: 'Agent', Icon: IconAgent, permission: 'agent.view' },
   { to: '/telegram', label: 'Telegram', short: 'Telegram', Icon: IconTelegram, permission: 'telegram.view' },
   { to: '/telegram-inbox', label: 'Telegram qutisi', short: 'Quti', Icon: IconInbox, permission: 'telegram.inbox' },
-  { to: '/agent', label: 'Agent', short: 'Agent', Icon: IconAgent, permission: 'agent.view' },
-  { to: '/users', label: 'Foydalanuvchilar', short: 'Xodim', Icon: IconUsers, permission: 'users.view' },
   { to: '/logs', label: 'Tizim jurnali', short: 'Jurnal', Icon: IconDashboard, permission: 'logs.view' },
+  { to: '/users', label: 'Foydalanuvchilar', short: 'Xodim', Icon: IconUsers, permission: 'users.view' },
   { to: '/settings', label: 'Sozlamalar', short: 'Sozlama', Icon: IconSettings, permission: 'settings.view' },
 ];
 

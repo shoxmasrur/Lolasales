@@ -428,6 +428,11 @@ export interface DashboardStats {
   paymentsToday: { count: number; amount: number };
   /** Kunlik dinamika — ODAM soni, xabar soni emas. */
   dailyActivity: Array<{ day: string; writtenTo: number; replied: number }>;
+  /** Tartiblangan voronka (rad_etdi oxirida); ulush 0..1, rad etilganlarsiz asosga nisbatan. */
+  voronka: Array<{ stage: XaridBosqichi; label: string; count: number; ulush: number }>;
+  bugunManbalar: Partial<Record<ClientSource, number>>;
+  bugunTolovlar: { soni: number; summa: number };
+  navbatdagiCheklar: number;
 }
 
 /** Ommaviy suhbat boshlashdan oldingi tekshiruv natijasi. */

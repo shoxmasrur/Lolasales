@@ -176,6 +176,8 @@ jobs:
           npm run test:mijoz-qatori --workspace=server
           # Kunlik sotuv xulosasi matni (bot orqali).
           npm run test:kunlik-xulosa --workspace=server
+          # Sotuv voronkasi (ulush hisobi, tartib).
+          npm run test:voronka --workspace=server
           npm run test:log-context --workspace=server
           npm run test:log-entry --workspace=server
 

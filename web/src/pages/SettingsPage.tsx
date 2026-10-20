@@ -567,67 +567,6 @@ export default function SettingsPage() {
         </div>
 
         <div className="card space-y-4">
-          <h2 className="text-sm font-medium">Akkaunt navbati</h2>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label">Xabarlar orasida — min. (sek)</label>
-              <input
-                type="number"
-                className="input"
-                value={form.gateMessageMinSec}
-                disabled={!admin}
-                onChange={(e) => patch('gateMessageMinSec', Number(e.target.value) || 0)}
-              />
-            </div>
-            <div>
-              <label className="label">Xabarlar orasida — maks. (sek)</label>
-              <input
-                type="number"
-                className="input"
-                value={form.gateMessageMaxSec}
-                disabled={!admin}
-                onChange={(e) => patch('gateMessageMaxSec', Number(e.target.value) || 0)}
-              />
-            </div>
-            <div>
-              <label className="label">Qidiruv va tekshiruv — min. (sek)</label>
-              <input
-                type="number"
-                className="input"
-                value={form.gateOtherMinSec}
-                disabled={!admin}
-                onChange={(e) => patch('gateOtherMinSec', Number(e.target.value) || 0)}
-              />
-            </div>
-            <div>
-              <label className="label">Qidiruv va tekshiruv — maks. (sek)</label>
-              <input
-                type="number"
-                className="input"
-                value={form.gateOtherMaxSec}
-                disabled={!admin}
-                onChange={(e) => patch('gateOtherMaxSec', Number(e.target.value) || 0)}
-              />
-            </div>
-          </div>
-
-          <p className="text-[11px] leading-relaxed text-ink-500">
-            Bitta akkaunt bir vaqtda Telegramga FAQAT BITTA so'rov yuboradi: mijozga
-            yozayotgan payt boshqa mijozni qidirmaydi, ikkita xabarni baravar jo'natmaydi.
-            Bu qiymatlar — ikki so'rov orasidagi tasodifiy tanaffus. Doimiy bir xil oraliq
-            ham, bir vaqtda ketgan so'rovlar ham Telegram uchun bot belgisi.
-            <br />
-            <span className="text-ink-300">
-              Yuqoridagi kampaniya pauzasi bilan adashtirmang: u ikki MIJOZ orasidagi oraliq
-              va daqiqalar bilan o'lchanadi. Bu esa har qanday ikki so'rov orasidagi eng
-              kichik bo'shliq — mijozga javob ham, qidiruv ham shunga bo'ysunadi.
-            </span>{' '}
-            Mijozning javobi navbatda ommaviy qidiruvdan oldinga o'tadi.
-          </p>
-        </div>
-
-        <div className="card space-y-4">
           <h2 className="text-sm font-medium">Ish vaqti</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -714,8 +653,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <LlmSettingsPanel />
-
         <KartalarPanel />
 
         <div className="card space-y-4">
@@ -788,6 +725,69 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <LlmSettingsPanel />
+
+        <div className="card space-y-4">
+          <h2 className="text-sm font-medium">Akkaunt navbati</h2>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">Xabarlar orasida — min. (sek)</label>
+              <input
+                type="number"
+                className="input"
+                value={form.gateMessageMinSec}
+                disabled={!admin}
+                onChange={(e) => patch('gateMessageMinSec', Number(e.target.value) || 0)}
+              />
+            </div>
+            <div>
+              <label className="label">Xabarlar orasida — maks. (sek)</label>
+              <input
+                type="number"
+                className="input"
+                value={form.gateMessageMaxSec}
+                disabled={!admin}
+                onChange={(e) => patch('gateMessageMaxSec', Number(e.target.value) || 0)}
+              />
+            </div>
+            <div>
+              <label className="label">Qidiruv va tekshiruv — min. (sek)</label>
+              <input
+                type="number"
+                className="input"
+                value={form.gateOtherMinSec}
+                disabled={!admin}
+                onChange={(e) => patch('gateOtherMinSec', Number(e.target.value) || 0)}
+              />
+            </div>
+            <div>
+              <label className="label">Qidiruv va tekshiruv — maks. (sek)</label>
+              <input
+                type="number"
+                className="input"
+                value={form.gateOtherMaxSec}
+                disabled={!admin}
+                onChange={(e) => patch('gateOtherMaxSec', Number(e.target.value) || 0)}
+              />
+            </div>
+          </div>
+
+          <p className="text-[11px] leading-relaxed text-ink-500">
+            Bitta akkaunt bir vaqtda Telegramga FAQAT BITTA so'rov yuboradi: mijozga
+            yozayotgan payt boshqa mijozni qidirmaydi, ikkita xabarni baravar jo'natmaydi.
+            Bu qiymatlar — ikki so'rov orasidagi tasodifiy tanaffus. Doimiy bir xil oraliq
+            ham, bir vaqtda ketgan so'rovlar ham Telegram uchun bot belgisi.
+            <br />
+            <span className="text-ink-300">
+              Yuqoridagi kampaniya pauzasi bilan adashtirmang: u ikki MIJOZ orasidagi oraliq
+              va daqiqalar bilan o'lchanadi. Bu esa har qanday ikki so'rov orasidagi eng
+              kichik bo'shliq — mijozga javob ham, qidiruv ham shunga bo'ysunadi.
+            </span>{' '}
+            Mijozning javobi navbatda ommaviy qidiruvdan oldinga o'tadi.
+          </p>
+        </div>
+
         {saveMutation.error ? <ErrorNote error={saveMutation.error} /> : null}
 
         {admin ? (
@@ -821,6 +821,10 @@ export default function SettingsPage() {
         ) : (
           <p className="text-xs text-ink-500">Sozlamalarni faqat admin o'zgartira oladi.</p>
         )}
+
+        <div className="card space-y-4">
+          <XulosaBotiPanel />
+        </div>
 
         {canReset ? (
           <div className="card border-red-500/30 bg-red-500/5">
@@ -877,10 +881,6 @@ export default function SettingsPage() {
             </div>
           </div>
         ) : null}
-
-        <div className="card space-y-4">
-          <XulosaBotiPanel />
-        </div>
 
         {canAudit ? (
           <div>

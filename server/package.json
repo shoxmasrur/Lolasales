@@ -156,7 +156,8 @@
     "test:izoh-filtri": "tsx src/domain/services/izohFiltri.spec.ts",
     "test:izoh-muallifi": "tsx src/infrastructure/telegram/izohMuallifi.spec.ts",
     "test:izoh-yiguvchi": "tsx src/application/services/izohYiguvchi.spec.ts",
-    "test:kunlik-xulosa": "tsx src/application/services/kunlikXulosa.spec.ts"
+    "test:kunlik-xulosa": "tsx src/application/services/kunlikXulosa.spec.ts",
+    "test:voronka": "tsx src/domain/services/voronka.spec.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.220",
