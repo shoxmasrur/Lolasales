@@ -90,6 +90,23 @@ for (const s of STANDART_MISOL_BOLIMLARI) {
   check(`${s.key}: YAXSHI da "to'lov qabul qilindi" yo'q`, tasdiq, false);
 }
 
+// ─── Chek ko'rib chiqilayotganda havola va'da qilinmaydi (RECEIPT_REVIEW_RULE) ──
+const chekMisollari = STANDART_MISOL_BOLIMLARI.flatMap((s) => s.items).filter((e) => /chek/i.test(e.situation));
+check('chek misollari bor', chekMisollari.length > 0, true);
+check('chek misolida YAXSHI da "havola" yo\'q', chekMisollari.some((e) => /havola/i.test(e.good)), false);
+check('CHEK bo\'limida "havola" yo\'q', (bullets.get('chek')?.items ?? []).some((i) => /havola/i.test(i)), false);
+
+// ─── Shartli misollar shartni vaziyatda aytadi ───────────────────────────
+const etirozlar = misollar.get('etirozlar')?.items ?? [];
+const pulim = etirozlar.filter((e) => /pulim yo'q/i.test(e.situation));
+check('"pulim yo\'q": bo\'lib to\'lash bor/yo\'q — ikkala misol', pulim.length, 2);
+check('"pulim yo\'q": shart vaziyatda', pulim.every((e) => e.situation.includes("Bo'lib to'lash:")), true);
+const vaqtim = etirozlar.find((e) => /vaqtim yo'q/i.test(e.situation));
+check('"vaqtim yo\'q": davomiylik sharti vaziyatda', Boolean(vaqtim?.situation.includes('Davomiylik')), true);
+
+// ─── Qayg'u / kasallik — shu navbatda sotilmaydi ─────────────────────────
+check('stop_signals: qayg\'uda hamdardlik', (bullets.get('stop_signals')?.items ?? []).some((i) => /hamdardlik/i.test(i) && /kasallik/i.test(i)), true);
+
 // ─── Qat'iy taqiqlar promptdagi qoidalar bilan mos ───────────────────────
 check('chekdan keyin "tekshirib chiqamiz"', past.includes('tekshirib chiqamiz'), true);
 check('karta raqamini tizim yuboradi (sendCard)', t.includes('sendCard'), true);
