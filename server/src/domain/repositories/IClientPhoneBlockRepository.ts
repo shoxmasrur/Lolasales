@@ -43,6 +43,9 @@ export interface IClientPhoneBlockRepository {
   /** Xato belgilangan bo'lsa — to'siqni olib tashlaydi. */
   unblock(clientId: string, phone: string): Promise<void>;
 
+  /** Raqam biror mijozdan uzilganmi (importdagi yangi lead shunday raqamga yozilmasin). */
+  isPhoneBlocked(phone: string): Promise<boolean>;
+
   /** Shu mijoz uchun uzilgan raqamlar. Sinxronizatsiya va import shuni so'raydi. */
   listForClient(clientId: string): Promise<string[]>;
 

@@ -4,6 +4,7 @@ import type {
   IConversationRepository,
 } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
+import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { IncomingMessage } from '@/domain/services/ITelegramGateway';
 import { canAgentReply } from '@/domain/entities/Conversation';
@@ -24,6 +25,9 @@ import { normalizePhone } from '@/shared/phone';
 import { childLogger } from '@/shared/logger';
 
 const log = childLogger('incoming');
+
+/** Telegram xizmat hisoblari: 777000 — kirish kodlari, 42777 — yordam xizmati. */
+const TELEGRAM_XIZMAT_IDLARI: ReadonlySet<string> = new Set(['777000', '42777']);
 
 /**
  * Telegramdan kelgan xabarni qayd qiladi va (ruxsat etilgan bo'lsa) agentni
@@ -80,6 +84,8 @@ export class HandleIncomingMessageUseCase {
     private readonly sttTaqqoslash: SttTaqqoslash | null = null,
     /** Bazada yo'q jo'natuvchini reklama leadi qilib ochadi; `null` bo'lsa — e'tiborsiz. */
     private readonly mijozYaratuvchi: Pick<MijozYaratuvchi, 'reklamadan'> | null = null,
+    /** O'z Telegram akkauntlarimiz — ular bir-biriga yozsa lead ochilmaydi. */
+    private readonly akkauntlar: Pick<ITelegramAccountRepository, 'list'> | null = null,
     /** Chek kelganda FAOL xarid bosqichi `chek_keldi` bo'ladi (yangi xarid ochilmaydi); `null` — sinovlarda. */
     private readonly xarid: Pick<XaridXizmati, 'faolXaridBosqichi'> | null = null,
   ) {}
@@ -91,6 +97,11 @@ export class HandleIncomingMessageUseCase {
       // Telegram xizmati (777000, 42777, verified/support) — lead emas.
       if (incoming.xizmatHisobi) {
         log.info({ tgUserId: incoming.telegramUserId }, 'Xizmat hisobi xabari — mijoz ochilmadi');
+        return 'ignored';
+      }
+      // Telegram xizmat idlari yoki o'zimizning sotuv akkauntimiz — lead emas.
+      if (TELEGRAM_XIZMAT_IDLARI.has(incoming.telegramUserId) || (await this.ozAkkauntimi(incoming.telegramUserId))) {
+        log.info({ tgUserId: incoming.telegramUserId }, "Xizmat/o'z akkauntimiz xabari — lead ochilmadi");
         return 'ignored';
       }
       if (!this.mijozYaratuvchi) {
@@ -258,6 +269,11 @@ export class HandleIncomingMessageUseCase {
   private async operatorga(conversationId: string, patch: ConversationPatch): Promise<void> {
     await this.conversations.update(conversationId, patch);
     this.events.publish({ type: 'conversation.updated', conversationId });
+  }
+
+  private async ozAkkauntimi(tgUserId: string): Promise<boolean> {
+    if (!this.akkauntlar) return false;
+    return (await this.akkauntlar.list()).some((a) => a.tgUserId === tgUserId);
   }
 
   private async findClient(incoming: IncomingMessage) {

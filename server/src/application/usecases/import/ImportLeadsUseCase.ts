@@ -3,6 +3,7 @@ import type { ImportResult, ImportRowError } from '@/domain/entities/ImportBatch
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
 import type { ICourseRepository } from '@/domain/repositories/ICourseRepository';
 import type { IImportBatchRepository } from '@/domain/repositories/ISupportRepositories';
+import type { IClientPhoneBlockRepository } from '@/domain/repositories/IClientPhoneBlockRepository';
 import type { ILeadFileParser } from '@/domain/services/ILeadFileParser';
 import type { MijozYaratuvchi } from '@/application/services/MijozYaratuvchi';
 import { childLogger } from '@/shared/logger';
@@ -45,6 +46,8 @@ export class ImportLeadsUseCase {
     private readonly courses: Pick<ICourseRepository, 'list'>,
     private readonly batches: IImportBatchRepository,
     private readonly clients: Pick<IClientRepository, 'update'>,
+    /** Mijozdan uzilgan raqamlar importdan qayta qo'shilmaydi; `null` — tekshirilmaydi. */
+    private readonly blocks: Pick<IClientPhoneBlockRepository, 'isPhoneBlocked'> | null = null,
   ) {}
 
   async execute(input: ImportLeadsInput): Promise<ImportLeadsResult> {
@@ -69,7 +72,14 @@ export class ImportLeadsUseCase {
         const courseId = kursniTop(courses, row.courseName);
         if (row.courseName && !courseId) nomalumKurslar.add(row.courseName);
 
-        const [birinchi, ...qolgan] = row.phones;
+        // Operator "bu raqam mijozniki emas" deb uzgan raqam qaytib kelmasin.
+        const phones: string[] = [];
+        for (const p of row.phones) if (!(await this.blocks?.isPhoneBlocked(p))) phones.push(p);
+        if (!phones.length) {
+          errors.push({ row: row.rowNumber, reason: "Raqam avval 'mijozniki emas' deb uzilgan", value: row.phones[0] });
+          continue;
+        }
+        const [birinchi, ...qolgan] = phones;
         const { client, created: yangi } = await this.creator.raqamdan({
           fullName: row.fullName ?? '',
           phone: birinchi!,

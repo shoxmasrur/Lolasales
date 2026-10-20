@@ -31,6 +31,7 @@ jobs:
           npm run test:import-leads --workspace=server
           npm run test:mijoz-yaratuvchi --workspace=server
           npm run test:reklama-oqimi --workspace=server
+          npm run test:lead-boshlash --workspace=server
           npm run test:kampaniya-sharti --workspace=server
           npm run test:name-match --workspace=server
           npm run test:gender --workspace=server
@@ -83,7 +84,6 @@ jobs:
           npm run test:minimal-qarz-sozlamasi --workspace=server
           # Mijozga XABAR YUBORADIGAN yo'lning darvozasi — ro'yxatda
           # bo'lmasa, qulf yo'q.
-          npm run test:minimal-qarz-darvozasi --workspace=server
           npm run test:eskirgan-javob --workspace=server
           npm run test:uzilgan-navbat --workspace=server
           # Sukutdan keyingi qayta murojaat. Bu testlar mijozga XABAR

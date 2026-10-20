@@ -94,15 +94,10 @@ function build(m: Muhit) {
   } as unknown as IMessageRepository;
 
   const useCase = new StartConversationUseCase(
-    clients, contracts, conversations, resolver, agent,
+    clients, conversations, resolver, agent,
     { record: async () => undefined } as unknown as IAuditRepository,
     { publish: () => undefined } as unknown as IEventBus,
-    {
-      syncOne: async () => { iz.sinx += 1; return { outcome: 'disabled' as const }; },
-      lastSyncedAt: async () => new Date(),
-    } as unknown as ContractSyncService,
     { saveContact: async () => undefined } as unknown as ITelegramGateway,
-    { get: async () => ({ minDebt: 0 }) } as unknown as RuntimeSettings,
     messages,
     {
       sukutdami: async (clientId: string, today: string) => {

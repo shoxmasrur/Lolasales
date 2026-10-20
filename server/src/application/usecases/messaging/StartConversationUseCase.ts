@@ -1,9 +1,6 @@
 import type { Conversation } from '@/domain/entities/Conversation';
 import { isContactable } from '@/domain/entities/Client';
-import { kechikkanSumma } from '@/domain/entities/Contract';
-import { faqatYoziladiganlar } from '@/domain/entities/shartnomaHolati';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
@@ -11,14 +8,9 @@ import type { IClock, IEventBus } from '@/domain/services/support';
 import type { ITalabnomaSukuti } from '@/domain/services/ITalabnomaSukuti';
 import type { AgentRunner } from '@/application/services/AgentRunner';
 import type { ClientTelegramResolver } from '@/application/services/ClientTelegramResolver';
-import type { ContractSyncService } from '@/application/services/ContractSyncService';
 import type { ITelegramGateway } from '@/domain/services/ITelegramGateway';
 import { contactName } from '@/domain/services/contactName';
 import { RESOLVE_REASONS } from '@/application/services/resolveSabablari';
-import { stageForOverdueDays } from '@/domain/policies/EscalationPolicy';
-import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
-import { formatSom } from '@/shared/money';
-import { config } from '@/shared/config';
 import { AbortedError, AppError, NotFoundError } from '@/shared/errors';
 import { childLogger } from '@/shared/logger';
 
@@ -63,8 +55,7 @@ export interface StartConversationOptions {
   /**
    * Bu mijozni yarim yo'lda uzish uchun.
    *
-   * NEGA: bitta mijozni boshlash sekin — har shartnoma uchun jonli HTTP
-   * so'rov (~330 ms), keyin Telegram qidiruvi, keyin model javobi. Ommaviy
+   * NEGA: bitta mijozni boshlash sekin — Telegram qidiruvi, keyin model javobi. Ommaviy
    * ish "To'xtatish"ni bosgan operator shu bosqichlarning tugashini
    * kutmasligi kerak: signal kelishi bilan qadamlar orasidagi tekshiruvlar
    * `AbortedError` tashlaydi va mijozga xabar KETMAYDI.
@@ -73,22 +64,20 @@ export interface StartConversationOptions {
 }
 
 /**
- * Mijoz bilan birinchi aloqani boshlaydi:
- * telefon → Telegram profili → suhbat yozuvi → agentning birinchi xabari.
+ * Mijoz (lead) bilan birinchi aloqani boshlaydi:
+ * telefon → Telegram profili (guruh/reklama leadida u allaqachon 'found' —
+ * qidiruvsiz) → suhbat yozuvi → agentning birinchi xabari.
+ * Shartnoma yoki qarz shartlari yo'q: sotuvda har bir lead yoziladi.
  */
 export class StartConversationUseCase {
   constructor(
     private readonly clients: IClientRepository,
-    private readonly contracts: IContractRepository,
     private readonly conversations: IConversationRepository,
     private readonly resolver: ClientTelegramResolver,
     private readonly agent: AgentRunner,
     private readonly audit: IAuditRepository,
     private readonly events: IEventBus,
-    private readonly contractSync: ContractSyncService,
     private readonly telegram: ITelegramGateway,
-    /** Minimal qarzdorlik chegarasi shu yerdan o'qiladi. */
-    private readonly settings: RuntimeSettings,
     /** Takror birinchi xabardan himoya — suhbatda ketgan xabar bormi. */
     private readonly messages: IMessageRepository,
     /**
@@ -135,83 +124,6 @@ export class StartConversationUseCase {
     // (`draft`) hisobga olinmaydi: ular mijozga yetmagan.
     if (existing && (await this.messages.hasPossiblyDeliveredOutbound(existing.id))) {
       return { status: 'skipped', reason: 'Suhbat allaqachon boshlangan', conversation: existing };
-    }
-
-    // Mijozga yozishdan OLDIN shartnomalarni jonli tekshiramiz.
-    //
-    // NEGA: tizimning eng qimmat xatosi — kecha to'lagan odamga
-    // "to'lovingiz kechikkan" deb yozish. Excel eksporti bir necha kunlik
-    // bo'lishi mumkin, shartnomalar bazasi esa bankdan kelgan to'lovni
-    // bir necha soatda ko'rsatadi. Bitta mijoz uchun bu ~330 ms.
-    let contracts = await this.contracts.findByClientId(clientId);
-
-    let staleAndUnreachable = false;
-    let contractsRefreshed = false;
-
-    for (const c of contracts) {
-      // Har shartnoma alohida HTTP so'rov: ko'p shartnomali mijozda bu
-      // tsikl soniyalar oladi va to'xtatish shu yerda kutib qolmasligi kerak.
-      this.tekshir(options.signal);
-
-      const result = await this.contractSync.syncOne(c.id);
-      if (result.outcome === 'ok') {
-        contractsRefreshed = true;
-      } else if (result.outcome === 'error') {
-        // Shartnomalar bazasi javob bermadi. Mavjud ma'lumot yetarlicha
-        // yangi bo'lsa davom etamiz; eski bo'lsa bu mijozni keyingi
-        // navbatga qoldiramiz — shubha bo'lganda yozmaslik afzal.
-        const syncedAt = await this.contractSync.lastSyncedAt(c.id);
-        const ageMs = syncedAt ? Date.now() - syncedAt.getTime() : Number.POSITIVE_INFINITY;
-        if (ageMs > config.CONTRACTS_STALE_HOURS * 60 * 60 * 1000) staleAndUnreachable = true;
-      }
-      // 'disabled' va 'not_found' — mavjud ma'lumot bilan davom etamiz.
-    }
-
-    if (staleAndUnreachable) {
-      return {
-        status: 'skipped',
-        reason: 'Shartnoma ma\'lumotini yangilab bo\'lmadi va mavjudi eskirgan',
-        conversation: existing,
-      };
-    }
-
-    if (contractsRefreshed) contracts = await this.contracts.findByClientId(clientId);
-
-    // Faqat "Сотилди" shartnomasi bo'yicha yoziladi. Tekshiruv sinxronizatsiyadan
-    // KEYIN: holat aynan o'sha yerda CRM'dan yangilanadi, ya'ni "Проц. отказ" ga
-    // o'tgani shu qadamda bilinadi.
-    contracts = faqatYoziladiganlar(contracts);
-    if (!contracts.length) {
-      return {
-        status: 'skipped',
-        reason: 'Shartnoma holati yozishga mos emas (Сотилди, К оплате yoki Проц. отказ emas)',
-        conversation: existing,
-      };
-    }
-
-    // Suhbat mavzusi — kechikkan to'lovning IKKALA qismi: boshlang'ich
-    // to'lov va oyma-oy to'lovlar.
-    //
-    // `minDebt` — operator dashboarddan qo'ygan minimal chegara. 800-1000
-    // so'mlik qoldiq qarz emas, yaxlitlash farqi: bunday mijozga yozilgan
-    // xabar to'lovni tezlashtirmaydi, lekin akkauntning kunlik kvotasini
-    // yeydi va mijozning ishonchini so'ndiradi.
-    //
-    // Tekshiruv Telegram qidiruvidan OLDIN — qidiruv haqiqiy MTProto
-    // so'rovi va uni behuda sarflash akkauntni spam filtriga yaqinlashtiradi.
-    const { minDebt } = await this.settings.get();
-    const debt = kechikkanSumma(contracts);
-    if (debt <= minDebt) {
-      return {
-        status: 'skipped',
-        // Chegara o'chirilgan bo'lsa eski matn qoladi: "chegaradan kichik"
-        // deyish operatorni yo'q sozlamani qidirishga majburlardi.
-        reason:
-          minDebt > 0
-            ? `Kechikkan to'lov chegaradan kichik (${formatSom(debt)} ≤ ${formatSom(minDebt)})`
-            : 'Kechikkan to\'lov yo\'q',
-        conversation: existing,
-      };
     }
 
     // Ism mos kelmagan mijozga ruxsat berilgan bo'lsa — buni ALOHIDA
@@ -274,8 +186,6 @@ export class StartConversationUseCase {
       });
     }
 
-    const daysOverdue = contracts.reduce((max, c) => Math.max(max, c.daysOverdue), 0);
-
     // Shu yerdan keyin uzilsa bazada `new` holatidagi bo'sh suhbat qolishi
     // mumkin. Bu ATAYLAB qabul qilingan: `AGENT_NO_REPLY` yo'li ham aynan
     // shunday qoldiradi va `execute()` yuqorida `new` suhbatni davom
@@ -286,14 +196,14 @@ export class StartConversationUseCase {
       (await this.conversations.create({
         clientId,
         telegramAccountId: resolved.value.accountId,
-        stage: stageForOverdueDays(daysOverdue),
+        // Debitor eskalatsiya bosqichi sotuvda ishlatilmaydi (Task 14 olib tashlaydi).
+        stage: 'soft',
       }));
 
     const prepared = await this.conversations.update(conversation.id, {
       telegramAccountId: resolved.value.accountId,
       peerId: resolved.value.peer.telegramUserId,
       peerAccessHash: resolved.value.peer.accessHash,
-      stage: stageForOverdueDays(daysOverdue),
     });
 
     if (!existing) {
@@ -322,8 +232,7 @@ export class StartConversationUseCase {
     //
     // Xato yutiladi: xabar allaqachon ketgan, kontakt esa ikkinchi
     // darajali. Keyingi suhbat boshlanganda o'zi qayta yoziladi.
-    const primary = await this.contracts.findPrimaryForClient(clientId);
-    const name = contactName(primary?.contractNo ?? null, client.fullName, client.firstName);
+    const name = contactName(null, client.fullName, client.firstName);
     await this.telegram
       .saveContact(resolved.value.accountId, resolved.value.peer, name.first, name.last)
       .catch((err) => {

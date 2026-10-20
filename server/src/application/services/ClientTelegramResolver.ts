@@ -9,6 +9,7 @@ import type { IClock } from '@/domain/services/support';
 import { cachedPeerUsable } from '@/domain/services/peerCache';
 import type { AccountAssigner } from '@/application/services/AccountAssigner';
 import { TelegramError } from '@/shared/errors';
+import { uniqueBuzildimi } from '@/shared/pgErrors';
 import { matchesClientName } from '@/shared/nameMatch';
 import { childLogger } from '@/shared/logger';
 import { kontekst } from '@/shared/logContext';
@@ -44,6 +45,12 @@ export type ResolveOutcome =
    * Xabar YUBORILMAYDI, operator o'zi tekshiradi.
    */
   | { kind: 'name_mismatch'; telegramName: string; phone: string }
+  /**
+   * Topilgan Telegram profil allaqachon BOSHQA mijozga biriktirilgan (unique
+   * indeks). Mijoz `name_mismatch` bilan belgilanadi va qayta qidirilmaydi —
+   * operator ikki yozuvni ko'rib hal qiladi.
+   */
+  | { kind: 'profile_taken'; phone: string }
   /** Tizimda umuman yaroqli Telegram akkaunt yo'q. */
   | { kind: 'no_account' }
   /**
@@ -252,17 +259,9 @@ export class ClientTelegramResolver {
             // profilni ko'rib, o'zi tasdiqlashi mumkin — o'shanda
             // identifikator allaqachon joyida bo'lsin, qayta qidirish
             // shart bo'lmasin.
-            await this.clients.setTelegramIdentity(
-              client.id,
-              {
-                telegramUserId: result.peer.telegramUserId,
-                telegramUsername: result.peer.username,
-                telegramAccessHash: result.peer.accessHash,
-                telegramName: telegramName || null,
-                telegramHashAccountId: account,
-              },
-              'name_mismatch',
-            );
+            if (!(await this.identityYoz(client, result.peer, telegramName, account, 'name_mismatch', phone))) {
+              return { kind: 'profile_taken', phone };
+            }
             if (allowNameMismatch) {
               log.warn(
                 { clientId: client.id, phone, mijoz: client.fullName, telegramda: telegramName },
@@ -286,17 +285,9 @@ export class ClientTelegramResolver {
             return { kind: 'name_mismatch', telegramName, phone };
           }
 
-          await this.clients.setTelegramIdentity(
-            client.id,
-            {
-              telegramUserId: result.peer.telegramUserId,
-              telegramUsername: result.peer.username,
-              telegramAccessHash: result.peer.accessHash,
-              telegramName: telegramName || null,
-              telegramHashAccountId: account,
-            },
-            'found',
-          );
+          if (!(await this.identityYoz(client, result.peer, telegramName, account, 'found', phone))) {
+            return { kind: 'profile_taken', phone };
+          }
           log.info(
             { ...kontekst({ akkaunt: tgAccount.label, mijoz: client.fullName }), clientId: client.id, phone, nameCheck: verdict },
             'Mijoz Telegramdan topildi',
@@ -320,6 +311,43 @@ export class ClientTelegramResolver {
     await this.clients.setTelegramName(client.id, null);
     await this.clients.setTelegramStatus(client.id, sawPrivacy ? 'privacy_restricted' : 'not_found');
     return sawPrivacy ? { kind: 'privacy_restricted' } : { kind: 'not_on_telegram' };
+  }
+
+  /**
+   * Topilgan profilni mijozga yozadi. Profil boshqa mijozda bo'lsa (23505)
+   * mijoz `name_mismatch` bilan belgilanadi (keyingi qidiruvlar to'xtaydi) va
+   * `false` qaytadi.
+   */
+  private async identityYoz(
+    client: Client,
+    peer: ResolvedPeer,
+    telegramName: string,
+    accountId: string,
+    status: 'found' | 'name_mismatch',
+    phone: string,
+  ): Promise<boolean> {
+    try {
+      await this.clients.setTelegramIdentity(
+        client.id,
+        {
+          telegramUserId: peer.telegramUserId,
+          telegramUsername: peer.username,
+          telegramAccessHash: peer.accessHash,
+          telegramName: telegramName || null,
+          telegramHashAccountId: accountId,
+        },
+        status,
+      );
+      return true;
+    } catch (err) {
+      if (!uniqueBuzildimi(err)) throw err;
+      log.warn(
+        { clientId: client.id, phone, telegramUserId: peer.telegramUserId },
+        'Telegram profil boshqa mijozga biriktirilgan — qidiruv to\'xtatildi',
+      );
+      await this.clients.setTelegramStatus(client.id, 'name_mismatch');
+      return false;
+    }
   }
 
   /**

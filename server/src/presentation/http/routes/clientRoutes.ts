@@ -14,6 +14,7 @@ import { ALOQA_KALITLARI } from '@/domain/entities/aloqaHolati';
 import { EKSPORT_USTUNLARI, eksportQatori } from '@/application/usecases/clients/eksportJadvali';
 import type { ClientQuery } from '@/domain/repositories/IClientRepository';
 import { childLogger } from '@/shared/logger';
+import { uniqueBuzildimi, PROFIL_BAND } from '@/shared/pgErrors';
 import { qamrov } from '@/presentation/http/middleware/qamrov';
 import { begonaniToxtatma, korinadiganVazifa } from '@/application/services/vazifaKorinishi';
 import type { MijozQamrovi } from '@/domain/entities/MijozQamrovi';
@@ -946,18 +947,24 @@ export function clientRoutes(container: Container): Router {
       .join(' ')
       .trim();
 
-    const updated = await clients.setTelegramIdentity(
-      id,
-      {
-        telegramUserId: result.peer.telegramUserId,
-        telegramUsername: result.peer.username,
-        telegramAccessHash: result.peer.accessHash,
-        telegramName: telegramName || null,
-        // Username bo'yicha qidiruvni bajargan akkaunt.
-        telegramHashAccountId: accountId,
-      },
-      'found',
-    );
+    let updated;
+    try {
+      updated = await clients.setTelegramIdentity(
+        id,
+        {
+          telegramUserId: result.peer.telegramUserId,
+          telegramUsername: result.peer.username,
+          telegramAccessHash: result.peer.accessHash,
+          telegramName: telegramName || null,
+          // Username bo'yicha qidiruvni bajargan akkaunt.
+          telegramHashAccountId: accountId,
+        },
+        'found',
+      );
+    } catch (err) {
+      if (uniqueBuzildimi(err)) throw new ValidationError(PROFIL_BAND);
+      throw err;
+    }
 
     await container.repositories.audit.record({
       actor: user.email,

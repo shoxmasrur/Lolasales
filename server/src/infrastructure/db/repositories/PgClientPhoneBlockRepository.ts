@@ -35,6 +35,11 @@ export class PgClientPhoneBlockRepository implements IClientPhoneBlockRepository
     ]);
   }
 
+  async isPhoneBlocked(phone: string): Promise<boolean> {
+    const { rows } = await query<Row>('SELECT 1 FROM client_phone_blocks WHERE phone = $1 LIMIT 1', [phone]);
+    return rows.length > 0;
+  }
+
   async listForClient(clientId: string): Promise<string[]> {
     const { rows } = await query<Row>(
       'SELECT phone FROM client_phone_blocks WHERE client_id = $1',

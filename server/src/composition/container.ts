@@ -285,12 +285,12 @@ export function createContainer() {
   const login = new LoginUseCase(users, hasher, tokens, audit);
   // Reklama (kiruvchi), guruh va Excel raqamlari — hammasi shu yerda mijoz bo'ladi.
   const mijozYaratuvchi = new MijozYaratuvchi(clients, xaridXizmati, events);
-  const importLeads = new ImportLeadsUseCase(parser, mijozYaratuvchi, courses, importBatches, clients);
+  const importLeads = new ImportLeadsUseCase(parser, mijozYaratuvchi, courses, importBatches, clients, phoneBlocks);
   // "Bu raqam mijozniki emas" tugmasi ortidagi amal.
   const blockClientPhone = new BlockClientPhoneUseCase(clients, phoneBlocks, conversations, audit, paymentChecks);
   const startConversation = new StartConversationUseCase(
-    clients, contracts, conversations, resolver, agent, audit, events, contractSync, telegram,
-    settings, messages, talabnomaSukuti, clock,
+    clients, conversations, resolver, agent, audit, events, telegram,
+    messages, talabnomaSukuti, clock,
   );
   // Chek tekshiruvi: menejer summani tasdiqlaydi yoki rad etadi; tasdiqda
   // xarid bosqichi va (qoida bajarilsa) guruh havolasi tizim tomonidan.
@@ -305,6 +305,7 @@ export function createContainer() {
     paymentCheckService, sttTaqqoslash,
     // Notanish yozuvchi — reklama leadi.
     mijozYaratuvchi,
+    telegramAccounts,
     // Chek kelganda faol xarid `chek_keldi` bosqichiga o'tadi.
     xaridXizmati,
   );

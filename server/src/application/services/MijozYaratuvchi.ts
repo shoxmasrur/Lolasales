@@ -4,6 +4,7 @@ import type { IncomingMessage, ResolvedPeer } from '@/domain/services/ITelegramG
 import type { IEventBus } from '@/domain/services/support';
 import type { XaridXizmati } from '@/application/services/XaridXizmati';
 import { normalizePhone } from '@/shared/phone';
+import { uniqueBuzildimi } from '@/shared/pgErrors';
 import { childLogger } from '@/shared/logger';
 
 const log = childLogger('mijoz-yaratuvchi');
@@ -16,11 +17,6 @@ export function kiruvchiIsmi(i: Pick<IncomingMessage, 'fullName' | 'username' | 
   const tel = normalizePhone(i.phone);
   if (tel) return tel;
   return 'Telegram foydalanuvchisi';
-}
-
-/** Unique indeks (bir xil Telegram foydalanuvchisi) buzilganmi. */
-function takrorlanishmi(err: unknown): boolean {
-  return (err as { code?: string } | null)?.code === '23505';
 }
 
 /**
@@ -117,7 +113,7 @@ export class MijozYaratuvchi {
     try {
       return { client: await this.clients.create(data), created: true };
     } catch (err) {
-      if (!takrorlanishmi(err)) throw err;
+      if (!uniqueBuzildimi(err)) throw err;
       // Poyga: bir vaqtda kelgan ikkinchi xabar mijozni ulgurib yaratdi.
       const endi = await this.clients.findByTelegramUserId(telegramUserId);
       if (endi) return { client: endi, created: false };

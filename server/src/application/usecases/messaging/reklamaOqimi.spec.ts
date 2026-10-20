@@ -40,6 +40,7 @@ function qur(o: { creator?: boolean; creatorXato?: boolean } = {}) {
         return mijoz;
       },
     } as never),
+    { list: async () => [{ tgUserId: '999' }] } as never,
   );
   return { uc, yaratilgan, suhbatlar, pushlar };
 }
@@ -59,6 +60,13 @@ const xabar = (o: Partial<IncomingMessage> = {}): IncomingMessage => ({
   {
     const { uc, yaratilgan } = qur();
     check('xizmat hisobi: e\'tiborsiz', [await uc.execute(xabar({ xizmatHisobi: true })), yaratilgan.length], ['ignored', 0]);
+  }
+  {
+    const { uc, yaratilgan } = qur();
+    check("o'z sotuv akkauntimiz yozdi: lead ochilmaydi",
+      [await uc.execute(xabar({ telegramUserId: '999' })), yaratilgan.length], ['ignored', 0]);
+    check("Telegram xizmat id (42777): lead ochilmaydi",
+      [await uc.execute(xabar({ telegramUserId: '42777' })), yaratilgan.length], ['ignored', 0]);
   }
   {
     const { uc } = qur({ creator: false });
