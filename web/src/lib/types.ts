@@ -580,9 +580,10 @@ export interface OutreachSettings {
   promiseReminderUntil: string;
   /** "Pul tushdi" xabari shu vaqtgacha yuboriladi (HH:mm). */
   promiseThanksUntil: string;
-  silenceNudge: boolean;
-  silenceNudgeDays: number;
-  silenceNudgeMax: number;
+  /** Jim qolgan mijozga bosqichiga bitta eslatma. */
+  eslatmaYoqilgan: boolean;
+  /** Oxirgi xabardan necha soat o'tgach (1–168). */
+  eslatmaSoat: number;
   /**
    * Bitta akkauntning ikki Telegram operatsiyasi orasidagi tasodifiy tanaffus.
    * Kampaniya pauzasidan farqli: u ikki MIJOZ orasidagi oraliq, bu esa

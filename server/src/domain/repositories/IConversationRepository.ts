@@ -1,3 +1,4 @@
+import type { XaridBosqichi } from '@/domain/entities/Purchase';
 import type { Conversation, ConversationState, EscalationStage, HumanKind } from '@/domain/entities/Conversation';
 import type { Page, Pagination } from '@/domain/repositories/types';
 import type { MijozQamrovi } from '@/domain/entities/MijozQamrovi';
@@ -123,33 +124,22 @@ export interface IConversationRepository {
   touchInbound(id: string, at: Date): Promise<void>;
   touchOutbound(id: string, at: Date): Promise<void>;
   /**
-   * Sukutga ketgan suhbatlar: oxirgi xabar BIZDAN va undan keyin javob yo'q.
-   *
-   * Faqat ARZON shartlar SQL da: sukutning uzunligi (yakshanbani hisobga
-   * olmaydigan sanoq) va shartnoma holati kuzatuvchida tekshiriladi —
-   * ular sof funksiya va boshqa repozitoriyni talab qiladi.
-   *
-   * `minDebt` berilsa, faol va'dasi bor va kechikishi yopilgan ("Сотилди"
-   * bo'yicha `debt_first + debt_monthly <= minDebt`) suhbatlar ham SQL'da
-   * chiqarib tashlanadi. Aks holda ular eng eski nomzodlar bo'lib limitni
-   * to'ldirib qo'yadi va kuzatuvchi ularni o'tkazib yuborib, hech kimga
-   * yozmaydi (2026-09-15: 469 nomzod, birinchi haqiqiysi 63-o'rinda).
-   * Kuzatuvchi `runtime.minDebt` ni bersin — koddagi tekshiruv bilan bir xil chegara.
-   * `todayIso` berilsa — muddati tugamagan talabnomali mijozlar ham chiqariladi.
+   * Eslatma nomzodlari: faol xarid bosqichi `qiziqdi`/`karta_yuborildi`, oxirgi xabar
+   * BIZDAN va javob yo'q. Agent yoqilgan, odam kerak emas, mijoz bloklamagan, ochiq chek yo'q.
+   * Soat va "bir bosqichga bitta" qoidasi `eslatmaKerakmi` da tekshiriladi.
    */
-  findSilent(limit: number, maxNudges: number, minDebt?: number, todayIso?: string): Promise<Conversation[]>;
-  bumpNudgeCount(id: string): Promise<void>;
-  /** Sukut zanjirini yangidan boshlaydi — oylik eslatma ketgach (u ham "bizning xabar"). */
-  resetNudgeCount(id: string): Promise<void>;
-  /**
-   * Sarflanmagan urinishni qaytaradi.
-   *
-   * `SilenceWatcher` hisoblagichni agent chaqiruvidan OLDIN oshiradi.
-   * Chaqiruv CRM yiqilgani sababli umuman bo'lmasa, urinish behuda
-   * yo'qolardi — shu yerda qaytariladi. Nolga tushib ketmaydi.
-   */
-  unbumpNudgeCount(id: string): Promise<void>;
+  findEslatmaNomzodlari(limit: number): Promise<EslatmaNomzodi[]>;
   markRead(id: string): Promise<void>;
   /** Barcha yozishmalarni o'chiradi. Mijozlar, qoidalar va saboqlar qoladi. */
   resetAll(options: { resetCampaigns: boolean }): Promise<ResetSummary>;
+}
+
+export interface EslatmaNomzodi {
+  conversationId: string;
+  clientId: string;
+  purchaseId: string;
+  stage: XaridBosqichi;
+  remindedStages: XaridBosqichi[];
+  lastOutboundAt: Date;
+  lastInboundAt: Date | null;
 }

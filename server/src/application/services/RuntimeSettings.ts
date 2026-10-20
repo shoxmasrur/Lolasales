@@ -37,19 +37,10 @@ export interface OutreachSettings {
    * jiringlatish demak. Pul kelgani ertalabgacha kutadi.
    */
   promiseThanksUntil: string;
-  /** Mijoz javob bermay qo'yganda agent o'zi qayta yozsinmi. */
-  silenceNudge: boolean;
-  /**
-   * Necha ISH KUNI sukutdan keyin qayta yoziladi. Yakshanba sanalmaydi:
-   * banklar ishlamaydi, ya'ni o'sha kuni to'lov o'tmagan bo'lishi mumkin.
-   */
-  silenceNudgeDays: number;
-  /**
-   * Bitta sukut zanjirida eng ko'pi necha marta. Mijoz javob berishi
-   * bilan hisoblagich nolga qaytadi, ya'ni bu "ketma-ket javobsiz"
-   * chegarasi — suhbat umri davomidagi jami emas.
-   */
-  silenceNudgeMax: number;
+  /** Jim qolgan mijozga bosqichiga bitta yumshoq eslatma yuborilsinmi. */
+  eslatmaYoqilgan: boolean;
+  /** Eslatma oxirgi xabardan necha soat o'tgach yuboriladi (1–168). */
+  eslatmaSoat: number;
   /**
    * Bitta akkauntning ikki Telegram operatsiyasi orasidagi tasodifiy tanaffus.
    *
@@ -121,9 +112,8 @@ export class RuntimeSettings {
       promiseReminder: stored.promiseReminder ?? true,
       promiseReminderUntil: stored.promiseReminderUntil ?? '12:00',
       promiseThanksUntil: stored.promiseThanksUntil ?? '18:00',
-      silenceNudge: stored.silenceNudge ?? true,
-      silenceNudgeDays: stored.silenceNudgeDays ?? 1,
-      silenceNudgeMax: stored.silenceNudgeMax ?? 2,
+      eslatmaYoqilgan: stored.eslatmaYoqilgan ?? true,
+      eslatmaSoat: stored.eslatmaSoat ?? 24,
       gateMessageMinSec: stored.gateMessageMinSec ?? 5,
       gateMessageMaxSec: stored.gateMessageMaxSec ?? 20,
       gateOtherMinSec: stored.gateOtherMinSec ?? 1,

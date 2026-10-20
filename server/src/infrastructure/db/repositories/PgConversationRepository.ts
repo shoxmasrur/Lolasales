@@ -1,19 +1,18 @@
+import type { XaridBosqichi } from '@/domain/entities/Purchase';
 import type { Conversation, EscalationStage } from '@/domain/entities/Conversation';
-import { OCHIQ_VADA_HOLATLARI } from '@/domain/entities/PaymentPromise';
 import { CHEK_TEKSHIRUVI_MUDDATI_KUNLAR } from '@/domain/entities/PaymentCheck';
-import { YOZILADIGAN_SQL_QIYMATLARI } from '@/domain/entities/shartnomaHolati';
 import type {
   ConversationFilterOptions,
   ConversationListItem,
   ConversationPatch,
   ConversationQuery,
+  EslatmaNomzodi,
   IConversationRepository,
   ResetSummary,
 } from '@/domain/repositories/IConversationRepository';
 import type { Page } from '@/domain/repositories/types';
 import { query, withTransaction } from '@/infrastructure/db/pool';
 import { mapConversation } from '@/infrastructure/db/mappers';
-import { CHEK_TEKSHIRUVIDAGI_SUHBATLARSIZ } from '@/infrastructure/db/repositories/chekSukutFiltri';
 import { HAMMASI, type MijozQamrovi } from '@/domain/entities/MijozQamrovi';
 import { mijozQamroviSharti } from '@/infrastructure/db/qamrovSharti';
 import { NotFoundError } from '@/shared/errors';
@@ -321,122 +320,38 @@ export class PgConversationRepository implements IConversationRepository {
     );
   }
 
-  /**
-   * Jim qolgan suhbatlar — qayta murojaat nomzodlari.
-   *
-   * `needs_human` filtri IKKI QISMLI: operator qo'lga olgan suhbat
-   * chetlab o'tiladi, buzilgan va'da esa istisno. Sabab `canAgentNudge`
-   * izohida: sana aytib to'lamagan va endi javob ham bermayotgan mijoz —
-   * aynan agent bosim qilishi kerak bo'lgan holat, uni chetlab o'tsak
-   * "va'da berib to'lamadi" ssenariysi mijozga hech qachon yetib
-   * bormaydi. Shart bu yerda va kuzatuvchidagi qayta o'qishda BIR XIL
-   * bo'lishi kerak, aks holda nomzod tanlanib, keyin jimgina tushib
-   * qolardi.
-   *
-   * NAVBAT TIQILISHI (`minDebt` berilganda). Ilgari SQL faqat arzon
-   * shartlarni tekshirardi, faol va'da va yopilgan kechikish esa
-   * `SilenceWatcher` da, nomzodlar OLINGANIDAN KEYIN tekshirilardi.
-   * Nomzodlar eng eskisidan boshlab 60 ta olinadi — va o'sha eng
-   * eskilar aynan va'da bergan yoki to'lab bo'lgan mijozlar edi.
-   * 2026-09-15 prodda: 469 ta nomzod, birinchi 60 tasining HAMMASI kodda
-   * o'tkazib yuborildi, birinchi haqiqiy nomzod 63-o'rinda turardi. Ya'ni
-   * har tsikl bir xil 60 ta suhbatni o'qib, hech kimga yozmasdi — navbat
-   * abadiy tiqilib qolgandi.
-   *
-   * Shuning uchun ikkala shart shu yerga ko'chdi. Koddagi tekshiruv
-   * QOLADI (pauza ichida holat o'zgarishi mumkin), lekin endi u istisno,
-   * navbatni to'sadigan qoida emas. Ta'riflar koddagisi bilan BIR XIL
-   * bo'lishi shart, aks holda tiqilish qaytadi:
-   *   • faol va'da — `findActiveByConversation`: `pending`/`partial`,
-   *     o'chirilmagan (sanasiga QARALMAYDI — `nudgeKerakmi` ham qaramaydi);
-   *   • kechikish yopilgan — `kechikishYopildi(faqatYoziladiganlar(...))`:
-   *     "Сотилди" shartnomasi BOR va `debt_first + debt_monthly` yig'indisi
-   *     `minDebt` dan oshmaydi. Shartnoma yo'q bo'lsa — "yopilmagan".
-   *
-   * `minDebt` berilmasa eski xatti-harakat saqlanadi.
-   *
-   * TALABNOMA (`todayIso` berilganda). Muddati tugamagan (`yuborildi`,
-   * `muddat_sanasi >= bugun`) talabnomasi bor mijozga agent o'zi yozmaydi.
-   * Koddagi `ITalabnomaSukuti` tekshiruvi qoladi, lekin faqat u bo'lsa bunday
-   * suhbatlar 60 talik ro'yxatni muddat tugaguncha egallab turardi — yuqoridagi
-   * tiqilishning aynan o'zi. Shart `faolMuddat` bilan BIR XIL.
-   *
-   * `deleted_at` filtri ham shu sababli: o'chirilgan suhbatni kuzatuvchi
-   * `findById` da baribir tashlab yuboradi, ya'ni u ham navbatda joy
-   * egallab turardi.
-   */
-  async findSilent(limit: number, maxNudges: number, minDebt?: number, todayIso?: string): Promise<Conversation[]> {
-    const params: unknown[] = [limit, maxNudges];
-    let qoshimcha = '';
-    if (minDebt !== undefined) {
-      params.push(OCHIQ_VADA_HOLATLARI, YOZILADIGAN_SQL_QIYMATLARI, minDebt);
-      qoshimcha = `
-          AND NOT EXISTS (
-            SELECT 1 FROM payment_promises p
-             WHERE p.conversation_id = c.id
-               AND p.status = ANY($3::text[])
-               AND p.deleted_at IS NULL
-          )
-          AND NOT EXISTS (
-            SELECT 1
-              FROM contracts ct
-             WHERE ct.client_id = c.client_id AND ct.deleted_at IS NULL
-               AND TRIM(ct.virtual_status) = ANY($4::text[])
-            HAVING SUM(COALESCE(ct.debt_first, 0) + COALESCE(ct.debt_monthly, 0)) <= $5
-          )`;
-    }
-    if (todayIso !== undefined) {
-      params.push(todayIso);
-      qoshimcha += `
-          AND NOT EXISTS (
-            SELECT 1 FROM talabnomalar t
-             WHERE t.client_id = c.client_id
-               AND t.holat = 'yuborildi'
-               AND t.muddat_sanasi >= $${params.length}::date
-          )`;
-    }
+  async findEslatmaNomzodlari(limit: number): Promise<EslatmaNomzodi[]> {
     const { rows } = await query(
-      `SELECT c.*
+      `SELECT c.id AS conversation_id, c.client_id, p.id AS purchase_id, p.stage,
+              p.reminded_stages, c.last_outbound_at, c.last_inbound_at
          FROM conversations c
          JOIN clients cl ON cl.id = c.client_id
+         JOIN purchases p ON p.client_id = c.client_id
         WHERE c.deleted_at IS NULL
-          -- Noma'lum mijoz — shartnomasiz, unga ommaviy/eslatma yozilmaydi.
-          AND NOT cl.nomalum
+          AND p.stage = ANY($2::text[])
+          AND NOT (p.stage = ANY(p.reminded_stages))
           AND c.last_outbound_at IS NOT NULL
           AND (c.last_inbound_at IS NULL OR c.last_inbound_at < c.last_outbound_at)
-          AND c.nudge_count < $2
           AND c.agent_enabled
-          AND (NOT c.needs_human OR c.human_kind = 'broken_promise')
-          AND c.state NOT IN ('closed', 'escalated', 'refused', 'unreachable')
-          AND cl.telegram_status NOT IN ('blocked', 'deactivated')${CHEK_TEKSHIRUVIDAGI_SUHBATLARSIZ}${qoshimcha}
+          AND NOT c.needs_human
+          AND cl.telegram_status NOT IN ('blocked', 'deactivated')
+          AND NOT EXISTS (
+            SELECT 1 FROM payment_checks pc
+             WHERE pc.conversation_id = c.id AND pc.status = 'reviewing'
+          )
         ORDER BY c.last_outbound_at ASC
         LIMIT $1`,
-      params,
+      [limit, ['qiziqdi', 'karta_yuborildi']],
     );
-    return rows.map(mapConversation);
-  }
-
-  async bumpNudgeCount(id: string): Promise<void> {
-    await query('UPDATE conversations SET nudge_count = nudge_count + 1 WHERE id = $1', [id]);
-  }
-
-  async resetNudgeCount(id: string): Promise<void> {
-    await query('UPDATE conversations SET nudge_count = 0 WHERE id = $1', [id]);
-  }
-
-  /**
-   * `GREATEST(..., 0)` — hisoblagich manfiyga tushmasligi uchun.
-   *
-   * Qaytarish oshirishdan mustaqil chaqirilishi mumkin (masalan qayta
-   * ishga tushirishdan keyin qolgan holat), shunda nolni ayirish suhbatga
-   * CHEKSIZ qayta murojaat huquqini berardi: `findSilent` dagi
-   * `nudge_count < maxNudges` sharti manfiy sonda hech qachon yopilmaydi.
-   */
-  async unbumpNudgeCount(id: string): Promise<void> {
-    await query(
-      'UPDATE conversations SET nudge_count = GREATEST(nudge_count - 1, 0) WHERE id = $1',
-      [id],
-    );
+    return rows.map((r) => ({
+      conversationId: r.conversation_id as string,
+      clientId: r.client_id as string,
+      purchaseId: r.purchase_id as string,
+      stage: r.stage as XaridBosqichi,
+      remindedStages: (r.reminded_stages ?? []) as XaridBosqichi[],
+      lastOutboundAt: r.last_outbound_at as Date,
+      lastInboundAt: (r.last_inbound_at as Date | null) ?? null,
+    }));
   }
 
   async markRead(id: string): Promise<void> {

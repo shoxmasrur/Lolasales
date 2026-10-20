@@ -68,6 +68,9 @@ export interface QaytaAloqaSnapshot {
   readonly doNotContact: boolean;
 }
 
+/** Debitor davridagi `silenceNudgeMax` sozlamasi o'rniga: endi qotirilgan (sozlama olib tashlangan). */
+export const SUKUT_MAX_URINISH = 2;
+
 export interface QaytaAloqaQoidalari {
   readonly minDebt: number;
   readonly silenceNudgeMax: number;

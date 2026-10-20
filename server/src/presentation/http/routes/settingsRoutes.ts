@@ -25,12 +25,9 @@ const updateSchema = z.object({
   promiseReminder: z.boolean().optional(),
   promiseReminderUntil: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   promiseThanksUntil: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  silenceNudge: z.boolean().optional(),
-  // Yuqori chegara ataylab past: 7 ish kunidan keyingi "qayta murojaat"
-  // mijoz uchun yangi suhbat bo'lib tuyuladi, eslatma emas.
-  silenceNudgeDays: z.number().int().min(1).max(7).optional(),
-  // 3 tadan ko'pi ta'qib. Chegara kodda emas, shu yerda turadi.
-  silenceNudgeMax: z.number().int().min(1).max(3).optional(),
+  eslatmaYoqilgan: z.boolean().optional(),
+  // 1 soatdan 7 kungacha: undan ko'pi eslatma emas, yangi murojaat bo'lib tuyuladi.
+  eslatmaSoat: z.number().int().min(1).max(168).optional(),
   // Akkaunt navbatidagi tanaffus. Yuqori chegara ataylab past (5 daqiqa):
   // undan katta qiymat kampaniyani amalda to'xtatib qo'yadi.
   gateMessageMinSec: z.number().int().min(0).max(300).optional(),

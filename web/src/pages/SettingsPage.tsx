@@ -800,48 +800,31 @@ export default function SettingsPage() {
 
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="font-medium">Javob bermaganda qayta yozish</div>
+              <div className="font-medium">Eslatma</div>
               <p className="mt-1 text-[11px] leading-relaxed text-ink-500">
-                Mijoz oxirgi xabarimizga javob bermasa, agent o'zi qayta yozadi.
-                Yakshanba hisobga olinmaydi: banklar ishlamaydi, ya'ni o'sha kuni
-                to'lov o'tmagan bo'lishi mumkin.
+                "Qiziqdi" yoki "Karta yuborildi" bosqichida mijoz javob bermasa, agent
+                har bosqich uchun BITTA yumshoq eslatma yuboradi. Faqat yuborish
+                oynasi ichida va limitlarga amal qilgan holda.
               </p>
             </div>
             <Toggle
-              checked={form.silenceNudge}
+              checked={form.eslatmaYoqilgan}
               disabled={!admin}
-              onChange={(v) => patch('silenceNudge', v)}
+              onChange={(v) => patch('eslatmaYoqilgan', v)}
             />
           </div>
 
           <div className="max-w-xs">
-            <label className="label">Necha ish kuni sukutdan keyin</label>
+            <label className="label">Necha soatdan keyin eslatish</label>
             <input
               type="number"
               min={1}
-              max={7}
+              max={168}
               className="input"
-              value={form.silenceNudgeDays}
-              disabled={!admin || !form.silenceNudge}
-              onChange={(e) => patch('silenceNudgeDays', Number(e.target.value))}
+              value={form.eslatmaSoat}
+              disabled={!admin || !form.eslatmaYoqilgan}
+              onChange={(e) => patch('eslatmaSoat', Number(e.target.value))}
             />
-          </div>
-
-          <div className="max-w-xs">
-            <label className="label">Ketma-ket eng ko'pi necha marta</label>
-            <input
-              type="number"
-              min={1}
-              max={3}
-              className="input"
-              value={form.silenceNudgeMax}
-              disabled={!admin || !form.silenceNudge}
-              onChange={(e) => patch('silenceNudgeMax', Number(e.target.value))}
-            />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-500">
-              Mijoz javob berishi bilan hisob nolga qaytadi — bu "ketma-ket
-              javobsiz" chegarasi, suhbat davomidagi jami emas.
-            </p>
           </div>
 
           <div className="max-w-xs">
@@ -897,9 +880,8 @@ export default function SettingsPage() {
                   promiseReminder: form.promiseReminder,
                   promiseReminderUntil: form.promiseReminderUntil,
                   promiseThanksUntil: form.promiseThanksUntil,
-                  silenceNudge: form.silenceNudge,
-                  silenceNudgeDays: form.silenceNudgeDays,
-                  silenceNudgeMax: form.silenceNudgeMax,
+                  eslatmaYoqilgan: form.eslatmaYoqilgan,
+                  eslatmaSoat: form.eslatmaSoat,
                   minDebt: form.minDebt,
                 })
               }

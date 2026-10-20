@@ -87,7 +87,8 @@ jobs:
           # Sukutdan keyingi qayta murojaat. Bu testlar mijozga XABAR
           # YUBORADIGAN yo'lni qo'riqlaydi — ro'yxatda bo'lmasa, qulf yo'q.
           npm run test:sukut --workspace=server
-          npm run test:silence-watcher --workspace=server
+          npm run test:eslatma --workspace=server
+          npm run test:eslatma-kuzatuvchi --workspace=server
           # Operator topshirig'i — mijozga XABAR YUBORADIGAN yo'l.
           npm run test:agent-topshirigi --workspace=server
           npm run test:operator-vazifasi --workspace=server

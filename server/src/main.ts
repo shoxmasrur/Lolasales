@@ -93,6 +93,7 @@ async function bootstrap(): Promise<void> {
   container.services.spamWatcher.start();
   container.services.appLogCleaner.start();
   container.services.connectionWatcher.start();
+  container.services.eslatmaKuzatuvchi.start();
 
   httpServer.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, `API tayyor: http://localhost:${config.PORT}`);
@@ -164,6 +165,7 @@ async function bootstrap(): Promise<void> {
       }
     }
     await container.services.scheduler.stop();
+    await container.services.eslatmaKuzatuvchi.stop();
     container.services.spamWatcher.stop();
     container.services.appLogCleaner.stop();
     container.services.connectionWatcher.stop();

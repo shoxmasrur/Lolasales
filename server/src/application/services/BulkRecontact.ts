@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { SUKUT_MAX_URINISH } from '@/domain/services/qaytaAloqa';
 import type { InstructAgentUseCase } from '@/application/usecases/messaging/InstructAgentUseCase';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 import type { IClock, IEventBus } from '@/domain/services/support';
@@ -517,7 +518,7 @@ export class BulkRecontact implements ResumableJob {
       const runtime = await this.settings.get();
       const natija = await this.bittasi(conversationId, input, {
         minDebt: runtime.minDebt,
-        silenceNudgeMax: runtime.silenceNudgeMax,
+        silenceNudgeMax: SUKUT_MAX_URINISH,
         timeZone: config.TIMEZONE,
       });
       // `null` — agent chaqirilmadi (Stop/deploy `findOne` paytida keldi).

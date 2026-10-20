@@ -1,4 +1,5 @@
 import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
+import { EslatmaKuzatuvchi } from '@/application/services/EslatmaKuzatuvchi';
 import type { ITalabnomaSukuti } from '@/domain/services/ITalabnomaSukuti';
 import { PgQamrovRepository } from '@/infrastructure/db/repositories/PgQamrovRepository';
 import { PgClientRepository } from '@/infrastructure/db/repositories/PgClientRepository';
@@ -403,8 +404,10 @@ export function createContainer() {
   const scheduler = new OutreachScheduler(
     campaigns, telegramAccounts, startConversation, settings, audit, events, clock, holidays,
   );
-  // Va'da kuzatuvchisi (`PromiseWatcher`) o'chirildi; sukut kuzatuvchisi
-  // (`SilenceWatcher`) o'rniga 11-vazifada `EslatmaKuzatuvchi` keladi.
+  // Jim qolgan mijozga bosqichiga bitta eslatma.
+  const eslatmaKuzatuvchi = new EslatmaKuzatuvchi(
+    conversations, agent, xaridXizmati, purchases, settings, audit, clock,
+  );
 
   const spamWatcher = new SpamStatusWatcher(telegramAccounts, telegram, audit, events);
   // Cheklovlarni uch manbadan yig'ib, akkaunt kartasiga chiqaradi.
@@ -436,7 +439,7 @@ export function createContainer() {
       paymentCheckService, missedSync, bulkRecontact, xulosaBoti, llmKaliti,
       bulkJobStore, bulkJobResumer,
       nomalumAgent, shartnomaBoglovchi, javobYonaltiruvchi,
-      qamrovTekshiruvchi, xaridXizmati, kartaYuboruvchi,
+      qamrovTekshiruvchi, xaridXizmati, kartaYuboruvchi, eslatmaKuzatuvchi,
     },
     useCases: {
       login, importDebtors, importPhones, startConversation,
