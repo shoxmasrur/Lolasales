@@ -1,3 +1,38 @@
 node_modules/
+dist/
+build/
 .env
+.env.local
+*.log
 .DS_Store
+
+# DIQQAT — bosh chiziq (`/`) ATAYLAB.
+#
+# `storage/` shaklida yozilsa, u ISTALGAN chuqurlikdagi shu nomli papkani
+# qamrab oladi va `server/src/infrastructure/storage/` (LocalMediaStorage
+# manbasi) ham git'ga tushmay qoladi. Lokalda fayl diskda turgani uchun
+# hech narsa sezilmaydi, toza checkout'da esa build "Cannot find module
+# '@/infrastructure/storage/LocalMediaStorage'" deb yiqiladi.
+#
+# Shuning uchun faqat ildizdagi media papkasi e'tiborsiz qoldiriladi.
+/storage/
+/uploads/
+
+# `npm run ab-suhbat` yozadigan solishtiruv hisobotlari — generatsiya
+# qilinadi va har chopishda yangisi paydo bo'ladi. Yuqoridagi sabab shu
+# yerda ham amal qiladi: yo'l ATAYLAB to'liq yozilgan.
+/server/storage/
+
+coverage/
+.vite/
+
+# Claude Code lokal sozlamalari — mashinaga bog'liq (nvm yo'llari).
+.claude/
+
+# Git worktree'lar (`.worktrees/<shoxcha>`) — ishchi nusxalar, repozitoriyning
+# o'zi emas. Ignore qilinmasa butun daraxt commitga tushib ketardi.
+/.worktrees/
+
+# Subagent-driven development ishchi papkasi: leder, brieflar, hisobotlar,
+# review paketlari. Generatsiya qilinadi va faqat sessiya davomida kerak.
+/.superpowers/

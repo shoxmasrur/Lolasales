@@ -1,0 +1,72 @@
+name: Deploy
+
+# `main` ga har bir push produksiyaga chiqadi — lekin faqat CI o'tgandan
+# keyin. Qo'lda ishga tushirish uchun: Actions → Deploy → Run workflow.
+#
+# KERAKLI SECRET'LAR (Settings → Secrets and variables → Actions):
+#   DEPLOY_SSH_KEY     — serverga kiradigan MAXFIY kalit (ed25519, to'liq matn)
+#   DEPLOY_HOST        — 213.148.21.37
+#   DEPLOY_USER        — root
+#   DEPLOY_KNOWN_HOSTS — `ssh-keyscan 213.148.21.37` natijasi
+#
+# Serverning o'zi GitHub'dan kod tortadi, shuning uchun unga repozitoriyning
+# Deploy key'i ham qo'shilgan bo'lishi kerak (Settings → Deploy keys).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Bir vaqtda ikkita deploy ketmasin — ikkinchisi birinchisini kutadi.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  tekshiruv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  chiqarish:
+    needs: tekshiruv
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      # Secret'lar qo'yilmagan bo'lsa deploy YIQILMAYDI, shunchaki
+      # o'tkazib yuboriladi — aks holda har bir push qizil rang beradi.
+      - name: Secret'lar bormi
+        id: tekshir
+        run: |
+          if [ -n "${{ secrets.DEPLOY_SSH_KEY }}" ] && [ -n "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "tayyor=ha" >> "$GITHUB_OUTPUT"
+          else
+            echo "tayyor=yoq" >> "$GITHUB_OUTPUT"
+            echo "::warning::DEPLOY_* secret'lari qo'yilmagan — deploy o'tkazib yuborildi"
+          fi
+
+      - name: SSH kalitini tayyorlash
+        if: steps.tekshir.outputs.tayyor == 'ha'
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Serverda deploy
+        if: steps.tekshir.outputs.tayyor == 'ha'
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o ConnectTimeout=30 \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              'bash -s' < scripts/deploy.sh

@@ -1,0 +1,14 @@
+-- Suhbat NEGA operatorga chiqarilgani.
+--
+-- `needs_human` bayrog'i besh xil sababdan yoqiladi: agent chaqiruvi
+-- yiqilishi (texnik), agentning o'z `escalate` qarori, buzilgan va'da,
+-- tasdiqlanmagan kvitansiya va operatorning qo'lda belgilashi. Ular
+-- bir-biridan farq qilmagani uchun UI hammasiga bir xil muomala qilardi.
+--
+-- Farq kerak, chunki "Qayta urinish" tugmasi FAQAT texnik xatoda mantiqiy:
+-- qolgan hollarda agent aynan shu tarixni ko'rib "inson kerak" degan, qayta
+-- chaqirilsa o'sha qarorni qaytaradi.
+--
+-- Shuning uchun ustun turlarni SANAB CHIQMAYDI — u bitta savolga javob
+-- beradi: 'agent_error' (qayta urinish mantiqiy) yoki NULL (qolgan hammasi).
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS human_kind TEXT;

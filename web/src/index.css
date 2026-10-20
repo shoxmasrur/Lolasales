@@ -1,0 +1,325 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Mavzu ranglari.
+ *
+ * Shkala TESKARI qurilgan: qorong'ida `ink-950` eng qorong'i, yorug'da esa
+ * eng oq. Kodda `bg-ink-950` fon uchun, `text-ink-100` matn uchun
+ * ishlatilgan — shkala almashishi bilan ikkalasi ham to'g'ri tomonga
+ * o'giriladi va birorta sinf o'zgartirilmaydi.
+ *
+ * Qiymatlar `R G B` ko'rinishida (vergulsiz): Tailwind ularni
+ * `rgb(var(--ink-500) / <alpha-value>)` ichida ishlatadi va shaffoflik
+ * modifikatorlari (`/60`) ishlashda davom etadi.
+ */
+:root,
+:root[data-theme='dark'] {
+  --ink-50: 246 247 249;
+  --ink-100: 236 238 242;
+  --ink-200: 213 218 227;
+  --ink-300: 176 185 201;
+  --ink-400: 133 147 170;
+  --ink-500: 101 116 143;
+  --ink-600: 80 92 117;
+  --ink-700: 65 75 95;
+  --ink-800: 56 64 80;
+  --ink-900: 20 24 33;
+  --ink-950: 12 15 21;
+
+  /* Sana maydonining kalendar ikonkasi — qorong'ida oqartiriladi. */
+  --picker-invert: 0.7;
+  /* Logotip OQ rangda chizilgan — qorong'i fonda o'zi to'g'ri ko'rinadi. */
+  --logo-invert: 0;
+
+  /* Ma'noli ranglarning matn soyalari — to'q fon uchun (Tailwind sukuti). */
+  --amber-100: 254 243 199;
+  --amber-200: 253 230 138;
+  --amber-300: 252 211 77;
+  --amber-400: 251 191 36;
+  --red-100: 254 226 226;
+  --red-200: 254 202 202;
+  --red-300: 252 165 165;
+  --red-400: 248 113 113;
+  --emerald-100: 209 250 229;
+  --emerald-200: 167 243 208;
+  --emerald-300: 110 231 183;
+  --emerald-400: 52 211 153;
+  --orange-200: 254 215 170;
+  --orange-300: 253 186 116;
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  /* Mexanik teskarilash EMAS: yorug' fonda kontrast alohida tanlangan.
+     `text-ink-500` (eng ko'p ishlatiladigan xira matn) oq fonda
+     o'qilishi kerak, `border-ink-800` esa ko'zni urmasligi. */
+  --ink-50: 12 15 21;
+  --ink-100: 22 29 40;
+  --ink-200: 38 48 63;
+  --ink-300: 58 68 83;
+  --ink-400: 75 87 104;
+  --ink-500: 100 116 139;
+  --ink-600: 154 164 181;
+  --ink-700: 200 207 218;
+  --ink-800: 223 227 234;
+  --ink-900: 246 247 249;
+  --ink-950: 255 255 255;
+
+  --picker-invert: 0;
+  /* Yorug' fonda oq logo ko'rinmaydi — teskarilanadi va qora bo'ladi. */
+  --logo-invert: 1;
+
+  /* Oq fonda yengil soyalar o'qilmaydi — to'qroq variantlar olinadi.
+     Ular ham oq fonda, ham 10% tusli fonda (`bg-amber-500/10`) yaxshi
+     ko'rinadi. */
+  --amber-100: 120 53 15;
+  --amber-200: 146 64 14;
+  --amber-300: 180 83 9;
+  --amber-400: 180 83 9;
+  --red-100: 127 29 29;
+  --red-200: 153 27 27;
+  --red-300: 185 28 28;
+  --red-400: 185 28 28;
+  --emerald-100: 6 78 59;
+  --emerald-200: 6 95 70;
+  --emerald-300: 4 120 87;
+  --emerald-400: 4 120 87;
+  --orange-200: 154 52 18;
+  --orange-300: 194 65 12;
+  color-scheme: light;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  /*
+   * Mobil brauzerda manzil qatori surilganda yig'iladi, ammo `100%`
+   * eski (baland) qiymatni saqlaydi — suhbatdagi yozish maydoni ekran
+   * ostiga tushib ketardi. `dvh` haqiqiy ko'rinadigan balandlikni
+   * beradi. `100%` yuqorida qoladi: `dvh` ni bilmaydigan brauzer
+   * o'shanda to'xtaydi.
+   */
+  #root {
+    height: 100dvh;
+  }
+
+  body {
+    /* Ro'yxat oxiriga yetganda butun sahifa cho'zilib ketmasin. */
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    @apply bg-ink-950 text-ink-100 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Klaviatura bilan yurganda fokus ko'rinsin, sichqonchada — yo'q. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand-500/60 ring-offset-2 ring-offset-ink-950;
+  }
+
+  ::selection {
+    @apply bg-brand-500/30 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-ink-800;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-ink-700;
+    background-clip: content-box;
+  }
+
+  /* Sana/vaqt maydonining kalendar ikonkasi qorong'i mavzuda ko'rinmaydi. */
+  input[type='time']::-webkit-calendar-picker-indicator,
+  input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(var(--picker-invert));
+    cursor: pointer;
+  }
+
+  input[type='checkbox'] {
+    @apply h-4 w-4 shrink-0 cursor-pointer rounded border-ink-600 bg-ink-900 text-brand-500;
+    accent-color: #2b83f0;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-ink-800 bg-ink-900/60 p-4 transition-colors;
+  }
+  .card-hover {
+    @apply card hover:border-ink-700 hover:bg-ink-900/80;
+  }
+
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg
+           px-3.5 py-2 text-sm font-medium transition-all duration-150
+           active:scale-[0.98]
+           disabled:pointer-events-none disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white shadow-sm shadow-brand-600/20
+           hover:bg-brand-500 hover:shadow-brand-500/25;
+  }
+  .btn-ghost {
+    @apply btn border border-ink-800 bg-ink-900 text-ink-200
+           hover:border-ink-700 hover:bg-ink-800 hover:text-ink-100;
+  }
+  .btn-danger {
+    @apply btn bg-red-600/90 text-white hover:bg-red-600;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-sm text-ink-100
+           transition-colors duration-150
+           placeholder:text-ink-600
+           hover:border-ink-700
+           focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  select.input {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2365748f' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
+    background-size: 1rem;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-ink-400;
+  }
+
+  .chip {
+    @apply inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5
+           text-[11px] font-medium leading-normal;
+  }
+
+  /* Jadvallar: yopishqoq sarlavha va qator ustida yumshoq fon */
+  .table-base {
+    @apply w-full text-sm;
+  }
+  .table-base thead th {
+    @apply sticky top-0 z-10 bg-ink-950/95 px-3 py-2.5 text-left text-[11px]
+           font-medium uppercase tracking-wider text-ink-500 backdrop-blur;
+  }
+  .table-base tbody tr {
+    @apply border-t border-ink-800/60 transition-colors hover:bg-ink-900/60;
+  }
+  .table-base tbody td {
+    @apply px-3 py-2.5 align-middle;
+  }
+
+  /*
+   * Tor ekranda jadval o'zi suriladi — sahifa emas. `w-full` shart:
+   * flex ichida bo'lsa idish o'z mazmuniga qarab kengayib ketardi.
+   */
+  .table-wrap {
+    @apply w-full overflow-x-auto;
+  }
+
+  /* Yangi element paydo bo'lganda yumshoq chiqishi */
+  .fade-in {
+    animation: fade-in 0.18s ease-out;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.slide-in-left {
+  animation: slide-in-left 0.18s ease-out;
+}
+
+.slide-up {
+  animation: slide-up 0.2s ease-out;
+}
+
+/* Harakatni kamaytirish so'ralgan bo'lsa — animatsiyalarsiz */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Bu blok ataylab `@layer` DAN TASHQARIDA turadi.
+ *
+ * `.input` `@layer components` ichida `text-sm` (14px) bilan e'lon
+ * qilingan. Qatlamga tushmagan qoida qatlamdagisidan kuchli — shu
+ * sabab bu yerda `!important` kerak emas.
+ *
+ * NEGA 16px: iOS Safari 16px dan kichik maydonga bosilganda sahifani
+ * zumlab yuboradi va undan o'zi qaytmaydi. 14px maydon telefonda
+ * har bosilganda interfeysni sakratardi.
+ */
+@media (max-width: 767px) {
+  .input,
+  select.input,
+  textarea.input {
+    font-size: 16px;
+  }
+
+  /* Barmoq nishoni eng kami 40px — hozirgi `py-2` 36px beradi. */
+  .btn {
+    min-height: 40px;
+  }
+
+  /*
+   * 16x16 checkbox telefonda ko'zga tashlanmaydi va bosish qiyin.
+   * 40x40 vizual katak esa kulgili ko'rinadi — shu sabab faqat
+   * ko'rinadigan o'lchamni biroz kattalashtiramiz (20x20); haqiqiy
+   * 40px bosish nishoni katakni o'rab turgan `<label>` konteyner
+   * bo'shlig'i (masalan `-m-2.5 p-2.5`, 20 + 2*10 = 40) orqali
+   * beriladi, har joyda emas. `<span>` emas `<label>` bo'lishi
+   * shart — aks holda kengaytirilgan zonaga bosish inputga yetmaydi.
+   */
+  input[type='checkbox'] {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+}

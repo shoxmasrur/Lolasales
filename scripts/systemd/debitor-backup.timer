@@ -1,0 +1,12 @@
+[Unit]
+Description=Debitor bazasini har soat zaxiralash
+
+[Timer]
+OnCalendar=hourly
+# Server o'chib qolsa, yoqilganda o'tkazib yuborilgan zaxira darrov olinadi.
+Persistent=true
+# Aynan soat boshida, boshqa soatlik ishlar bilan bir paytda tushmasin.
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

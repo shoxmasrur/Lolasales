@@ -1,0 +1,252 @@
+name: CI
+
+# Har bir push va PR da: tiplar va birlik testlari.
+# Bazasiz ishlaydi — testlar sof funksiyalarni tekshiradi.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  tekshiruv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tiplar (server, web, mcp)
+        run: npm run typecheck
+
+      - name: Birlik testlari
+        run: |
+          npm run test:column-map --workspace=server
+          npm run test:name-match --workspace=server
+          npm run test:gender --workspace=server
+          # Loyiha ildizi bundle'da ham to'g'ri (`server/dist` → `/opt` emas).
+          npm run test:project-root --workspace=server
+          npm run test:telegram-quota --workspace=server
+          npm run test:spam-parser --workspace=server
+          npm run test:talabnoma-format --workspace=server
+          npm run test:talabnoma-qoidasi --workspace=server
+          npm run test:rekvizit --workspace=server
+          # Talabnoma HTML: so'zma-so'z matn, qochirish; rasm yo'llari parametr.
+          npm run test:talabnoma-html --workspace=server
+          # Chrome tekshiruvi: "yo'q" javobi keshlanmaydi (soxta brauzer skripti).
+          npm run test:talabnoma-chromium --workspace=server
+          # Soxta talabnoma repo bazadagi qoidalardan (bitta faol talabnoma,
+          # raqam bir marta, holat o'tishlari) chetga chiqmasin.
+          npm run test:talabnoma-fake --workspace=server
+          npm run test:telegram-errors --workspace=server
+          npm run test:peer-selection --workspace=server
+          npm run test:tolov-kaliti --workspace=server
+          npm run test:minimal-qarz --workspace=server
+          npm run test:contract-mapper --workspace=server
+          npm run test:contract-upsert-guard --workspace=server
+          # Agent promptidagi taqiqlangan so'zlar (qarz, qachonroq, -da, ajoyib).
+          npm run test:lugat --workspace=server
+          npm run test:tushum-belgilari --workspace=server
+          npm run test:tushum-eksporti --workspace=server
+          npm run test:kun-chegarasi --workspace=server
+          npm run test:norozilik --workspace=server
+          npm run test:kunlik-toifalar --workspace=server
+          npm run test:bot-tokeni --workspace=server
+          npm run test:premium --workspace=server
+          npm run test:mavzudan-tashqari --workspace=server
+          npm run test:llm-narxi --workspace=server
+          # Sof funksiya — `shared/config` ni tortmaydi, `.env` shart emas.
+          npm run test:llm-tamgasi --workspace=server
+          # Noma'lum agent promptida mijoz ma'lumoti va "qarz" so'zi yo'q — sof fayl.
+          npm run test:nomalum-prompt --workspace=server
+          npm run test:shartnoma-raqami --workspace=server
+          npm run test:boglash-qarori --workspace=server
+          # `mapClient` o'qiydigan har ustun `COLS` da bor — `nomalum` tanlanmasa himoya o'chadi. Statik.
+          npm run test:client-cols --workspace=server
+          # Obyekt cheklovi: qamrov yadrosi (admin/bo'sh — hammasi; trim, takrorsiz,
+          # tartib; kesh kaliti) va SQL sharti (cheklanmaganda `TRUE`, params tegilmaydi).
+          npm run test:mijoz-qamrovi --workspace=server
+          npm run test:qamrov-sharti --workspace=server
+          # Qamrov guard'i: cheklanmaganda repo chaqirilmaydi; begona → 404,
+          # yaroqsiz uuid SQL'ga yetmaydi; kesishda kirish tartibi saqlanadi.
+          npm run test:qamrov-tekshiruvchi --workspace=server
+
+      # Bular `AgentRunner` yoki `shared/datetime` orqali `shared/config` ni
+      # tortadi, u esa ishga tushishda `.env` ni tekshiradi. CI'da `.env`
+      # yo'q, shuning uchun soxta qiymatlar beriladi: testlar na bazaga, na
+      # Telegramga, na modelga chiqadi — qiymatlar faqat sxema tekshiruvidan
+      # o'tish uchun.
+      - name: Agent navbati testlari
+        env:
+          DATABASE_URL: postgres://ci:ci@127.0.0.1:5432/ci
+          JWT_SECRET: ci-uchun-soxta-kalit-16+
+          ENCRYPTION_KEY: ci-uchun-soxta-kalit-16+
+        run: |
+          npm run test:minimal-qarz-sozlamasi --workspace=server
+          # Mijozga XABAR YUBORADIGAN yo'lning darvozasi — ro'yxatda
+          # bo'lmasa, qulf yo'q.
+          npm run test:minimal-qarz-darvozasi --workspace=server
+          npm run test:eskirgan-javob --workspace=server
+          npm run test:javob-yonaltiruvchi --workspace=server
+          npm run test:uzilgan-navbat --workspace=server
+          # Sukutdan keyingi qayta murojaat. Bu testlar mijozga XABAR
+          # YUBORADIGAN yo'lni qo'riqlaydi — ro'yxatda bo'lmasa, qulf yo'q.
+          npm run test:sukut --workspace=server
+          npm run test:silence-watcher --workspace=server
+          npm run test:silence-watcher-pause --workspace=server
+          npm run test:sukut-vazifasi --workspace=server
+          npm run test:sukut-buzilgan-vada --workspace=server
+          npm run test:sukut-partiya --workspace=server
+          npm run test:sukut-yakshanba --workspace=server
+          npm run test:sukut-chegara --workspace=server
+          # Operator topshirig'i — mijozga XABAR YUBORADIGAN yo'l.
+          npm run test:agent-topshirigi --workspace=server
+          npm run test:operator-vazifasi --workspace=server
+          # Mijozga aytiladigan summaning yagona manbai — CRM. Bu testlar
+          # ham XABAR YUBORADIGAN yo'lni qo'riqlaydi: CRM javob bermasa
+          # xabar ketmasligi va raqam va'da arifmetikasidan olinmasligi.
+          npm run test:crm-konteksti --workspace=server
+          npm run test:crm-summa-manbai --workspace=server
+          npm run test:debounce-crm --workspace=server
+          npm run test:sukut-crm --workspace=server
+          npm run test:vada-crm --workspace=server
+          # Kontekst bloki `AgentRunner` orqali `shared/config` ni tortadi.
+          npm run test:context-block --workspace=server
+          # "To'ladim" kuzatuvi `AgentRunner` orqali `shared/config` ni tortadi.
+          npm run test:toladim-kuzatuv --workspace=server
+          npm run test:javob-vazifasi --workspace=server
+          npm run test:rahmat-vazifasi --workspace=server
+          npm run test:eslatma-vazifasi --workspace=server
+          # Qayta aloqa ro'yxati — operator tanlaydi, agent mijozga YOZADI.
+          npm run test:qayta-aloqa --workspace=server
+          npm run test:mavzu-tekshiruvi --workspace=server
+          npm run test:recontact-topics --workspace=server
+          npm run test:bulk-recontact --workspace=server
+          # Chek operator tasdig'i (105). Rasm tasnifchisi obuna tokeni bilan.
+          npm run test:chek-tasnif-auth --workspace=server
+          npm run test:rasm-tasnifi --workspace=server
+          # PDF chek tasnifi (2026-09-24) — tasnifchi `document` blokini yuboradi.
+          npm run test:pdf-tasnifi --workspace=server
+          npm run test:chek-mapper --workspace=server
+          npm run test:payment-check --workspace=server
+          npm run test:chek-ochilishi --workspace=server
+          npm run test:rasm-oqimi --workspace=server
+          npm run test:pdf-oqimi --workspace=server
+          npm run test:chek-tasdiq-vazifasi --workspace=server
+          npm run test:chek-javobi --workspace=server
+          npm run test:chek-sukut --workspace=server
+          npm run test:chek-tasdiqi --workspace=server
+          npm run test:chek-takroriy-rahmat --workspace=server
+          npm run test:chek-tasdiq-route --workspace=server
+          npm run test:chek-poygasi --workspace=server
+          npm run test:oylik-eslatma --workspace=server
+          npm run test:oylik-eslatma-vazifasi --workspace=server
+          npm run test:oylik-eslatma-watcher --workspace=server
+          npm run test:uslub-versiyasi --workspace=server
+          npm run test:prompt-composer --workspace=server
+          npm run test:uslub-tamgasi --workspace=server
+          npm run test:uslub-marshruti --workspace=server
+          npm run test:premium-watcher --workspace=server
+          npm run test:premium-marshruti --workspace=server
+          npm run test:client-list-query --workspace=server
+          npm run test:api-kalit --workspace=server
+          npm run test:ruxsat-guruhlari --workspace=server
+          npm run test:qongiroq-brifi --workspace=server
+          npm run test:qongiroq-mcp --workspace=server
+          npm run test:phone-call-mapper --workspace=server
+          npm run test:qongiroq-natijasi --workspace=server
+          npm run test:app-log-cleaner --workspace=server
+          npm run test:bulk-job-store --workspace=server
+          npm run test:bulk-job-resumer --workspace=server
+          npm run test:bulk-lookup-resume --workspace=server
+          npm run test:bulk-lookup-stop --workspace=server
+          npm run test:bulk-start-resume --workspace=server
+          npm run test:bulk-recontact-resume --workspace=server
+          npm run test:bulk-contract-sync-resume --workspace=server
+          npm run test:stt-xonzoda --workspace=server
+          npm run test:stt-taqqoslash --workspace=server
+          npm run test:nomalum-ochuvchi --workspace=server
+          npm run test:nomalum-xabar --workspace=server
+          npm run test:start-takror-himoyasi --workspace=server
+          # `llmKaliti.ts` → `shared/crypto` → `shared/config` zanjiri: bu
+          # ham soxta env kerak bo'lgan guruhga tegishli, «Birlik testlari»
+          # bosqichida emas.
+          npm run test:llm-kaliti --workspace=server
+          # `OpenAiAgentEngine` → `prompt/systemPrompt` va `agentOutput`
+          # zanjiri orqali `shared/config` ni tortadi (`.env` shart emas,
+          # lekin modul yuklanishda tekshiradi) — shuning uchun shu yerda,
+          # «Birlik testlari»da emas. `fetch` spec ichida stub qilinadi,
+          # tarmoqqa chiqilmaydi.
+          npm run test:openai-engine --workspace=server
+          # `AgentEngineFactory` `ClaudeAgentEngine` orqali `shared/config`
+          # ni tortadi — shu sabab shu yerda, «Birlik testlari»da emas.
+          # Har qanday shubhali holatda (model yo'q, o'chirilgan, kalit
+          # yo'q) standart dvigatelga qaytishini tekshiradi — mijoz
+          # javobsiz qolmasligi shu testga bog'liq.
+          npm run test:engine-factory --workspace=server
+          # `AgentRunner` orqali `shared/config` ni tortadi — standart
+          # dvigatelga qaytish (`navbat()`) va uning to'rt shartini
+          # (fallback, AbortedError, Claude xatosi) tekshiradi.
+          npm run test:llm-qaytish --workspace=server
+          npm run test:qoriqchi-navbat --workspace=server
+          # `llmRoutes.ts` `OpenAiAgentEngine`ni import qiladi (probe
+          # marshruti uchun), u esa `prompt/systemPrompt` va `agentOutput`
+          # zanjiri orqali `shared/config`ni tortadi — shu sabab shu yerda,
+          # «Birlik testlari»da emas. Kalitning javobga, audit yozuviga
+          # yoki xato matniga sizib chiqmasligini tekshiradi.
+          npm run test:llm-marshruti --workspace=server
+          # Notanish odamga model yozadi: holat darvozalari va 6 javob chegarasi.
+          npm run test:nomalum-agent --workspace=server
+          # Shartnoma raqami bo'yicha bog'lash: telefon mos kelmasa — faqat operator tasdig'i.
+          npm run test:shartnoma-boglovchi --workspace=server
+          npm run test:mijozga-boglash --workspace=server
+          # Operator marshrutlari: tasdiqlash 409, mijoz-emas, boglash 404/502.
+          npm run test:nomalum-route --workspace=server
+          # Suhbatlar ro'yxati `clientId` filtri: UUID repoga, aks holda 422.
+          npm run test:conversation-list-route --workspace=server
+          # Talabnoma rekvizitlari: gateway `shared/config` ni tortadi. GET
+          # yo'li (tanasiz, Bearer), zaxira manzil va 10 daqiqalik kesh.
+          npm run test:kompaniyalar-gateway --workspace=server
+          # Talabnoma xizmati: `shared/logger` orqali `shared/config` ni tortadi.
+          # Yuborish tartibi (sinx → qoida → rekvizit → raqam → Telegram),
+          # xato holati, o'sha raqam bilan qayta urinish, parallel bosish.
+          npm run test:talabnoma-xizmati --workspace=server
+          # Talabnoma marshrutlari: 403 (view/send), xizmat xatosi code+message bilan,
+          # PDF sarlavhalari, UUID 400, sahifalash chegarasi.
+          npm run test:talabnoma-routes --workspace=server
+          # Obyekt cheklovi: foydalanuvchi `objects` (qirqilgan, takrorsiz) saqlanadi,
+          # `/users` va `/auth/me` da qaytadi, tahrirdan keyin kesh tozalanadi;
+          # `/users/obyektlar` — `users.manage` siz 403.
+          npm run test:user-objects --workspace=server
+          # Obyekt cheklovi — `/clients`: ro'yxat/eksport/sonlar repoga qamrov bilan,
+          # begona `/:id` 404, `from-contract` CRM obyekti bo'yicha 404, ommaviy
+          # amallarda kesish + `chiqarildi`, boshqaning vazifasi ismsiz va to'xtatilmaydi.
+          npm run test:client-qamrov --workspace=server
+          # Obyekt cheklovi — suhbatlar: ro'yxat/filtrlar repoga qamrov bilan, begona
+          # `/:id` va `/:id/*` 404, reset va noma'lum amallari 403 OBYEKT_CHEKLOVI,
+          # begona media xabari va mijoz xotirasi 404.
+          npm run test:suhbat-qamrov --workspace=server
+          # Obyekt cheklovi — qayta aloqa va statistika: dashboard/period/promises va
+          # qayta aloqa ro'yxati repoga qamrov bilan, ommaviy yuborishda kesish +
+          # `chiqarildi`, boshqaning navbati ismsiz va to'xtatilmaydi.
+          npm run test:stats-qamrov --workspace=server
+          # Kunlik xulosa marshruti: filtrsiz javob, Obyekt/Agent filtri,
+          # filtr bo'yicha kesh kaliti, 2000 talik chegara va `jami`.
+          npm run test:daily-routes --workspace=server
+          # «CRM'dan yangilash» fon vazifasi (`shared/logger` → `shared/config`):
+          # bittadan sinx, bitta vazifa, kechasigi sinxni kutish, kesh tashlanadi.
+          npm run test:talabnoma-crm-yangilash --workspace=server
+          # Fayl yetkazilgach yiqilgan hisob yozuvi xabarni "failed" qilmaydi.
+          npm run test:dispatcher-fayl --workspace=server
+          # Bu shoxda tegilgan, `shared/config` ni tortadigan specs: va'da
+          # kuzatuvchisi va shartnoma sinxi (avval CI'da umuman yo'q edi).
+          npm run test:promise-watcher --workspace=server
+          npm run test:contract-sync --workspace=server
+
+      - name: Build
+        run: npm run build

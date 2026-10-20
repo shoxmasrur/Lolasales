@@ -1,0 +1,17 @@
+-- Mijozning ANIQ ismi — CRM'ning `client.attributes.first_name` maydoni.
+--
+-- NEGA: shu paytgacha faqat to'liq F.I.O. saqlanardi va murojaat shakli
+-- ("Aziz aka") o'sha satrdan TAXMIN qilib ajratilardi. Taxmin esa
+-- "Familiya Ism Ota o'g'li" ko'rinishida adashardi — kod "o'g'li" so'zini
+-- ko'rib o'zbekcha tartib deb hisoblab birinchi so'zni, ya'ni FAMILIYANI
+-- olardi. Natijada mijozga "Raximbayev aka" deb yozilardi (prodda
+-- 2026-08-10 da ko'rindi).
+--
+-- Ajratish mantiqi ham tuzatildi (`shared/gender.ts`), lekin taxmin baribir
+-- taxminligicha qoladi. CRM ismni alohida maydonda beradi — shuni saqlab,
+-- asosiy manba qilamiz. Taxmin faqat bu ustun bo'sh bo'lganda ishlaydi:
+-- Excel importidan kelgan mijozlarda CRM yozuvi bo'lmasligi mumkin.
+--
+-- NULL ruxsat etilgan va sukut bo'yicha shunday: mavjud mijozlar uchun
+-- qiymat shartnoma sinxronizatsiyasi paytida CRM'dan to'ldiriladi.
+ALTER TABLE clients ADD COLUMN first_name TEXT;
