@@ -104,7 +104,6 @@ jobs:
           # PDF chek tasnifi (2026-09-24) — tasnifchi `document` blokini yuboradi.
           npm run test:pdf-tasnifi --workspace=server
           npm run test:chek-mapper --workspace=server
-          npm run test:payment-check --workspace=server
           npm run test:chek-ochilishi --workspace=server
           npm run test:rasm-oqimi --workspace=server
           npm run test:pdf-oqimi --workspace=server
@@ -196,6 +195,8 @@ jobs:
           npm run test:kiruvchi-filtr --workspace=server
           # To'lov kartasi xabari: tanlash, summa, tayyorlik, matn.
           npm run test:karta --workspace=server
+          # Guruh havolasi: qoida (birinchi_qism/toliq), bir marta, matn.
+          npm run test:havola --workspace=server
           # Sotuv konteksti va javob sxemasi `systemPrompt` orqali `shared/config` ni tortadi.
           npm run test:sales-context --workspace=server
           npm run test:agent-output-sales --workspace=server

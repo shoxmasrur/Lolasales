@@ -76,21 +76,17 @@ const chek = (over: Partial<PaymentCheck> = {}): PaymentCheck => ({
   id: 'pc1',
   conversationId: 'cv1',
   clientId: 'c1',
-  contractId: null,
+  purchaseId: null,
   messageId: 'm1',
   kind: 'receipt_review',
   status: 'reviewing',
   receiptSource: 'tolov',
   sinceIso: '2026-09-17',
-  baselinePaid: 0,
-  foundAmount: null,
-  foundType: null,
-  watchUntil: null,
-  checkedAt: null,
   acknowledgedAt: null,
-  thanksSentAt: null,
   confirmedBy: null,
   confirmedAt: null,
+  confirmedAmount: null,
+  rejectedReason: null,
   createdAt: NOW,
   ...over,
 });
@@ -189,13 +185,13 @@ const chekEskalatsiyasi = (patches: ConversationPatch[]): boolean =>
   check('aniqlanmagan: eskalatsiya yo\'q', !chekEskalatsiyasi(m.patches));
 }
 
-// ─── 4. Da'vo kuzatuvi (crm_watch) — sotuv agentida chek qoidasi bermaydi ─
+// ─── 4. Tasdiqlangan/rad etilgan chek — qoida bermaydi ─────────────────
 {
-  const m = build({ openCheck: chek({ kind: 'crm_watch', status: 'watching', receiptSource: null, watchUntil: NOW }) });
-  await m.runner.reply('cv1', 'to\'lab qo\'ydim');
-  check('crm_watch: receiptPending yolg\'on', m.kirishlar[0]?.receiptPending === false);
-  check('crm_watch: receiptReview null', m.kirishlar[0]?.receiptReview === null);
-  check('crm_watch: acknowledged_at yo\'q', m.tasdiqlar.length === 0);
+  const m = build({ openCheck: chek({ status: 'rejected' }) });
+  await m.runner.reply('cv1', 'yana yubordim');
+  check('rad etilgan: receiptPending yolg\'on', m.kirishlar[0]?.receiptPending === false);
+  check('rad etilgan: receiptReview null', m.kirishlar[0]?.receiptReview === null);
+  check('rad etilgan: acknowledged_at yo\'q', m.tasdiqlar.length === 0);
 }
 
 // ─── 5. Agent o'zi eskalatsiya qildi — sababi ustidan yozilmaydi ─────────

@@ -1,6 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import express from 'express';
-import type { ReceiptConfirmOutcome } from '@/application/services/PaymentCheckService';
+import type { ReceiptConfirmOutcome, ReceiptRejectOutcome } from '@/application/services/PaymentCheckService';
 import type { Container } from '@/composition/container';
 import type { Permission } from '@/domain/entities/Permission';
 import type { PaymentCheck } from '@/domain/entities/PaymentCheck';
@@ -13,12 +13,14 @@ import { conversationRoutes } from '@/presentation/http/routes/conversationRoute
  * (CI'da soxta DATABASE_URL/JWT_SECRET/ENCRYPTION_KEY bilan — route
  * `shared/config` ni tortadi; bazaga chiqmaydi).
  *
- * `POST /conversations/:id/receipt-confirm`:
- *   • `conversations.send` huquqisiz — 403, servis chaqirilmaydi;
- *   • operator emaili servisga `actor` bo'lib boradi;
+ * `POST /conversations/:id/receipt-confirm` (body `{ amount }`, > 0) va
+ * `POST /conversations/:id/receipt-reject` (body `{ reason }`, 1–300):
+ *   • `receipts.confirm` huquqisiz — 403, servis chaqirilmaydi;
+ *   • noto'g'ri body — 422, servis chaqirilmaydi;
+ *   • operator emaili servisga `actor` bo'lib boradi, summa/sabab bilan;
  *   • ochiq tekshiruv yo'q — 409 `{ kind: 'no_review' }`.
- * `GET /conversations/:id` — `receiptReview` faqat chek tekshiruvida va
- * u 7 kundan eski bo'lmasa.
+ * `GET /conversations/:id` — `receiptReview` (kutilgan summa bilan) faqat
+ * ochiq tekshiruvda va u 7 kundan eski bo'lmasa.
  * `PATCH /conversations/:id` — suhbat yopilsa ochiq tekshiruv bekor qilinadi.
  */
 
@@ -35,9 +37,11 @@ function eq(nom: string, actual: unknown, kutilgan: unknown): void {
 }
 
 const NOW = new Date('2026-09-17T06:00:00Z');
-const chaqiruvlar: Array<{ id: string; actor: string }> = [];
+const chaqiruvlar: Array<{ id: string; actor: string; amount: number }> = [];
+const radlar: Array<{ id: string; actor: string; reason: string }> = [];
 const bekorlar: string[] = [];
-let natija: ReceiptConfirmOutcome = { kind: 'thanked' };
+let natija: ReceiptConfirmOutcome = { kind: 'confirmed', stage: 'qisman_toladi', linkSent: true };
+let radNatija: ReceiptRejectOutcome = { kind: 'rejected' };
 let ochiqTekshiruv: Partial<PaymentCheck> | null = null;
 
 const container = {
@@ -55,6 +59,12 @@ const container = {
     telegramAccounts: { list: async () => [] },
     paymentChecks: { findOpenByConversation: async () => ochiqTekshiruv },
     nomalumSuhbatlar: { find: async () => null },
+    purchases: {
+      findById: async (id: string) =>
+        id === 'p1' ? { id: 'p1', courseId: 'k1', totalAmount: 1_500_000, paidAmount: 500_000, installment: true } : null,
+      findActiveByClient: async () => null,
+    },
+    courses: { findById: async () => ({ id: 'k1', price: 1_500_000, installmentFirstMin: 500_000 }) },
   },
   events: { publish: () => undefined },
   services: {
@@ -62,9 +72,13 @@ const container = {
     javobYonaltiruvchi: { abort: () => 0 },
     paymentCheckService: {
       cancel: async (id: string) => void bekorlar.push(id),
-      confirmReceipt: async (id: string, actor: string) => {
-        chaqiruvlar.push({ id, actor });
+      confirmReceipt: async (id: string, actor: string, amount: number) => {
+        chaqiruvlar.push({ id, actor, amount });
         return natija;
+      },
+      rejectReceipt: async (id: string, actor: string, reason: string) => {
+        radlar.push({ id, actor, reason });
+        return radNatija;
       },
     },
   },
@@ -94,7 +108,9 @@ app.use(express.json());
 // `x-rol: operator` — conversations.send bor; aks holda faqat ko'rish.
 app.use((req, _res, next) => {
   req.user = foydalanuvchi(
-    req.headers['x-rol'] === 'operator' ? ['conversations.view', 'conversations.send', 'conversations.manage'] : ['conversations.view'],
+    req.headers['x-rol'] === 'operator'
+      ? ['conversations.view', 'conversations.send', 'conversations.manage', 'receipts.confirm']
+      : ['conversations.view', 'conversations.send'],
   );
   next();
 });
@@ -104,45 +120,63 @@ app.use(errorHandler);
 const server = app.listen(0);
 const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/conversations`;
 
-async function so(method: string, path: string, operator = true): Promise<{ status: number; json: any }> { // eslint-disable-line @typescript-eslint/no-explicit-any
+async function so(method: string, path: string, operator = true, body?: unknown): Promise<{ status: number; json: any }> { // eslint-disable-line @typescript-eslint/no-explicit-any
   const res = await fetch(`${base}${path}`, {
     method,
     headers: { 'content-type': 'application/json', ...(operator ? { 'x-rol': 'operator' } : {}) },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   return { status: res.status, json: await res.json().catch(() => null) };
 }
 
 try {
-  const ruxsatsiz = await so('POST', '/cv1/receipt-confirm', false);
-  eq('huquqsiz — 403', ruxsatsiz.status, 403);
+  const ruxsatsiz = await so('POST', '/cv1/receipt-confirm', false, { amount: 500000 });
+  eq('huquqsiz (conversations.send bor, receipts.confirm yo\'q) — 403', ruxsatsiz.status, 403);
   eq('huquqsiz — servis chaqirilmadi', chaqiruvlar.length, 0);
 
-  const ok = await so('POST', '/cv1/receipt-confirm');
-  eq('tasdiq — 200 va natija', [ok.status, ok.json], [200, { kind: 'thanked' }]);
-  eq('operator emaili actor bo\'lib bordi', chaqiruvlar[0], { id: 'cv1', actor: 'operator@xonsaroy.uz' });
+  for (const body of [{}, { amount: 0 }, { amount: -5 }, { amount: '500000' }, { amount: 1.5 }]) {
+    const yomon = await so('POST', '/cv1/receipt-confirm', true, body);
+    eq(`noto'g'ri summa ${JSON.stringify(body)} — 422`, yomon.status, 422);
+  }
+  eq('noto\'g\'ri summa — servis chaqirilmadi', chaqiruvlar.length, 0);
+
+  const ok = await so('POST', '/cv1/receipt-confirm', true, { amount: 500000 });
+  eq('tasdiq — 200 va natija', [ok.status, ok.json], [200, { kind: 'confirmed', stage: 'qisman_toladi', linkSent: true }]);
+  eq('operator emaili va summa servisga bordi', chaqiruvlar[0], { id: 'cv1', actor: 'operator@xonsaroy.uz', amount: 500000 });
 
   natija = { kind: 'not_sent', reason: 'agent_error' };
-  const yozilmadi = await so('POST', '/cv1/receipt-confirm');
+  const yozilmadi = await so('POST', '/cv1/receipt-confirm', true, { amount: 500000 });
   eq('rahmat ketmadi — 200, sabab bilan', [yozilmadi.status, yozilmadi.json], [200, { kind: 'not_sent', reason: 'agent_error' }]);
 
   natija = { kind: 'no_review' };
-  const yoq = await so('POST', '/cv1/receipt-confirm');
+  const yoq = await so('POST', '/cv1/receipt-confirm', true, { amount: 500000 });
   eq('ochiq tekshiruv yo\'q — 409', [yoq.status, yoq.json], [409, { kind: 'no_review' }]);
 
-  ochiqTekshiruv = { id: 'pc1', kind: 'receipt_review', messageId: 'm1', createdAt: NOW };
-  const bor = await so('GET', '/cv1', false);
-  eq('GET: receiptReview', bor.json?.receiptReview, { id: 'pc1', messageId: 'm1', createdAt: NOW.toISOString() });
+  // ── Rad etish ──
+  eq('rad: huquqsiz — 403', (await so('POST', '/cv1/receipt-reject', false, { reason: 'xira' })).status, 403);
+  eq('rad: bo\'sh sabab — 422', (await so('POST', '/cv1/receipt-reject', true, { reason: '   ' })).status, 422);
+  eq('rad: 301 belgi — 422', (await so('POST', '/cv1/receipt-reject', true, { reason: 'x'.repeat(301) })).status, 422);
+  eq('rad: servis chaqirilmadi', radlar.length, 0);
+  const rad = await so('POST', '/cv1/receipt-reject', true, { reason: '  Chek xira  ' });
+  eq('rad: 200', [rad.status, rad.json], [200, { kind: 'rejected' }]);
+  eq('rad: sabab qirqilib bordi', radlar[0], { id: 'cv1', actor: 'operator@xonsaroy.uz', reason: 'Chek xira' });
+  radNatija = { kind: 'no_review' };
+  eq('rad: tekshiruv yo\'q — 409', (await so('POST', '/cv1/receipt-reject', true, { reason: 'x' })).status, 409);
 
-  ochiqTekshiruv = { id: 'pc2', kind: 'crm_watch', messageId: null, createdAt: NOW };
-  const davo = await so('GET', '/cv1', false);
-  eq('GET: da\'vo kuzatuvida receiptReview null', davo.json?.receiptReview, null);
+  eq('check-payment endi yo\'q — 404', (await so('POST', '/cv1/check-payment')).status, 404);
+
+  ochiqTekshiruv = { id: 'pc1', kind: 'receipt_review', clientId: 'c1', purchaseId: 'p1', messageId: 'm1', createdAt: NOW };
+  const bor = await so('GET', '/cv1', false);
+  eq('GET: receiptReview kutilgan summa bilan', bor.json?.receiptReview, {
+    id: 'pc1', messageId: 'm1', createdAt: NOW.toISOString(), expectedAmount: 1_000_000,
+  });
 
   ochiqTekshiruv = null;
   const hech = await so('GET', '/cv1', false);
   eq('GET: tekshiruv yo\'q — null', hech.json?.receiptReview, null);
 
   const olti = new Date(NOW.getTime() - 6 * 24 * 60 * 60 * 1000);
-  ochiqTekshiruv = { id: 'pc3', kind: 'receipt_review', status: 'reviewing', messageId: 'm3', createdAt: olti };
+  ochiqTekshiruv = { id: 'pc3', kind: 'receipt_review', status: 'reviewing', clientId: 'c1', purchaseId: null, messageId: 'm3', createdAt: olti };
   const yosh = await so('GET', '/cv1', false);
   eq('GET: 6 kunlik tekshiruv — tugma bor', yosh.json?.receiptReview?.id, 'pc3');
 

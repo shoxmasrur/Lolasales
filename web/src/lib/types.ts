@@ -23,6 +23,7 @@ export type Permission =
   | 'clients.export'
   | 'contracts.sync'
   | 'courses.view' | 'courses.edit'
+  | 'receipts.confirm'
   | 'campaigns.view' | 'campaigns.create' | 'campaigns.control'
   | 'import.view' | 'import.run' | 'import.undo'
   | 'telegram.view' | 'telegram.manage' | 'telegram.inbox'
@@ -249,7 +250,7 @@ export interface Conversation {
    * `'agent_error'` — agent texnik xato tufayli to'xtagan, qayta urinish
    * mumkin. `'broken_promise'` — va'da bajarilmagan; suhbat operator
    * ro'yxatida turadi, lekin agent unga sukutdan keyin baribir yozadi.
-   * `'chek_tekshiruvi'` — mijozning cheki "To'lov qabul qilindi" tugmasini
+   * `'chek_tekshiruvi'` — mijozning cheki menejerning "Tasdiqlash"/"Rad etish" qarorini
    * kutyapti.
    */
   humanKind: 'agent_error' | 'broken_promise' | 'chek_tekshiruvi' | 'crm_xato' | null;

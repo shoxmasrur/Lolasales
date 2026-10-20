@@ -31,7 +31,6 @@ import {
 import { Avatar, EmptyState, ErrorNote, Spinner, Toggle } from '@/components/ui';
 import NomalumPanel from '@/components/NomalumPanel';
 import MessageBubble from '@/components/MessageBubble';
-import { CheckPaymentButton } from '@/components/CheckPaymentButton';
 import { ReceiptConfirmButton, type ReceiptReview } from '@/components/ReceiptConfirmButton';
 import { Sheet } from '@/components/Sheet';
 import { useIsDesktopWide, useIsMobile } from '@/lib/useBreakpoint';
@@ -49,7 +48,7 @@ interface ConversationDetail {
   activePromise: PaymentPromise | null;
   /** Suhbatni davom ettirish mumkin bo'lgan akkauntlar (yoza oladiganlari). */
   accountOptions: AccountOption[];
-  /** Ochiq chek tekshiruvi — "To'lov qabul qilindi" tugmasi uchun. */
+  /** Ochiq chek tekshiruvi — "Tasdiqlash"/"Rad etish" tugmalari uchun. */
   receiptReview: ReceiptReview | null;
   debtMonthly: number;
   debtTotal: number;
@@ -67,7 +66,7 @@ interface AgentTurnResult {
   cardSent: boolean;
 }
 
-type Filter = 'all' | 'needsHuman' | 'unread' | 'blocked' | 'nomalum';
+type Filter = 'all' | 'needsHuman' | 'unread' | 'blocked' | 'nomalum' | 'receipt';
 
 /** Suhbatlar ro'yxatining bitta sahifasi — pastga aylantirilganda keyingisi yuklanadi. */
 const LIST_PAGE_SIZE = 50;
@@ -128,6 +127,8 @@ export default function ChatPage() {
         unreadOnly: filter === 'unread' ? 'true' : undefined,
         blocked: filter === 'blocked' ? 'true' : undefined,
         nomalum: filter === 'nomalum' ? 'true' : undefined,
+        // "Chek keldi" — menejer tasdig'ini kutayotgan ochiq chek tekshiruvi bor suhbatlar.
+        receiptPending: filter === 'receipt' ? 'true' : undefined,
         objectName: objectName || undefined,
         telegramAccountId: accountId || undefined,
         limit: LIST_PAGE_SIZE,
@@ -380,6 +381,7 @@ export default function ChatPage() {
                 ['unread', 'O\'qilmagan'],
                 ['blocked', 'Bloklaganlar'],
                 ['nomalum', 'Noma\'lum'],
+                ['receipt', 'Chek keldi'],
               ] as Array<[Filter, string]>
             ).map(([key, label]) => (
               <button
@@ -998,7 +1000,6 @@ function ClientPanelBody({ detail }: { detail: ConversationDetail }) {
         conversationId={detail.conversation.id}
         receiptReview={detail.receiptReview}
       />
-      <CheckPaymentButton conversationId={detail.conversation.id} />
 
       {/* Agent va operator mijoz bilan oyma-oy kechikish haqida gaplashadi —
           shuning uchun yirik raqam shu. Umumiy kechikish pastda, ma'lumot uchun. */}

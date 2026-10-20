@@ -7,6 +7,11 @@ import { NotFoundError } from '@/shared/errors';
 const FAOL = `stage NOT IN ('toladi', 'rad_etdi')`;
 
 export class PgPurchaseRepository implements IPurchaseRepository {
+  async findById(id: string): Promise<Purchase | null> {
+    const { rows } = await query(`SELECT * FROM purchases WHERE id = $1`, [id]);
+    return rows[0] ? mapPurchase(rows[0]) : null;
+  }
+
   async findActiveByClient(clientId: string): Promise<Purchase | null> {
     const { rows } = await query(`SELECT * FROM purchases WHERE client_id = $1 AND ${FAOL} LIMIT 1`, [clientId]);
     return rows[0] ? mapPurchase(rows[0]) : null;

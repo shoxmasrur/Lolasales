@@ -12,6 +12,7 @@ import { RECEIPT_REVIEW_REASON } from '@/domain/entities/PaymentCheck';
 import { NOMALUM_SABAB_HUJJAT, NOMALUM_SABAB_OPERATOR } from '@/domain/entities/NomalumSuhbat';
 import { REVIEW_KINDS } from '@/domain/entities/Message';
 import type { PaymentCheckService } from '@/application/services/PaymentCheckService';
+import type { XaridXizmati } from '@/application/services/XaridXizmati';
 import type { SttTaqqoslash } from '@/application/services/SttTaqqoslash';
 import type { NomalumMijozOchuvchi } from '@/application/services/NomalumMijozOchuvchi';
 import type { NomalumHujjatQabul } from '@/application/services/NomalumHujjatQabul';
@@ -86,6 +87,8 @@ export class HandleIncomingMessageUseCase {
     private readonly nomalumOchuvchi: NomalumMijozOchuvchi | null = null,
     /** Hujjat kutilayotgan noma'lum suhbatga kelgan rasm/faylni operator tasdig'iga o'tkazadi. */
     private readonly hujjatQabul: Pick<NomalumHujjatQabul, 'qabulQil'> | null = null,
+    /** Chek kelganda faol xarid bosqichi `chek_keldi` bo'ladi; `null` — sinovlarda. */
+    private readonly xarid: Pick<XaridXizmati, 'bosqich'> | null = null,
   ) {}
 
   async execute(incoming: IncomingMessage): Promise<IncomingOutcome> {
@@ -224,20 +227,26 @@ export class HandleIncomingMessageUseCase {
     const runtime = await this.settings.get();
 
     // Rasm/fayl — ehtimol to'lov cheki. Pulni operator tasdiqlaydi
-    // ("To'lov qabul qilindi" tugmasi), CRM bilan avtomat solishtirilmaydi.
+    // ("Tasdiqlash" summa bilan yoki "Rad etish"), CRM bilan solishtirilmaydi.
     // Noma'lum odamda shartnoma yo'q — chekni bog'lash mumkin emas; operator
-    // suhbatda o'zi ko'radi. Aks holda "To'lov qabul qilindi" bosilganda
+    // suhbatda o'zi ko'radi. Aks holda "Tasdiqlash" bosilganda
     // eski agent begonaga rahmat yozib yuborardi.
     if (processed?.receiptSource && !client.nomalum) {
       const source = processed.receiptSource;
       const reason = processed.reviewReason ?? RECEIPT_REVIEW_REASON[source];
 
       try {
-        const check = await this.paymentChecks.openReceiptReview(conversation.id, saved.id, source);
+        const check = await this.paymentChecks.openReceiptReview(conversation.id, client.id, saved.id, source);
         log.info(
           { conversationId: conversation.id, checkId: check.id, receiptSource: check.receiptSource, kind: processed.media.kind },
           'To\'lov cheki tekshirishga olindi',
         );
+        // Bosqich xatosi chekni operatordan chetda qoldirmasin — faqat jurnal.
+        try {
+          await this.xarid?.bosqich(client.id, 'chek_keldi', 'tizim');
+        } catch (err) {
+          log.warn({ conversationId: conversation.id, err }, 'Xarid bosqichi chek_keldi ga o\'tmadi');
+        }
       } catch (err) {
         // Tekshiruv ochilmasa ham chek operatordan chetda qolmasligi kerak.
         log.warn({ conversationId: conversation.id, err }, 'Tekshiruv ochilmadi, operatorga chiqarildi');

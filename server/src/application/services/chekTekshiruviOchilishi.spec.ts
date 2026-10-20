@@ -1,7 +1,7 @@
 import { IncomingMediaProcessor, type ProcessedMedia } from '@/application/services/IncomingMediaProcessor';
 import { PaymentCheckService } from '@/application/services/PaymentCheckService';
 import type { AgentRunner } from '@/application/services/AgentRunner';
-import type { ContractSyncService } from '@/application/services/ContractSyncService';
+import type { XaridXizmati } from '@/application/services/XaridXizmati';
 import type { ReplyDebouncer } from '@/application/services/ReplyDebouncer';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
 import { HandleIncomingMessageUseCase } from '@/application/usecases/messaging/HandleIncomingMessageUseCase';
@@ -13,7 +13,6 @@ import {
   type ReceiptSource,
 } from '@/domain/entities/PaymentCheck';
 import type { IClientRepository } from '@/domain/repositories/IClientRepository';
-import type { IContractPaymentRepository } from '@/domain/repositories/IContractPaymentRepository';
 import type { IContractRepository } from '@/domain/repositories/IContractRepository';
 import type {
   ConversationPatch,
@@ -21,7 +20,7 @@ import type {
 } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentCheckRepository';
-import type { IPaymentPromiseRepository } from '@/domain/repositories/IPaymentPromiseRepository';
+import type { IPurchaseRepository } from '@/domain/repositories/IPurchaseRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IImageClassifier, ImageClassifyResult } from '@/domain/services/IImageClassifier';
 import type { IMediaStorage } from '@/domain/services/IMediaStorage';
@@ -40,6 +39,8 @@ import type { IClock, IEventBus } from '@/domain/services/support';
  *   • `noaniq` / yiqilgan / tasnifchi o'chiq / yuklanmagan fayl —
  *     `aniqlanmagan`: agent CHAQIRILMAYDI, operator DARHOL;
  *   • hujjat, oddiy rasm, stiker, video — tekshiruv ochilmaydi.
+ *   • Chek ochilganda tekshiruv faol xaridga bog'lanadi va xarid bosqichi
+ *     `chek_keldi` bo'ladi (10-vazifa).
  */
 
 let failed = 0;
@@ -149,7 +150,7 @@ class XotiraTekshiruvlar {
   private n = 0;
 
   private ochiqmi(q: Qator): boolean {
-    return q.status === 'watching' || q.status === 'reviewing';
+    return q.status === 'reviewing';
   }
 
   async findOpenByConversation(conversationId: string): Promise<PaymentCheck | null> {
@@ -160,6 +161,7 @@ class XotiraTekshiruvlar {
     const q = this.yangi({
       conversationId: d.conversationId,
       clientId: d.clientId,
+      purchaseId: d.purchaseId,
       messageId: d.messageId,
       kind: 'receipt_review',
       status: 'reviewing',
@@ -186,25 +188,20 @@ class XotiraTekshiruvlar {
       id: `pc${this.n}`,
       conversationId: 'cv1',
       clientId: 'c1',
-      contractId: null,
+      purchaseId: null,
       messageId: null,
-      kind: 'crm_watch',
-      status: 'watching',
-      receiptSource: null,
+      kind: 'receipt_review',
+      status: 'reviewing',
+      receiptSource: 'tolov',
       sinceIso: '2026-09-10',
-      baselinePaid: 0,
-      foundAmount: null,
-      foundType: null,
-      watchUntil: new Date('2026-09-18T06:00:00Z'),
-      checkedAt: null,
       acknowledgedAt: null,
-      thanksSentAt: null,
       confirmedBy: null,
       confirmedAt: null,
+      confirmedAmount: null,
+      rejectedReason: null,
       createdAt: NOW,
       ...over,
     };
-    if (q.kind === 'receipt_review') q.watchUntil = null;
     this.qatorlar.push(q);
     return q;
   }
@@ -252,6 +249,14 @@ function muhit(opts: {
   const patches: ConversationPatch[] = [];
   const navbat: string[] = [];
   const tekshiruvlar = opts.tekshiruvlar ?? new XotiraTekshiruvlar();
+  const bosqichlar: string[] = [];
+  const xarid = {
+    faolXarid: async () => ({ id: 'p1', stage: 'karta_yuborildi' }),
+    bosqich: async (clientId: string, stage: string, actor: string) => {
+      bosqichlar.push(`${clientId}:${stage}:${actor}`);
+      return null;
+    },
+  } as unknown as XaridXizmati;
 
   const conversations = {
     findByPeer: async () => suhbat,
@@ -268,11 +273,11 @@ function muhit(opts: {
   const service = new PaymentCheckService(
     tekshiruvlar as unknown as IPaymentCheckRepository,
     conversations,
-    { findByClientId: async () => [] } as unknown as IContractRepository,
-    {} as unknown as IContractPaymentRepository,
-    {} as unknown as IPaymentPromiseRepository,
-    {} as unknown as ContractSyncService,
+    {} as unknown as IPurchaseRepository,
+    { findById: async () => null },
+    xarid,
     {} as unknown as AgentRunner,
+    { send: async () => { throw new Error('kutilmagan'); } },
     { record: async () => undefined } as unknown as IAuditRepository,
     events,
     { now: () => NOW, todayIso: () => '2026-09-17' } as unknown as IClock,
@@ -289,9 +294,13 @@ function muhit(opts: {
     { process: async () => opts.processed } as unknown as IncomingMediaProcessor,
     events,
     service,
+    null,
+    null,
+    null,
+    xarid,
   );
 
-  return { useCase, service, patches, navbat, tekshiruvlar };
+  return { useCase, service, patches, navbat, tekshiruvlar, bosqichlar };
 }
 
 const xabar: IncomingMessage = {
@@ -321,6 +330,8 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
     JSON.stringify(q),
   );
   check('tolov: xabar va kun yoziladi', q?.messageId === 'm1' && q.sinceIso === '2026-09-17', JSON.stringify(q));
+  check('tolov: faol xaridga bog\'landi', q?.purchaseId === 'p1', JSON.stringify(q));
+  check('tolov: bosqich chek_keldi (tizim)', JSON.stringify(m.bosqichlar) === JSON.stringify(['c1:chek_keldi:tizim']), JSON.stringify(m.bosqichlar));
   check('tolov: agent navbati ketdi', m.navbat.length === 1, JSON.stringify(m.navbat));
   check('tolov: eskalatsiya javobdan oldin qo\'yilmaydi', !m.patches.some((p) => p.needsHuman), JSON.stringify(m.patches));
 }
@@ -352,20 +363,10 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
   check('tolov + operator qo\'lida: eskalatsiya', chekEskalatsiyasi(qolda.patches, RECEIPT_REVIEW_REASON.tolov));
 }
 
-// ochiq da'vo kuzatuvi — chek uni almashtiradi
-{
-  const t = new XotiraTekshiruvlar();
-  const crm = t.yangi({ kind: 'crm_watch', status: 'watching' });
-  const m = muhit({ processed: ishlangan('tolov'), tekshiruvlar: t });
-  await m.useCase.execute(xabar);
-  check('crm_watch → cancelled', crm.status === 'cancelled', crm.status);
-  check('o\'rniga receipt_review', t.qatorlar.length === 2 && t.qatorlar[1]?.kind === 'receipt_review');
-}
-
 // ochiq aniqlanmagan + tolov rasmi — manba ko'tariladi, yangi yozuv yo'q
 {
   const t = new XotiraTekshiruvlar();
-  const eski = t.yangi({ kind: 'receipt_review', status: 'reviewing', receiptSource: 'aniqlanmagan' });
+  const eski = t.yangi({ receiptSource: 'aniqlanmagan' });
   const m = muhit({ processed: ishlangan('tolov'), tekshiruvlar: t, suhbat: { needsHuman: true, humanKind: 'chek_tekshiruvi' } });
   await m.useCase.execute(xabar);
   check('aniqlanmagan → tolov ga ko\'tarildi', eski.receiptSource === 'tolov', String(eski.receiptSource));
@@ -373,7 +374,7 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
 
   // Teskarisi: tolov ustiga aniqlanmagan — pastga tushirilmaydi.
   const t2 = new XotiraTekshiruvlar();
-  const tolov = t2.yangi({ kind: 'receipt_review', status: 'reviewing', receiptSource: 'tolov' });
+  const tolov = t2.yangi({ receiptSource: 'tolov' });
   const m2 = muhit({ processed: ishlangan('aniqlanmagan'), tekshiruvlar: t2 });
   await m2.useCase.execute(xabar);
   check('tolov pastga tushirilmaydi', tolov.receiptSource === 'tolov', String(tolov.receiptSource));
@@ -382,7 +383,7 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
 // ikkinchi chek rasmi — javob berilgan, suhbat operatorda: yangi javob ham, yozuv ham yo'q
 {
   const t = new XotiraTekshiruvlar();
-  t.yangi({ kind: 'receipt_review', status: 'reviewing', receiptSource: 'tolov', acknowledgedAt: NOW });
+  t.yangi({ receiptSource: 'tolov', acknowledgedAt: NOW });
   const m = muhit({
     processed: ishlangan('tolov'),
     tekshiruvlar: t,
@@ -397,8 +398,6 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
 {
   const t = new XotiraTekshiruvlar();
   const eski = t.yangi({
-    kind: 'receipt_review',
-    status: 'reviewing',
     receiptSource: 'tolov',
     acknowledgedAt: new Date('2026-09-09T06:00:00Z'),
     createdAt: new Date('2026-09-09T06:00:00Z'),
@@ -420,6 +419,7 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
   const m = muhit({ processed: ishlangan('tolov'), tekshiruvlar: new YiqiladiganTekshiruvlar() });
   await m.useCase.execute(xabar);
   check('ochilmadi: navbat yo\'q', m.navbat.length === 0);
+  check('ochilmadi: bosqich o\'zgarmadi', m.bosqichlar.length === 0, JSON.stringify(m.bosqichlar));
   check(
     'ochilmadi: needs_human sabab bilan',
     m.patches.some((p) => p.needsHuman === true && p.humanReason === RECEIPT_REVIEW_REASON.tolov),
@@ -432,6 +432,7 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
   const m = muhit({ processed: ishlangan(null, { imageKind: 'hujjat', agentText: '[mijoz hujjat rasmini yubordi]' }) });
   await m.useCase.execute(xabar);
   check('hujjat: tekshiruv yo\'q', m.tekshiruvlar.qatorlar.length === 0);
+  check('hujjat: bosqich o\'zgarmadi', m.bosqichlar.length === 0);
   check('hujjat: agent navbati ketdi', m.navbat.length === 1);
 }
 
@@ -450,24 +451,6 @@ const chekEskalatsiyasi = (patches: ConversationPatch[], reason: string): boolea
   check('ovoz: chek tekshiruvi ochilmadi', m.tekshiruvlar.qatorlar.length === 0);
   check('ovoz: navbat yo\'q', m.navbat.length === 0);
   check('ovoz: operatorga sabab bilan', m.patches.some((p) => p.needsHuman === true && p.humanKind === undefined));
-}
-
-// ─── 4. Chek ochiq — CRM kuzatuvi yuritilmaydi ───────────────────────────
-{
-  const t = new XotiraTekshiruvlar();
-  t.yangi({ kind: 'receipt_review', status: 'reviewing', receiptSource: 'tolov' });
-  const m = muhit({ processed: ishlangan('tolov'), tekshiruvlar: t });
-
-  const tugma = await m.service.checkNow('cv1');
-  check(
-    '"To\'lovni tekshirish" chek ochiq bo\'lsa CRM\'ga bormaydi',
-    tugma.kind === 'unavailable' && tugma.reason.includes('To\'lov qabul qilindi'),
-    JSON.stringify(tugma),
-  );
-
-  const davo = await m.service.open('cv1', null);
-  check('da\'vo kuzatuvi chek ustidan ochilmaydi', davo.kind === 'unavailable', JSON.stringify(davo));
-  check('yozuvlar o\'zgarmadi', t.qatorlar.length === 1 && t.qatorlar[0]?.status === 'reviewing');
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : '\nHammasi o\'tdi');

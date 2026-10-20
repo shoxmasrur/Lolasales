@@ -90,7 +90,6 @@ async function bootstrap(): Promise<void> {
   });
 
   container.services.scheduler.start();
-  container.services.paymentCheckService.start();
   container.services.spamWatcher.start();
   container.services.appLogCleaner.start();
   container.services.connectionWatcher.start();
@@ -165,7 +164,6 @@ async function bootstrap(): Promise<void> {
       }
     }
     await container.services.scheduler.stop();
-    container.services.paymentCheckService.stop();
     container.services.spamWatcher.stop();
     container.services.appLogCleaner.stop();
     container.services.connectionWatcher.stop();

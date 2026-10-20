@@ -1,6 +1,7 @@
 import type { Purchase, XaridBosqichi } from '@/domain/entities/Purchase';
 
 export interface IPurchaseRepository {
+  findById(id: string): Promise<Purchase | null>;
   findActiveByClient(clientId: string): Promise<Purchase | null>;
   findLatestByClient(clientId: string): Promise<Purchase | null>;
   /** Bir nechta mijozning faol (yo'q bo'lsa oxirgi) xaridi — ro'yxat uchun. */

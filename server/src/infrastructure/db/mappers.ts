@@ -356,25 +356,19 @@ export function mapPaymentCheck(r: Row): PaymentCheck {
     id: r.id,
     conversationId: r.conversation_id,
     clientId: r.client_id,
-    contractId: r.contract_id ?? null,
+    purchaseId: r.purchase_id ?? null,
     messageId: r.message_id ?? null,
-    // 105-migratsiyadan oldingi qatorlar — CRM kuzatuvi.
-    kind: r.kind ?? 'crm_watch',
+    kind: 'receipt_review',
     status: r.status,
     receiptSource: r.receipt_source ?? null,
     // `DATE` ustuni drayverdan `Date` bo'lib keladi — promptga va
     // so'rovlarga YYYY-MM-DD kerak.
     sinceIso: typeof r.since_date === 'string' ? r.since_date : toIsoDay(r.since_date),
-    baselinePaid: num(r.baseline_paid),
-    foundAmount: r.found_amount === null || r.found_amount === undefined ? null : num(r.found_amount),
-    foundType: r.found_type ?? null,
-    // Chek tekshiruvida muddat yo'q — `req` bu yerda 1970-yilni qaytarardi.
-    watchUntil: toDate(r.watch_until),
-    checkedAt: toDate(r.checked_at),
     acknowledgedAt: toDate(r.acknowledged_at),
-    thanksSentAt: toDate(r.thanks_sent_at),
     confirmedBy: r.confirmed_by ?? null,
     confirmedAt: toDate(r.confirmed_at),
+    confirmedAmount: r.confirmed_amount === null || r.confirmed_amount === undefined ? null : num(r.confirmed_amount),
+    rejectedReason: r.rejected_reason ?? null,
     createdAt: req(r.created_at),
   };
 }

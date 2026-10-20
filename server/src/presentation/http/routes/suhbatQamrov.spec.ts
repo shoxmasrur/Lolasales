@@ -123,8 +123,8 @@ const container = {
   services: {
     qamrovTekshiruvchi: new QamrovTekshiruvchi(qamrovRepo),
     paymentCheckService: {
-      checkNow: async (id: string) => { amallar.push(`checkNow:${id}`); return { kind: 'checked' }; },
       confirmReceipt: async (id: string) => { amallar.push(`confirm:${id}`); return { kind: 'confirmed' }; },
+      rejectReceipt: async (id: string) => { amallar.push(`reject:${id}`); return { kind: 'rejected' }; },
       cancel: async () => undefined,
     },
     dispatcher: {
@@ -210,8 +210,8 @@ try {
     ['PATCH', `/conversations/${id}`, { needsHuman: false }],
     ['POST', `/conversations/${id}/agent-retry`],
     ['POST', `/conversations/${id}/agent-instruction`, { instruction: 'To\'lovni so\'ra' }],
-    ['POST', `/conversations/${id}/check-payment`],
-    ['POST', `/conversations/${id}/receipt-confirm`],
+    ['POST', `/conversations/${id}/receipt-confirm`, { amount: 500000 }],
+    ['POST', `/conversations/${id}/receipt-reject`, { reason: 'Chek xira' }],
   ];
   const tana = (b: unknown) => (b === 'fayl' ? fayl() : b);
 

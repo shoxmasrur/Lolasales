@@ -17,6 +17,7 @@ export const PERMISSIONS = [
   'conversations.edit_message',
   'conversations.delete_message',
   'conversations.reset',
+  'receipts.confirm',
 
   // Mijozlar
   'clients.view',
@@ -118,6 +119,11 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
         key: 'conversations.reset',
         label: 'Yozishmalarni tozalash',
         hint: 'BARCHA suhbatlarni o\'chirib, sinovni noldan boshlash. Qaytarib bo\'lmaydi',
+      },
+      {
+        key: 'receipts.confirm',
+        label: 'Chekni tasdiqlash/rad etish',
+        hint: 'Mijoz chekidagi summani kiritib tasdiqlash yoki sababini yozib rad etish. Tasdiqda guruh havolasi ketishi mumkin',
       },
     ],
   },

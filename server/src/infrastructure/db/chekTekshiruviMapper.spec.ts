@@ -1,4 +1,4 @@
-import { chekJavobiHolati, operatorJimligiBoshi, type PaymentCheck } from '@/domain/entities/PaymentCheck';
+import { chekJavobiHolati, type PaymentCheck } from '@/domain/entities/PaymentCheck';
 import { mapPaymentCheck } from '@/infrastructure/db/mappers';
 
 /**
@@ -6,10 +6,9 @@ import { mapPaymentCheck } from '@/infrastructure/db/mappers';
  * (CI'da soxta DATABASE_URL/JWT_SECRET/ENCRYPTION_KEY bilan — `mappers.ts`
  * `shared/crypto` orqali `shared/config` ni tortadi; bazaga chiqmaydi).
  *
- * 105-migratsiya `payment_checks` ga `kind` va chek ustunlarini qo'shdi.
- * Ikki narsa qo'riqlanadi:
- *   • eski (`crm_watch`) qator avvalgidek o'qiladi, chek qatorida
- *     `watch_until` NULL bo'lsa 1970-yil emas, `null` chiqadi;
+ * Qo'riqlanadi:
+ *   • chek qatori (005-migratsiya: `purchase_id`, `confirmed_amount`,
+ *     `rejected_reason`) to'g'ri o'qiladi, summa matndan songa o'tadi;
  *   • agent qaysi chek qoidasini olishi (`chekJavobiHolati`) — faqat ochiq
  *     `tolov` tekshiruvida, javobdan oldin `'new'`, keyin `'acknowledged'`.
  */
@@ -24,47 +23,40 @@ const asos = {
   id: 'pc1',
   conversation_id: 'cv1',
   client_id: 'c1',
-  contract_id: null,
   message_id: 'm1',
+  kind: 'receipt_review',
   since_date: new Date('2026-09-17T00:00:00Z'),
-  baseline_paid: '0',
-  found_amount: null,
-  found_type: null,
-  checked_at: null,
   created_at: new Date('2026-09-17T08:00:00Z'),
 };
 
-// ─── 1. Eski CRM kuzatuvi qatori ─────────────────────────────────────────
+// ─── 1. Tasdiqlangan chek qatori ─────────────────────────────────────────
 {
   const c = mapPaymentCheck({
     ...asos,
-    status: 'watching',
-    watch_until: new Date('2026-09-18T08:00:00Z'),
-  } as never);
-  check('kind ustuni yo\'q qator crm_watch bo\'ladi', c.kind === 'crm_watch', c.kind);
-  check('crm_watch: receiptSource null', c.receiptSource === null, String(c.receiptSource));
-  check('crm_watch: watchUntil sana', c.watchUntil?.toISOString() === '2026-09-18T08:00:00.000Z', String(c.watchUntil));
-  check('crm_watch: yangi maydonlar null', c.acknowledgedAt === null && c.thanksSentAt === null && c.confirmedBy === null && c.confirmedAt === null);
-}
-
-// ─── 2. Chek tekshiruvi qatori ───────────────────────────────────────────
-{
-  const c = mapPaymentCheck({
-    ...asos,
-    kind: 'receipt_review',
+    purchase_id: 'p1',
     status: 'confirmed_by_operator',
     receipt_source: 'tolov',
-    watch_until: null,
     acknowledged_at: new Date('2026-09-17T08:01:00Z'),
-    thanks_sent_at: null,
-    confirmed_by: 'operator@xonsaroy.uz',
+    confirmed_by: 'operator@lola.uz',
     confirmed_at: new Date('2026-09-17T10:00:00Z'),
+    confirmed_amount: '500000',
+    rejected_reason: null,
   } as never);
   check('receipt_review o\'qiladi', c.kind === 'receipt_review' && c.status === 'confirmed_by_operator');
+  check('xarid o\'qiladi', c.purchaseId === 'p1', String(c.purchaseId));
   check('manba o\'qiladi', c.receiptSource === 'tolov', String(c.receiptSource));
-  check('watch_until NULL → null (1970 emas)', c.watchUntil === null, String(c.watchUntil));
+  check('sana YYYY-MM-DD', c.sinceIso === '2026-09-17', c.sinceIso);
   check('javob vaqti o\'qiladi', c.acknowledgedAt?.toISOString() === '2026-09-17T08:01:00.000Z');
-  check('tasdiqlagan operator o\'qiladi', c.confirmedBy === 'operator@xonsaroy.uz' && c.confirmedAt instanceof Date);
+  check('tasdiqlagan operator o\'qiladi', c.confirmedBy === 'operator@lola.uz' && c.confirmedAt instanceof Date);
+  check('summa son', c.confirmedAmount === 500_000, String(c.confirmedAmount));
+  check('sabab null', c.rejectedReason === null);
+}
+
+// ─── 2. Rad etilgan / eski qator ─────────────────────────────────────────
+{
+  const r = mapPaymentCheck({ ...asos, status: 'rejected', receipt_source: 'tolov', rejected_reason: 'Summa ko\'rinmaydi' } as never);
+  check('rad etilgan: sabab', r.status === 'rejected' && r.rejectedReason === 'Summa ko\'rinmaydi');
+  check('ustunsiz eski qator: purchaseId/summa null', r.purchaseId === null && r.confirmedAmount === null);
 }
 
 // ─── 3. Agent qaysi chek qoidasini oladi ─────────────────────────────────
@@ -72,7 +64,7 @@ const asos = {
 const YAQIN = new Date('2026-09-17T09:00:00Z');
 const chek = (over: Partial<PaymentCheck>): PaymentCheck =>
   ({
-    ...mapPaymentCheck({ ...asos, kind: 'receipt_review', status: 'reviewing', receipt_source: 'tolov', watch_until: null } as never),
+    ...mapPaymentCheck({ ...asos, status: 'reviewing', receipt_source: 'tolov' } as never),
     ...over,
   });
 
@@ -80,14 +72,8 @@ check('ochiq tolov, javob yo\'q → new', chekJavobiHolati(chek({}), YAQIN) === 
 check('ochiq tolov, javob berilgan → acknowledged', chekJavobiHolati(chek({ acknowledgedAt: new Date() }), YAQIN) === 'acknowledged');
 check('aniqlanmagan → null', chekJavobiHolati(chek({ receiptSource: 'aniqlanmagan' }), YAQIN) === null);
 check('tasdiqlangan → null', chekJavobiHolati(chek({ status: 'confirmed_by_operator' }), YAQIN) === null);
-check('crm_watch → null', chekJavobiHolati(chek({ kind: 'crm_watch', status: 'watching', receiptSource: null }), YAQIN) === null);
+check('rad etilgan → null', chekJavobiHolati(chek({ status: 'rejected' }), YAQIN) === null);
 check('tekshiruv yo\'q → null', chekJavobiHolati(null, YAQIN) === null);
-
-// ─── 4. Jimlik oynasi — 7 kun ────────────────────────────────────────────
-{
-  const boshi = operatorJimligiBoshi(new Date('2026-09-17T10:00:00Z'));
-  check('7 kun orqaga', boshi.toISOString() === '2026-09-10T10:00:00.000Z', boshi.toISOString());
-}
 
 console.log(failed ? `\n${failed} ta test yiqildi` : '\nHammasi o\'tdi');
 process.exitCode = failed ? 1 : 0;

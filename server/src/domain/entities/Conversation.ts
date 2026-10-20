@@ -30,7 +30,7 @@ export type EscalationStage = 'soft' | 'hard' | 'legal';
  *     mijoz darhol "qancha?" deb so'raydi va agent yana o'sha
  *     to'siqqa uriladi.
  *   • `'chek_tekshiruvi'` — mijoz chek yoki aniqlanmagan rasm/fayl
- *     yubordi, operator "To'lov qabul qilindi" tugmasini bosishi kutilyapti
+ *     yubordi, menejer "Tasdiqlash" yoki "Rad etish" ni bosishi kutilyapti
  *     (105-migratsiya). Agent javob ham, sukut xabari ham yozmaydi.
  *   • NULL — qolgan hammasi (agent eskalatsiyasi, operator).
  *

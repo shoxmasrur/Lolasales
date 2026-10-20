@@ -1,178 +1,95 @@
 import {
-  CHECK_WINDOW_DAYS,
   chekTekshiruviFaolmi,
-  operatorJimligiBoshi,
-  WATCH_HOURS,
   type PaymentCheck,
   type ReceiptSource,
 } from '@/domain/entities/PaymentCheck';
-import type { IContractRepository } from '@/domain/repositories/IContractRepository';
+import {
+  tolovdanKeyingiBosqich,
+  yakunlanganmi,
+  type Purchase,
+  type XaridBosqichi,
+} from '@/domain/entities/Purchase';
+import type { Course } from '@/domain/entities/Course';
 import type { IConversationRepository } from '@/domain/repositories/IConversationRepository';
-import type { IContractPaymentRepository } from '@/domain/repositories/IContractPaymentRepository';
+import type { ICourseRepository } from '@/domain/repositories/ICourseRepository';
 import type { IPaymentCheckRepository } from '@/domain/repositories/IPaymentCheckRepository';
-import type { IPaymentPromiseRepository } from '@/domain/repositories/IPaymentPromiseRepository';
 import type { IPurchaseRepository } from '@/domain/repositories/IPurchaseRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import type { IClock, IEventBus } from '@/domain/services/support';
+import { havolaQoidasiBajarildimi, havolaXabari, havolaYuborilsinmi } from '@/domain/services/havola';
 import type { AgentRunner } from '@/application/services/AgentRunner';
-import type { ContractSyncService } from '@/application/services/ContractSyncService';
+import type { MessageDispatcher } from '@/application/services/MessageDispatcher';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
-import { faqatYoziladiganlar } from '@/domain/entities/shartnomaHolati';
-import { NotFoundError } from '@/shared/errors';
+import type { XaridXizmati } from '@/application/services/XaridXizmati';
 import { childLogger } from '@/shared/logger';
 
 const log = childLogger('payment-check');
 
-/** Bir tsiklda shuncha tekshiruv ko'riladi. */
-const BATCH = 20;
-/** Kuzatuvchi qadami — Xonsaroy Pay darhol ko'rinadi, tez-tez qarash arziydi. */
-const TICK_MS = 5 * 60 * 1000;
-/** Chek tekshiruvi ochiq bo'lsa CRM kuzatuvi o'rniga shu javob qaytadi. */
-const CHEK_OPERATORDA = 'Chek operator tekshiruvida — "To\'lov qabul qilindi" tugmasidan foydalaning';
+/** Menejerga o'tish sabablari (UI da shu matn ko'rinadi). */
+export const CHEK_SABABLARI = {
+  summaYoq: "Xarid summasi aniqlanmagan — bosqichni qo'lda belgilang",
+  kursYoq: "Xarid kursi aniqlanmagan — guruh havolasini qo'lda yuboring",
+  havolaYoq: 'Kursga guruh havolasi kiritilmagan',
+  havolaKetmadi: "Guruh havolasini yuborib bo'lmadi",
+} as const;
 
-export type CheckOutcome =
-  /** Yangi to'lov topildi. */
-  | { kind: 'confirmed'; amount: number; paymentType: string | null; thanked: boolean }
-  /** Hali ko'rinmadi, kuzatuv davom etadi. */
-  | { kind: 'watching'; until: Date }
-  /** Muddat tugadi — operatorga chiqarildi. */
-  | { kind: 'not_found' }
-  /** Tekshirish uchun shartnoma yoki suhbat yo'q. */
-  | { kind: 'unavailable'; reason: string };
-
-/** "To'lov qabul qilindi" tugmasining natijasi. */
+/** "Tasdiqlash" tugmasining natijasi. */
 export type ReceiptConfirmOutcome =
-  /** Tekshiruv yopildi va agent rahmat yozdi. */
-  | { kind: 'thanked' }
-  /** Tekshiruv yopildi; rahmat chek kelgandan beri boshqa yo'ldan allaqachon ketgan. */
-  | { kind: 'already_thanked' }
-  /** Tekshiruv yopildi, lekin xabar ketmadi — operator mijozga o'zi yozadi. */
-  | { kind: 'not_sent'; reason: 'kill_switch' | 'agent_disabled' | 'agent_error' }
+  /** Summa qo'shildi, bosqich yangilandi, agent rahmat yozdi. */
+  | { kind: 'confirmed'; stage: XaridBosqichi; linkSent: boolean }
   /** Ochiq chek tekshiruvi yo'q (yoki parallel bosishda boshqasi yopib ulgurdi). */
-  | { kind: 'no_review' };
+  | { kind: 'no_review' }
+  /** Summa va bosqich yozildi, lekin rahmat ketmadi — menejer mijozga o'zi yozadi. */
+  | { kind: 'not_sent'; reason: 'kill_switch' | 'agent_disabled' | 'agent_error' };
+
+export type ReceiptRejectOutcome = { kind: 'rejected' } | { kind: 'no_review' };
+
+/** Agent rahmati — `confirmReceipt` dagi ishlatiladigan qismi. */
+type AgentPort = Pick<AgentRunner, 'receiptConfirmedThanks' | 'receiptRejected'>;
 
 /**
- * Mijoz yuborgan to'lov kvitansiyasini tekshiradi.
+ * Mijoz yuborgan chekni menejer ko'rib chiqadi (spec 6.5).
  *
- * Ish tartibi: kvitansiya kelganda `open()` chaqiriladi va o'sha zahoti
- * bir marta tekshiriladi (Xonsaroy Pay shu yerda topiladi). Topilmasa
- * kuzatuv boshlanadi va har 5 daqiqada qayta so'raladi — bank o'tkazmasi
- * bir kungacha kechikadi.
+ *   • Chek kelganda `openReceiptReview` — faol xaridga bog'langan tekshiruv.
+ *   • "Tasdiqlash" — summa `paid_amount` ga qo'shiladi, bosqich
+ *     `qisman_toladi`/`toladi`, agent rahmat aytadi; kursning havola qoidasi
+ *     bajarilsa tizim yopiq guruh havolasini aniq qiymatdan BIR MARTA yuboradi.
+ *   • "Rad etish" — bosqich `karta_yuborildi` ga qaytadi, agent sababga
+ *     tayanib qayta chek so'raydi.
  *
- * TO'LOV QANDAY ANIQLANADI: sana bo'yicha emas, DELTA bo'yicha. Bank
- * o'tkazmasi CRM'ga kechroq tushadi, lekin `date_paid` mijoz to'lagan
- * kunga — ya'ni orqaga — qo'yiladi. Shuning uchun bir xil oyna
- * (`CHECK_WINDOW_DAYS`) bo'yicha yig'indi olinadi va tekshiruv
- * boshlangandagi qiymat bilan solishtiriladi.
+ * Debitordagi `crm_watch` (CRM'dan to'lov qidirish) sotuv agentida yo'q.
  */
 export class PaymentCheckService {
-  private timer: NodeJS.Timeout | null = null;
-  private busy = false;
-
   constructor(
     private readonly checks: IPaymentCheckRepository,
     private readonly conversations: IConversationRepository,
-    private readonly contracts: IContractRepository,
-    private readonly payments: IContractPaymentRepository,
-    private readonly promises: IPaymentPromiseRepository,
-    private readonly contractSync: ContractSyncService,
-    private readonly agent: AgentRunner,
+    private readonly purchases: IPurchaseRepository,
+    private readonly courses: Pick<ICourseRepository, 'findById'>,
+    private readonly xarid: Pick<XaridXizmati, 'faolXarid' | 'bosqich'>,
+    private readonly agent: AgentPort,
+    private readonly dispatcher: Pick<MessageDispatcher, 'send'>,
     private readonly audit: IAuditRepository,
     private readonly events: IEventBus,
     private readonly clock: IClock,
-    /** Kill switch — tugmadan keyingi rahmat uchun. */
-    private readonly settings: RuntimeSettings,
-    /**
-     * Rahmatdagi to'langan/qolgan summa shu yerdan (joriy xarid). Ixtiyoriy:
-     * berilmasa summalar 0 — sinov dublyorlari uchun. 10-vazifada servis
-     * qayta yoziladi.
-     */
-    private readonly purchases?: IPurchaseRepository,
+    /** Kill switch — tasdiq/rad etishdan keyingi agent xabari uchun. */
+    private readonly settings: Pick<RuntimeSettings, 'get'>,
   ) {}
 
-  start(): void {
-    if (this.timer) return;
-    this.timer = setInterval(() => void this.tick(), TICK_MS);
-    log.info('Kvitansiya kuzatuvchisi ishga tushdi');
-  }
-
-  stop(): void {
-    if (this.timer) clearInterval(this.timer);
-    this.timer = null;
-  }
-
   /**
-   * Kvitansiya keldi — tekshiruvni ochadi va DARHOL bir marta qaraydi.
+   * Chek rasmi yoki fayl keldi — menejer tekshiruvini ochadi.
    *
-   * Xonsaroy Pay orqali to'langan bo'lsa javob shu yerda topiladi va mijoz
-   * kutib qolmaydi.
-   */
-  async open(conversationId: string, messageId: string | null): Promise<CheckOutcome> {
-    const conversation = await this.conversations.findById(conversationId);
-    if (!conversation) return { kind: 'unavailable', reason: 'Suhbat topilmadi' };
-
-    const existing = await this.ochiqTekshiruv(conversationId);
-    // Chek operator tekshiruvida — da'vo uchun alohida CRM kuzatuvi
-    // ochilmaydi: ikkalasi bir to'lov haqida va natijani operator aytadi.
-    if (existing?.kind === 'receipt_review') return { kind: 'unavailable', reason: CHEK_OPERATORDA };
-    if (existing) return this.run(existing);
-
-    // Faqat "Сотилди" shartnomasi bo'yicha ish ko'ramiz — bekor
-    // qilinayotgan shartnomaning to'lovi bu suhbatga aloqador emas.
-    const contracts = faqatYoziladiganlar(await this.contracts.findByClientId(conversation.clientId));
-    const contractId = contracts.length === 1 ? contracts[0]!.id : null;
-
-    const now = this.clock.now();
-    const sinceIso = this.windowStart(now);
-    const baselinePaid = await this.payments.sumPaidSince({
-      clientId: conversation.clientId,
-      contractId,
-      sinceIso,
-    });
-
-    const check = await this.checks.open({
-      conversationId,
-      clientId: conversation.clientId,
-      contractId,
-      messageId,
-      sinceIso,
-      baselinePaid,
-      watchUntil: new Date(now.getTime() + WATCH_HOURS * 60 * 60 * 1000),
-    });
-
-    log.info({ conversationId, checkId: check.id, baselinePaid }, 'Kvitansiya tekshiruvi ochildi');
-    return this.run(check);
-  }
-
-  /** Operator tugmasi: ochiq tekshiruv bo'lsa uni, bo'lmasa yangisini yuritadi. */
-  async checkNow(conversationId: string): Promise<CheckOutcome> {
-    const existing = await this.ochiqTekshiruv(conversationId);
-    if (existing?.kind === 'receipt_review') return { kind: 'unavailable', reason: CHEK_OPERATORDA };
-    return existing ? this.run(existing) : this.open(conversationId, null);
-  }
-
-  /**
-   * Chek rasmi yoki fayl keldi — operator tekshiruvini ochadi. CRM'ga
-   * BORMAYDI: pulni operator tasdiqlaydi.
-   *
-   *   • ochiq `crm_watch` bo'lsa — `cancelled` (chek da'voning o'rnini oladi);
-   *   • ochiq `receipt_review` bo'lsa — o'sha qaytadi; u `aniqlanmagan`, yangi
-   *     rasm esa `tolov` bo'lsa manba `tolov` ga ko'tariladi (pastga
-   *     tushirilmaydi — bitta aniq chek yetarli);
-   *   • aks holda yangisi ochiladi.
+   *   • ochiq tekshiruv bo'lsa — o'sha qaytadi; u `aniqlanmagan`, yangi rasm
+   *     esa `tolov` bo'lsa manba `tolov` ga ko'tariladi;
+   *   • aks holda faol xaridga bog'langan yangisi ochiladi.
    */
   async openReceiptReview(
     conversationId: string,
+    clientId: string,
     messageId: string | null,
     receiptSource: ReceiptSource,
   ): Promise<PaymentCheck> {
-    const conversation = await this.conversations.findById(conversationId);
-    if (!conversation) throw new NotFoundError('Suhbat', conversationId);
-
-    // Tugmasiz qolib ketgan eski tekshiruv yangi chekni yutmasin: yangisi
-    // ochiladi — agent yangi chekka javob beradi, tugma yana ko'rinadi.
     const existing = await this.ochiqTekshiruv(conversationId);
-    if (existing?.kind === 'receipt_review') {
+    if (existing) {
       if (existing.receiptSource === 'aniqlanmagan' && receiptSource === 'tolov') {
         await this.checks.raiseReceiptSource(existing.id);
         log.info({ conversationId, checkId: existing.id }, 'Chek tekshiruvi manbai tolov ga ko\'tarildi');
@@ -181,266 +98,208 @@ export class PaymentCheckService {
       return existing;
     }
 
-    if (existing) {
-      await this.checks.cancel(conversationId);
-      log.info({ conversationId, checkId: existing.id }, 'Da\'vo kuzatuvi chek tekshiruvi bilan almashtirildi');
-    }
-
+    const purchase = await this.xarid.faolXarid(clientId);
     const check = await this.checks.openReceiptReview({
       conversationId,
-      clientId: conversation.clientId,
+      clientId,
+      purchaseId: purchase.id,
       messageId,
       sinceIso: this.clock.todayIso(),
       receiptSource,
     });
-    log.info({ conversationId, checkId: check.id, receiptSource }, 'Chek tekshiruvi ochildi');
+    log.info({ conversationId, checkId: check.id, purchaseId: purchase.id, receiptSource }, 'Chek tekshiruvi ochildi');
     return check;
   }
 
-  /**
-   * Operator "To'lov qabul qilindi" tugmasini bosdi.
-   *
-   * Tekshiruv HAR QANDAY holatda yopiladi va suhbat operatordan qaytadi:
-   * operator pul kelganini tasdiqladi. Rahmat esa alohida qaror — u
-   * allaqachon aytilgan, kill switch yoqiq yoki agent yoza olmasa ketmaydi
-   * va natija operatorga ko'rsatiladi.
-   */
-  async confirmReceipt(conversationId: string, actor: string): Promise<ReceiptConfirmOutcome> {
-    const check = await this.checks.findOpenByConversation(conversationId);
-    if (!check || check.kind !== 'receipt_review') return { kind: 'no_review' };
-    // Muddati o'tgan tekshiruvda tugma yashirilgan (`GET /conversations/:id`)
-    // — API ham uni tasdiqlamaydi.
-    if (!chekTekshiruviFaolmi(check, this.clock.now())) return { kind: 'no_review' };
-
+  /** Menejer chekdagi summani kiritib "Tasdiqlash" ni bosdi. */
+  async confirmReceipt(conversationId: string, actor: string, amount: number): Promise<ReceiptConfirmOutcome> {
+    const check = await this.ochiqTekshiruv(conversationId);
+    if (!check) return { kind: 'no_review' };
     // Ikki marta bosishdan himoya: `UPDATE … WHERE status = 'reviewing'`.
-    if (!(await this.checks.confirmByOperator(check.id, actor, this.clock.now()))) {
+    if (!(await this.checks.confirmByOperator(check.id, actor, amount, this.clock.now()))) {
       return { kind: 'no_review' };
     }
+
+    const oldin = await this.chekXaridi(check);
+    const xarid = await this.purchases.addPaid(oldin.id, amount);
+    const course = xarid.courseId ? await this.courses.findById(xarid.courseId) : null;
+    // `total_amount` yo'q yoki 0 bo'lsa — kurs narxi; u ham bo'lmasa hisoblab bo'lmaydi.
+    const total = xarid.totalAmount || course?.price || null;
+    const paid = xarid.paidAmount;
+
+    if (!total) {
+      await this.menejerga(conversationId, CHEK_SABABLARI.summaYoq);
+      await this.qayd(actor, check, { amount, paid, total: null, stage: xarid.stage, linkSent: false, outcome: 'needs_human' });
+      return { kind: 'confirmed', stage: xarid.stage, linkSent: false };
+    }
+
+    // Tugallangan (masalan, menejer qo'lda `toladi` qilgan) xarid uchun
+    // `bosqich` yangi xarid ochib yuborardi — bu holatda bosqichga tegilmaydi.
+    let stage: XaridBosqichi = xarid.stage;
+    if (!yakunlanganmi(oldin.stage)) {
+      const yangi = await this.xarid.bosqich(check.clientId, tolovdanKeyingiBosqich(paid, total), 'tizim');
+      if (yangi) stage = yangi.stage;
+    }
+
+    // Havola: qoida bajarilgan va hali yuborilmagan bo'lsa — atomik "bir marta"
+    // belgisi rahmatdan OLDIN olinadi, shunda agentga aytilgani haqiqatga mos.
+    const runtime = await this.settings.get();
+    const { claimed, sabab } = await this.havolaQarori(xarid, course, paid, total, runtime.killSwitch);
 
     // Eskalatsiya yechiladi — rahmat `canAgentReply` dan o'tishi uchun ham shart.
     await this.conversations.update(conversationId, { needsHuman: false, humanKind: null, humanReason: null });
 
-    const outcome = await this.receiptThanks(check);
+    const thanks = await this.rahmat(conversationId, {
+      paidAmount: paid,
+      totalAmount: total,
+      remaining: Math.max(0, total - paid),
+      linkWillBeSent: claimed,
+    });
+
+    let linkSent = false;
+    let menejerSababi: string | null = sabab;
+    if (claimed && course?.groupLink) {
+      try {
+        const conversation = await this.conversations.findById(conversationId);
+        if (!conversation) throw new Error('Suhbat topilmadi');
+        await this.dispatcher.send({
+          conversation,
+          body: havolaXabari(course.groupLink),
+          author: 'agent',
+          meta: { kind: 'havola' },
+        });
+        linkSent = true;
+      } catch (err) {
+        // Baza holati allaqachon o'zgargan — HTTP chaqiruvchiga xato emas,
+        // menejerga topshiriq. `link_sent_at` qoladi: havolani menejer yuboradi.
+        log.warn({ conversationId, purchaseId: xarid.id, err }, 'Guruh havolasi yuborilmadi');
+        menejerSababi = CHEK_SABABLARI.havolaKetmadi;
+      }
+    }
+    if (menejerSababi) await this.menejerga(conversationId, menejerSababi);
+
+    await this.qayd(actor, check, { amount, paid, total, stage, linkSent, outcome: thanks ?? 'thanked' });
+    log.info({ conversationId, checkId: check.id, amount, paid, total, stage, linkSent }, 'Chek menejer tomonidan tasdiqlandi');
+
+    return thanks ? { kind: 'not_sent', reason: thanks } : { kind: 'confirmed', stage, linkSent };
+  }
+
+  /** Menejer sababini yozib "Rad etish" ni bosdi. */
+  async rejectReceipt(conversationId: string, actor: string, reason: string): Promise<ReceiptRejectOutcome> {
+    const check = await this.ochiqTekshiruv(conversationId);
+    if (!check) return { kind: 'no_review' };
+    if (!(await this.checks.reject(check.id, actor, reason, this.clock.now()))) return { kind: 'no_review' };
+
+    const yangi = await this.xarid.bosqich(check.clientId, 'karta_yuborildi', 'tizim');
+    const purchaseId = yangi?.id ?? check.purchaseId;
+    // Spec 6.6: rad etilib `karta_yuborildi` ga qaytganda yangi eslatma yozilmaydi.
+    if (purchaseId) await this.purchases.addRemindedStage(purchaseId, 'karta_yuborildi');
+
+    await this.conversations.update(conversationId, { needsHuman: false, humanKind: null, humanReason: null });
+
+    let sent = false;
+    try {
+      const runtime = await this.settings.get();
+      if (!runtime.killSwitch) sent = (await this.agent.receiptRejected(conversationId, reason)).sent;
+    } catch (err) {
+      log.warn({ conversationId, err }, 'Rad etilgan chek bo\'yicha agent xabari yuborilmadi');
+    }
 
     await this.audit.record({
       actor,
-      action: 'receipt_review.confirmed',
+      action: 'receipt_review.rejected',
       entity: 'conversation',
       entityId: conversationId,
-      payload: { checkId: check.id, messageId: check.messageId, outcome },
+      payload: { checkId: check.id, purchaseId, messageId: check.messageId, reason, sent },
     });
-
     this.events.publish({ type: 'conversation.updated', conversationId });
-    this.events.publish({ type: 'stats.invalidate' });
-    log.info({ conversationId, checkId: check.id, outcome }, 'Chek operator tomonidan tasdiqlandi');
-
-    return outcome;
+    this.events.publish({ type: 'client.updated', clientId: check.clientId });
+    log.info({ conversationId, checkId: check.id, sent }, 'Chek menejer tomonidan rad etildi');
+    return { kind: 'rejected' };
   }
 
-  /** Tugmadan keyingi rahmat — `confirmReceipt` ning 4–5-qadamlari. */
-  private async receiptThanks(check: PaymentCheck): Promise<Exclude<ReceiptConfirmOutcome, { kind: 'no_review' }>> {
-    if (check.thanksSentAt) return { kind: 'already_thanked' };
-
-    const runtime = await this.settings.get();
-    if (runtime.killSwitch) return { kind: 'not_sent', reason: 'kill_switch' };
-
-    // Summalar joriy xariddan. Tasdiqlangan summani `paid_amount` ga qo'shish
-    // 10-vazifada keladi — hozircha xariddagi holat aytiladi, havola yuborilmaydi.
-    const xarid = this.purchases
-      ? ((await this.purchases.findActiveByClient(check.clientId)) ??
-        (await this.purchases.findLatestByClient(check.clientId)))
-      : null;
-    const totalAmount = xarid?.totalAmount ?? 0;
-    const paidAmount = xarid?.paidAmount ?? 0;
-    const confirmed = {
-      paidAmount,
-      totalAmount,
-      remaining: Math.max(0, totalAmount - paidAmount),
-      linkWillBeSent: false,
-    };
-
-    try {
-      const result = await this.agent.receiptConfirmedThanks(check.conversationId, confirmed);
-      return result.sent ? { kind: 'thanked' } : { kind: 'not_sent', reason: 'agent_disabled' };
-    } catch (err) {
-      // `AbortedError` ham shu yerga: operator agentni o'chirgan. Tekshiruv
-      // baribir yopiq qoladi — operator mijozga qo'lda yozadi.
-      log.warn({ conversationId: check.conversationId, err }, 'Chek tasdig\'idan keyin rahmat yuborilmadi');
-      return { kind: 'not_sent', reason: 'agent_error' };
-    }
-  }
-
-  /**
-   * Suhbatdagi ochiq tekshiruv; muddati o'tgan chek tekshiruvi
-   * (`CHEK_TEKSHIRUVI_MUDDATI_KUNLAR`) bekor qilinib, `null` qaytadi.
-   *
-   * NEGA: bunday tekshiruvda tugma yashirilgan, lekin yozuv ochiq turaverib
-   * yangi chekni, "to'ladim" kuzatuvini va "To'lovni tekshirish" tugmasini
-   * to'sardi — operator yo'q tugmaga yo'naltirilardi.
-   */
-  private async ochiqTekshiruv(conversationId: string): Promise<PaymentCheck | null> {
-    const existing = await this.checks.findOpenByConversation(conversationId);
-    if (existing?.kind !== 'receipt_review' || chekTekshiruviFaolmi(existing, this.clock.now())) return existing;
-
-    await this.checks.cancel(conversationId);
-    log.info({ conversationId, checkId: existing.id }, 'Muddati o\'tgan chek tekshiruvi bekor qilindi');
-    return null;
-  }
-
-  /** Suhbat yopilganda yoki operator hal qilganda kuzatuvni to'xtatish. */
+  /** Suhbat yopilganda yoki raqam bloklanganda ochiq tekshiruvni to'xtatish. */
   async cancel(conversationId: string): Promise<void> {
     await this.checks.cancel(conversationId);
   }
 
-  private async tick(): Promise<void> {
-    if (this.busy) return;
-    this.busy = true;
-    try {
-      const due = await this.checks.findDue(BATCH);
-      for (const check of due) {
-        try {
-          await this.run(check);
-        } catch (err) {
-          log.warn({ checkId: check.id, err }, 'Kvitansiya tekshirilmadi');
-        }
-      }
-    } finally {
-      this.busy = false;
-    }
-  }
-
-  /** Bitta tekshiruv: CRM'ni yangilash → delta → qaror. */
-  private async run(check: PaymentCheck): Promise<CheckOutcome> {
-    // Chek tekshiruvini CRM emas, operator yopadi — muddati ham yo'q.
-    const watchUntil = check.watchUntil;
-    if (check.kind !== 'crm_watch' || !watchUntil) {
-      return { kind: 'unavailable', reason: CHEK_OPERATORDA };
-    }
-
-    const now = this.clock.now();
-
-    // Shartnomani yangilaymiz — aks holda bazadagi eski nusxaga qarab
-    // "to'lov yo'q" deb xulosa qilardik.
-    for (const id of await this.contractIds(check)) {
-      try {
-        await this.contractSync.syncOne(id);
-      } catch (err) {
-        log.warn({ checkId: check.id, contractId: id, err }, 'Tekshiruv oldidan shartnoma yangilanmadi');
-      }
-    }
-
-    const paidNow = await this.payments.sumPaidSince({
-      clientId: check.clientId,
-      contractId: check.contractId,
-      sinceIso: check.sinceIso,
-    });
-    const delta = paidNow - check.baselinePaid;
-
-    if (delta > 0) return this.confirm(check, delta);
-
-    if (now.getTime() >= watchUntil.getTime()) {
-      await this.checks.close(check.id, { status: 'not_found', foundAmount: null, foundType: null });
-      await this.escalate(check);
-      return { kind: 'not_found' };
-    }
-
-    await this.checks.touch(check.id, now);
-    return { kind: 'watching', until: watchUntil };
-  }
-
-  private async contractIds(check: PaymentCheck): Promise<string[]> {
-    if (check.contractId) return [check.contractId];
-    const all = faqatYoziladiganlar(await this.contracts.findByClientId(check.clientId));
-    return all.map((c) => c.id);
+  /** Chek bog'langan xarid; bog'lanmagan (eski qator) bo'lsa — faol xarid. */
+  private async chekXaridi(check: PaymentCheck): Promise<Purchase> {
+    const bogliq = check.purchaseId ? await this.purchases.findById(check.purchaseId) : null;
+    return bogliq ?? (await this.xarid.faolXarid(check.clientId));
   }
 
   /**
-   * To'lov topildi.
-   *
-   * Rahmatni KIM aytishi muhim: ochiq va'da bo'lsa `PromiseWatcher` uni
-   * o'z oynasida aytadi va bu yerdan ham yuborilsa mijoz IKKI marta
-   * rahmat olardi. Shuning uchun va'da bo'lganda biz faqat qayd qilamiz.
+   * `claimed` — havola endi yuboriladi (`markLinkSent` shu chaqiruvda yutdi).
+   * `sabab` — menejerga o'tish kerak (havola kiritilmagan yoki kurs yo'q).
    */
-  private async confirm(check: PaymentCheck, amount: number): Promise<CheckOutcome> {
-    const paymentType = await this.latestPaymentType(check);
-    await this.checks.close(check.id, {
-      status: 'confirmed',
-      foundAmount: amount,
-      foundType: paymentType,
-    });
-
-    const activePromise = await this.promises.findActiveByConversation(check.conversationId);
-    // Operator chekni oxirgi 7 kunda tasdiqlagan — rahmat o'sha tugma bilan
-    // ketgan, bu to'lov uchun ikkinchisi yuborilmaydi.
-    const operatorTasdigi = await this.checks.findOperatorConfirmedSince(
-      check.conversationId,
-      operatorJimligiBoshi(this.clock.now()),
-    );
-    let thanked = false;
-
-    if (!activePromise && !operatorTasdigi) {
-      thanked = await this.thank(check, amount);
+  private async havolaQarori(
+    xarid: Purchase,
+    course: Course | null,
+    paid: number,
+    total: number,
+    killSwitch: boolean,
+  ): Promise<{ claimed: boolean; sabab: string | null }> {
+    if (xarid.linkSentAt) return { claimed: false, sabab: null };
+    if (!course) return { claimed: false, sabab: CHEK_SABABLARI.kursYoq };
+    const qoida = { linkAfter: course.linkAfter, paid, total };
+    if (!havolaQoidasiBajarildimi(qoida)) return { claimed: false, sabab: null };
+    if (!havolaYuborilsinmi({ ...qoida, linkSentAt: xarid.linkSentAt, groupLink: course.groupLink })) {
+      return { claimed: false, sabab: CHEK_SABABLARI.havolaYoq };
     }
+    // Kill switch yoqiq — xabar baribir ketmaydi; "yuborildi" belgisini
+    // qo'ymaymiz, keyingi tasdiqda havola yana ko'rib chiqiladi.
+    if (killSwitch) return { claimed: false, sabab: CHEK_SABABLARI.havolaKetmadi };
+    const claimed = await this.purchases.markLinkSent(xarid.id, this.clock.now());
+    return { claimed, sabab: null };
+  }
 
+  /** Rahmat; `null` — ketdi, aks holda nega ketmagani. Hech qachon otmaydi. */
+  private async rahmat(
+    conversationId: string,
+    confirmed: Parameters<AgentPort['receiptConfirmedThanks']>[1],
+  ): Promise<'kill_switch' | 'agent_disabled' | 'agent_error' | null> {
+    try {
+      const runtime = await this.settings.get();
+      if (runtime.killSwitch) return 'kill_switch';
+      const result = await this.agent.receiptConfirmedThanks(conversationId, confirmed);
+      return result.sent ? null : 'agent_disabled';
+    } catch (err) {
+      // `AbortedError` ham shu yerga: menejer agentni o'chirgan. Bosqich va
+      // havola baribir davom etadi — menejer mijozga qo'lda yozadi.
+      log.warn({ conversationId, err }, 'Chek tasdig\'idan keyin rahmat yuborilmadi');
+      return 'agent_error';
+    }
+  }
+
+  private async menejerga(conversationId: string, humanReason: string): Promise<void> {
+    await this.conversations.update(conversationId, { needsHuman: true, humanKind: null, humanReason });
+  }
+
+  private async qayd(actor: string, check: PaymentCheck, payload: Record<string, unknown>): Promise<void> {
     await this.audit.record({
-      actor: 'agent',
-      action: 'payment_check.confirmed',
+      actor,
+      action: 'receipt_review.confirmed',
       entity: 'conversation',
       entityId: check.conversationId,
-      payload: {
-        amount,
-        paymentType,
-        thanked,
-        viaPromise: Boolean(activePromise),
-        ...(operatorTasdigi ? { suppressedBy: 'receipt_review' } : {}),
-      },
+      payload: { checkId: check.id, purchaseId: check.purchaseId, messageId: check.messageId, ...payload },
     });
-
     this.events.publish({ type: 'conversation.updated', conversationId: check.conversationId });
+    this.events.publish({ type: 'client.updated', clientId: check.clientId });
     this.events.publish({ type: 'stats.invalidate' });
-    log.info(
-      { conversationId: check.conversationId, amount, paymentType, thanked },
-      'Kvitansiya bo\'yicha to\'lov tasdiqlandi',
-    );
-
-    return { kind: 'confirmed', amount, paymentType, thanked };
   }
 
   /**
-   * CRM kuzatuvi bo'yicha topilgan to'lov uchun rahmat.
-   *
-   * Sotuv agentida bu yo'l yo'q (`crm_watch` 10-vazifada o'chiriladi): to'lov
-   * faqat menejer chekni tasdiqlaganda qabul qilinadi. Shu sababli rahmat
-   * yozilmaydi — to'lov topilgani audit yozuvida qoladi.
+   * Suhbatdagi ochiq tekshiruv; muddati o'tgan chek tekshiruvi
+   * (`CHEK_TEKSHIRUVI_MUDDATI_KUNLAR`) bekor qilinib, `null` qaytadi —
+   * bunday tekshiruvda tugma yashirilgan va u yangi chekni to'smasligi kerak.
    */
-  private async thank(check: PaymentCheck, amount: number): Promise<boolean> {
-    log.info({ conversationId: check.conversationId, amount }, 'CRM kuzatuvi bo\'yicha rahmat yozilmaydi (sotuv agenti)');
-    return false;
-  }
+  private async ochiqTekshiruv(conversationId: string): Promise<PaymentCheck | null> {
+    const existing = await this.checks.findOpenByConversation(conversationId);
+    if (!existing || chekTekshiruviFaolmi(existing, this.clock.now())) return existing;
 
-  /** Muddat tugadi — endi odam ko'rishi kerak. */
-  private async escalate(check: PaymentCheck): Promise<void> {
-    await this.conversations.update(check.conversationId, {
-      needsHuman: true,
-      humanReason:
-        'Mijoz to\'laganini aytdi (chek yoki xabar), lekin bir kun ichida to\'lov CRM\'da ko\'rinmadi — qo\'lda tekshiring',
-    });
-    this.events.publish({ type: 'conversation.updated', conversationId: check.conversationId });
-    log.info({ conversationId: check.conversationId }, 'Kvitansiya tasdiqlanmadi — operatorga chiqarildi');
-  }
-
-  /** Oxirgi kelgan to'lovning kanali — "Xonsaroy Pay" yoki bank. */
-  private async latestPaymentType(check: PaymentCheck): Promise<string | null> {
-    const ids = await this.contractIds(check);
-    for (const id of ids) {
-      const recent = await this.payments.listRecentPayments(id, 1);
-      if (recent.length) return recent[0]!.paymentType ?? null;
-    }
+    await this.checks.cancel(conversationId);
+    log.info({ conversationId, checkId: existing.id }, 'Muddati o\'tgan chek tekshiruvi bekor qilindi');
     return null;
-  }
-
-  private windowStart(now: Date): string {
-    const from = new Date(now.getTime() - CHECK_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-    return from.toISOString().slice(0, 10);
   }
 }

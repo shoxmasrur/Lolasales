@@ -22,6 +22,11 @@ export interface ConversationQuery extends Pagination {
   /** true — faqat noma'lum mijozlar (Telegramda o'zi yozganlar, shartnomasiz). */
   nomalum?: boolean;
   /**
+   * "Chek keldi" filtri: menejer tasdig'ini kutayotgan ochiq chek
+   * tekshiruvi (`reviewing`, muddat ichida) bor suhbatlar.
+   */
+  receiptPending?: boolean;
+  /**
    * Faqat shu mijozning suhbatlari («Talabnomalar» → «Batafsil» oynasi).
    * Mijozda turli akkauntlarda bir nechta suhbat bo'lishi mumkin — mijoz
    * kartasidagi `conversation` esa faqat eng yangisini beradi.

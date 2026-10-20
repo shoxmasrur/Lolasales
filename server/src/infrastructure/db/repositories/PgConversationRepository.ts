@@ -1,5 +1,6 @@
 import type { Conversation, EscalationStage } from '@/domain/entities/Conversation';
 import { OCHIQ_VADA_HOLATLARI } from '@/domain/entities/PaymentPromise';
+import { CHEK_TEKSHIRUVI_MUDDATI_KUNLAR } from '@/domain/entities/PaymentCheck';
 import { YOZILADIGAN_SQL_QIYMATLARI } from '@/domain/entities/shartnomaHolati';
 import type {
   ConversationFilterOptions,
@@ -129,6 +130,12 @@ export class PgConversationRepository implements IConversationRepository {
     if (q.blocked) where.push(`cl.telegram_status = 'blocked'`);
     // Noma'lum mijozlar oddiy ro'yxatda ham ko'rinadi (belgi bilan); bu filtr faqat ularni ajratadi.
     if (q.nomalum) where.push('cl.nomalum');
+    // "Chek keldi": tugma ko'rinadigan (ochiq, muddat ichidagi) chek tekshiruvi bor suhbatlar.
+    if (q.receiptPending) {
+      where.push(`EXISTS (SELECT 1 FROM payment_checks pc
+                           WHERE pc.conversation_id = cv.id AND pc.status = 'reviewing'
+                             AND pc.created_at > now() - interval '${CHEK_TEKSHIRUVI_MUDDATI_KUNLAR} days')`);
+    }
 
     const limit = Math.min(q.limit ?? 50, 200);
     const offset = q.offset ?? 0;

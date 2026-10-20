@@ -345,11 +345,11 @@ export function createContainer() {
     clients, contracts, conversations, resolver, agent, audit, events, contractSync, telegram,
     settings, messages, talabnomaSukuti, clock,
   );
-  // Kvitansiya tekshiruvi: mijoz "to'ladim" deb rasm tashlaganda CRM'dan
-  // to'lovni o'zi qidiradi va topilsa rahmat aytadi.
+  // Chek tekshiruvi: menejer summani tasdiqlaydi yoki rad etadi; tasdiqda
+  // xarid bosqichi va (qoida bajarilsa) guruh havolasi tizim tomonidan.
   const paymentCheckService = new PaymentCheckService(
-    paymentChecks, conversations, contracts, contractPayments, promises,
-    contractSync, agent, audit, events, clock, settings, purchases,
+    paymentChecks, conversations, purchases, courses, xaridXizmati,
+    agent, dispatcher, audit, events, clock, settings,
   );
   // Ovozli xabarni XonzodaAI'ga ham yuboradi — faqat Aisha bilan solishtirish.
   const sttTaqqoslash = new SttTaqqoslash(xonzodaStt, mediaStorage, messages, events);
@@ -363,6 +363,8 @@ export function createContainer() {
       nomalum: nomalumSuhbatlar, conversations, dispatcher, events,
       abortAgent: (id) => { nomalumAgent.abort(id, 'stale'); },
     }),
+    // Chek kelganda faol xarid `chek_keldi` bosqichiga o'tadi.
+    xaridXizmati,
   );
   // Ommaviy suhbat boshlash — kampaniya rejalashtiruvchisi bilan bir xil
   // himoya ostida (ish oynasi, tasodifiy pauza, spam cheklovida to'xtash).

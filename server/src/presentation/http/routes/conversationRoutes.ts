@@ -6,7 +6,8 @@ import { currentUser, requirePermission } from '@/presentation/http/middleware/a
 import { parseBody, parseQuery } from '@/presentation/http/middleware/validate';
 import { config } from '@/shared/config';
 import { canReply } from '@/domain/entities/TelegramAccount';
-import { chekTekshiruviFaolmi } from '@/domain/entities/PaymentCheck';
+import { chekTekshiruviFaolmi, type PaymentCheck } from '@/domain/entities/PaymentCheck';
+import { kutilganChekSummasi } from '@/domain/services/karta';
 import { NotFoundError, ValidationError } from '@/shared/errors';
 import { nomalumRoutes } from '@/presentation/http/routes/nomalumRoutes';
 import { qamrov, qamrovParam, yopiqCheklanganga } from '@/presentation/http/middleware/qamrov';
@@ -27,11 +28,21 @@ const listQuery = z.object({
   unreadOnly: z.enum(['true', 'false']).optional(),
   blocked: z.enum(['true', 'false']).optional(),
   nomalum: z.enum(['true', 'false']).optional(),
+  receiptPending: z.enum(['true', 'false']).optional(),
   objectName: z.string().optional(),
   telegramAccountId: z.string().uuid().optional(),
   clientId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
   offset: z.coerce.number().int().min(0).optional(),
+});
+
+const receiptConfirmSchema = z.object({
+  /** Chekdagi summa, so'm. */
+  amount: z.number().int().positive().max(1_000_000_000),
+});
+
+const receiptRejectSchema = z.object({
+  reason: z.string().trim().min(1).max(300),
 });
 
 const resetSchema = z.object({
@@ -73,6 +84,17 @@ const patchSchema = z.object({
 export function conversationRoutes(container: Container): Router {
   const router = Router();
   const { conversations, messages, clients, contracts, promises, audit, paymentChecks, nomalumSuhbatlar } = container.repositories;
+
+  /** Chek tasdig'i oynasidagi standart summa — chek bog'langan (yo'q bo'lsa faol) xariddan. */
+  const kutilganSumma = async (check: PaymentCheck): Promise<number | null> => {
+    const { purchases, courses } = container.repositories;
+    const xarid =
+      (check.purchaseId ? await purchases.findById(check.purchaseId) : null) ??
+      (await purchases.findActiveByClient(check.clientId));
+    if (!xarid) return null;
+    const course = xarid.courseId ? await courses.findById(xarid.courseId) : null;
+    return kutilganChekSummasi(course, xarid);
+  };
 
   /**
    * Obyekt cheklovi: `/:id` va `/:id/*` — suhbat mijozi qamrovda bo'lmasa
@@ -121,6 +143,7 @@ export function conversationRoutes(container: Container): Router {
       unreadOnly: q.unreadOnly === 'true' ? true : undefined,
       blocked: q.blocked === 'true' ? true : undefined,
       nomalum: q.nomalum === 'true' ? true : undefined,
+      receiptPending: q.receiptPending === 'true' ? true : undefined,
       objectName: q.objectName,
       telegramAccountId: q.telegramAccountId,
       clientId: q.clientId,
@@ -141,25 +164,26 @@ export function conversationRoutes(container: Container): Router {
   });
 
   /**
-   * "To'lovni tekshirish" tugmasi.
-   *
-   * Mijoz chek yuborganda tekshiruv avtomatik ochiladi, lekin operator uni
-   * qo'lda ham qo'zg'ata olishi kerak: mijoz chekni Telegramdan tashqarida
-   * yuborgan yoki "men to'ladim" deb faqat yozgan bo'lishi mumkin.
+   * "Tasdiqlash" — menejer chekdagi summani kiritdi. Summa xaridga qo'shiladi,
+   * bosqich `qisman_toladi`/`toladi`, agent rahmat aytadi va kurs qoidasi
+   * bajarilsa tizim guruh havolasini yuboradi.
    */
-  router.post('/:id/check-payment', requirePermission('conversations.send'), async (req, res) => {
-    const outcome = await container.services.paymentCheckService.checkNow(String(req.params.id));
+  router.post('/:id/receipt-confirm', requirePermission('receipts.confirm'), async (req, res) => {
+    const user = currentUser(req);
+    const { amount } = parseBody(receiptConfirmSchema, req);
+    const outcome = await container.services.paymentCheckService.confirmReceipt(String(req.params.id), user.email, amount);
+    if (outcome.kind === 'no_review') {
+      res.status(409).json(outcome);
+      return;
+    }
     res.json(outcome);
   });
 
-  /**
-   * "To'lov qabul qilindi" tugmasi — operator chekni tekshirib, pul
-   * kelganini tasdiqladi. Summa kiritilmaydi va "rad etish" yo'q: pul
-   * kelmagan bo'lsa operator o'zi hal qiladi.
-   */
-  router.post('/:id/receipt-confirm', requirePermission('conversations.send'), async (req, res) => {
+  /** "Rad etish" — menejer sababni yozadi, agent shunga tayanib qayta chek so'raydi. */
+  router.post('/:id/receipt-reject', requirePermission('receipts.confirm'), async (req, res) => {
     const user = currentUser(req);
-    const outcome = await container.services.paymentCheckService.confirmReceipt(String(req.params.id), user.email);
+    const { reason } = parseBody(receiptRejectSchema, req);
+    const outcome = await container.services.paymentCheckService.rejectReceipt(String(req.params.id), user.email, reason);
     if (outcome.kind === 'no_review') {
       res.status(409).json(outcome);
       return;
@@ -197,12 +221,17 @@ export function conversationRoutes(container: Container): Router {
       contracts: clientContracts,
       activePromise,
       accountOptions,
-      // Ochiq chek tekshiruvi — "To'lov qabul qilindi" tugmasi shunga qarab
+      // Ochiq chek tekshiruvi — "Tasdiqlash"/"Rad etish" tugmalari shunga qarab
       // ko'rinadi. `aniqlanmagan` ham kiradi: operator uni chek deb topishi mumkin.
       // Muddati o'tgan (tugmasiz qolib ketgan) tekshiruvda tugma yashiriladi.
       receiptReview:
-        openCheck?.kind === 'receipt_review' && chekTekshiruviFaolmi(openCheck, container.clock.now())
-          ? { id: openCheck.id, messageId: openCheck.messageId, createdAt: openCheck.createdAt }
+        openCheck && chekTekshiruviFaolmi(openCheck, container.clock.now())
+          ? {
+              id: openCheck.id,
+              messageId: openCheck.messageId,
+              createdAt: openCheck.createdAt,
+              expectedAmount: await kutilganSumma(openCheck),
+            }
           : null,
       // Operator va agent oyma-oy kechikish bilan ishlaydi; umumiy kechikish —
       // faqat ma'lumot uchun.

@@ -1,6 +1,6 @@
 import type { Course } from '@/domain/entities/Course';
 import type { Purchase } from '@/domain/entities/Purchase';
-import { agentKartaYuborsinmi, kartaSummasi, kartaTayyorligi, kartaXabari, tanlanganKarta, type PaymentCard } from '@/domain/services/karta';
+import { agentKartaYuborsinmi, kartaSummasi, kutilganChekSummasi, kartaTayyorligi, kartaXabari, tanlanganKarta, type PaymentCard } from '@/domain/services/karta';
 
 /** Qo'lda: npm run test:karta --workspace=server */
 let failed = 0;
@@ -47,6 +47,14 @@ check('karta: chek kelgan — yo\'q', agentKartaYuborsinmi('chek_keldi'), false)
 check('karta: to\'ladi — yo\'q', agentKartaYuborsinmi('toladi'), false);
 check('karta: rad etdi — yo\'q', agentKartaYuborsinmi('rad_etdi'), false);
 check('raqam bo\'shliqlari tozalanadi', kartaXabari({ ...K2, number: '8600 4444 5555 6666' }, null).includes('8600 4444 5555 6666'), true);
+
+// Chek tasdig'i oynasidagi standart summa.
+check('kutilgan: to\'liq, hech narsa to\'lanmagan', kutilganChekSummasi(COURSE, P), 1_500_000);
+check('kutilgan: birinchi qism', kutilganChekSummasi(COURSE_BT, { ...P, installment: true }), 500_000);
+check('kutilgan: keyingi qism — qolgan summa', kutilganChekSummasi(COURSE_BT, { ...P, installment: true, paidAmount: 500_000 }), 1_000_000);
+check('kutilgan: total null — kurs narxi', kutilganChekSummasi(COURSE, { ...P, totalAmount: null, paidAmount: 500_000 }), 1_000_000);
+check('kutilgan: hisoblab bo\'lmaydi', kutilganChekSummasi(null, { ...P, totalAmount: null }), null);
+check('kutilgan: to\'liq to\'langan', kutilganChekSummasi(COURSE, { ...P, paidAmount: 1_500_000 }), null);
 
 if (failed) {
   console.error(`\n${failed} ta test yiqildi`);
