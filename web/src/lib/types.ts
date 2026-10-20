@@ -22,14 +22,10 @@ export type Permission =
   | 'clients.delete'
   | 'clients.export'
   | 'contracts.sync'
-  | 'talabnoma.view' | 'talabnoma.send'
-  | 'reports.view'
   | 'campaigns.view' | 'campaigns.create' | 'campaigns.control'
   | 'import.view' | 'import.run' | 'import.undo'
   | 'telegram.view' | 'telegram.manage' | 'telegram.inbox'
   | 'settings.view' | 'settings.edit' | 'settings.kill_switch'
-  | 'holidays.view'
-  | 'holidays.manage'
   | 'agent.view' | 'agent.edit'
   | 'users.view' | 'users.manage' | 'roles.manage'
   | 'audit.view'
@@ -373,10 +369,6 @@ export interface TelegramAccount {
   styleVersion: 'v1' | 'v2';
   /** Agent shu akkauntda qaysi OpenAI modeli bilan yozadi. null — standart (Claude). */
   llmModelId: string | null;
-  /** Telegram Premium tugash sanasi, YYYY-MM-DD. null — Premium yo'q. Qo'lda kiritiladi. */
-  premiumUntil: string | null;
-  /** Tugashiga necha kun qolgani (server hisoblaydi). Manfiy — tugagan. */
-  premiumKunQoldi: number | null;
   /** Shu akkaunt bilan suhbati boshlangan mijozlar soni (o'chirilmaganlar). */
   conversationClients: number;
 }

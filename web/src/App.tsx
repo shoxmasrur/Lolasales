@@ -8,18 +8,14 @@ import Layout from '@/components/Layout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import ChatPage from '@/pages/ChatPage';
-import DailyPage from '@/pages/DailyPage';
 import ClientsPage from '@/pages/ClientsPage';
 import CampaignsPage from '@/pages/CampaignsPage';
 import ImportPage from '@/pages/ImportPage';
 import TelegramPage from '@/pages/TelegramPage';
 import TelegramInboxPage from '@/pages/TelegramInboxPage';
-import HolidaysPage from '@/pages/HolidaysPage';
 import SettingsPage from '@/pages/SettingsPage';
-import ReportsPage from '@/pages/ReportsPage';
 import UsersPage from '@/pages/UsersPage';
 import AgentPage from '@/pages/AgentPage';
-import TalabnomalarPage from '@/pages/TalabnomalarPage';
 import { LogsPage } from '@/pages/LogsPage';
 
 export default function App() {
@@ -100,18 +96,14 @@ export default function App() {
         />
         <Route path="/chat" element={guard('conversations.view', <ChatPage />)} />
         <Route path="/chat/:conversationId" element={guard('conversations.view', <ChatPage />)} />
-        <Route path="/daily" element={guard('conversations.view', <DailyPage />)} />
         <Route path="/clients" element={guard('clients.view', <ClientsPage />)} />
         <Route path="/campaigns" element={guard('campaigns.view', <CampaignsPage />)} />
         <Route path="/import" element={guard('import.view', <ImportPage />)} />
         <Route path="/telegram" element={guard('telegram.view', <TelegramPage />)} />
         <Route path="/telegram-inbox" element={guard('telegram.inbox', <TelegramInboxPage />)} />
-        <Route path="/talabnomalar" element={guard('talabnoma.view', <TalabnomalarPage />)} />
         <Route path="/agent" element={guard('agent.view', <AgentPage />)} />
         <Route path="/users" element={guard('users.view', <UsersPage />)} />
-        <Route path="/holidays" element={guard('holidays.view', <HolidaysPage />)} />
         <Route path="/settings" element={guard('settings.view', <SettingsPage />)} />
-        <Route path="/reports" element={guard('reports.view', <ReportsPage />)} />
         <Route path="/logs" element={guard('logs.view', <LogsPage />)} />
         <Route path="/no-access" element={<NoAccess />} />
         <Route path="*" element={<Navigate to={home} replace />} />

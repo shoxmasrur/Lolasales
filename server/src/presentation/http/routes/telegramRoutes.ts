@@ -5,7 +5,6 @@ import { currentUser, requirePermission } from '@/presentation/http/middleware/a
 import { parseBody, parseQuery } from '@/presentation/http/middleware/validate';
 import { serializeCheckReport, serializeTelegramAccount } from '@/presentation/http/serializers';
 import { personaNameOf } from '@/domain/entities/TelegramAccount';
-import { PREMIUM_MUDDATLARI, premiumTugashi } from '@/domain/services/premium';
 import { validateProxy } from '@/domain/entities/telegramProxy';
 import type { TelegramProxy, TelegramProxyPatch } from '@/domain/entities/telegramProxy';
 import { probeProxy } from '@/infrastructure/telegram/proxyProbe';
@@ -121,33 +120,6 @@ const updateSchema = z.object({
   // `AgentEngineFactory` baribir standart yo'lga tushardi (jimgina).
   llmModelId: z.string().uuid().nullable().optional(),
 });
-
-/** Haqiqatan mavjud kalendar sanasi, YYYY-MM-DD (2027-02-30 o'tmaydi). */
-const sanaField = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Sana YYYY-MM-DD ko\'rinishida bo\'lishi kerak')
-  .refine((v) => {
-    const d = new Date(`${v}T00:00:00Z`);
-    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
-  }, 'Bunday sana yo\'q');
-
-/**
- * Premium ikki xil kiritiladi: aniq tugash sanasi (`null` — Premium yo'q)
- * yoki sotib olingan sana + muddat — bunda tugash sanasini server
- * hisoblaydi (`premiumTugashi`), panel emas.
- */
-const premiumSchema = z.union([
-  z.object({ until: sanaField.nullable() }).strict(),
-  z
-    .object({
-      boshlanish: sanaField,
-      oy: z.number().refine(
-        (v) => (PREMIUM_MUDDATLARI as readonly number[]).includes(v),
-        'Muddat ro\'yxatda yo\'q',
-      ),
-    })
-    .strict(),
-]);
 
 export function telegramRoutes(container: Container): Router {
   const router = Router();
@@ -367,27 +339,6 @@ export function telegramRoutes(container: Container): Router {
       entityId: String(req.params.id),
     });
     res.json({ ok: true });
-  });
-
-  /** Premium belgisi: tugash sanasini qo'yish, uzaytirish yoki olib tashlash. */
-  router.put('/accounts/:id/premium', requirePermission('telegram.manage'), async (req, res) => {
-    const body = parseBody(premiumSchema, req);
-    const id = String(req.params.id);
-    const before = await telegramAccounts.findById(id);
-    if (!before) throw new NotFoundError('Telegram akkaunt', id);
-
-    const until = 'until' in body ? body.until : premiumTugashi(body.boshlanish, body.oy);
-    const account = await telegramAccounts.setPremium(id, until);
-
-    await audit.record({
-      actor: currentUser(req).email,
-      action: 'telegram.premium_changed',
-      entity: 'telegram_account',
-      entityId: id,
-      payload: { before: before.premiumUntil, after: until },
-    });
-
-    res.json({ account: serializeTelegramAccount(account, container.clock.todayIso()) });
   });
 
   router.patch('/accounts/:id', requirePermission('telegram.manage'), async (req, res) => {

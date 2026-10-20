@@ -31,7 +31,6 @@ import {
 import { Avatar, EmptyState, ErrorNote, Spinner, Toggle } from '@/components/ui';
 import NomalumPanel from '@/components/NomalumPanel';
 import MessageBubble from '@/components/MessageBubble';
-import { SyncContractButton } from '@/components/SyncContractButton';
 import { CheckPaymentButton } from '@/components/CheckPaymentButton';
 import { ReceiptConfirmButton, type ReceiptReview } from '@/components/ReceiptConfirmButton';
 import { Sheet } from '@/components/Sheet';
@@ -1041,17 +1040,6 @@ function ClientPanelBody({ detail }: { detail: ConversationDetail }) {
               ) : null}
               {c.category ? <span className="chip bg-ink-800">{c.category}</span> : null}
             </div>
-            {/* Operator suhbat paytida raqam eskirganini sezsa, mijozlar
-                sahifasiga o'tmasdan shu yerdan yangilay oladi. */}
-            {client ? (
-              <SyncContractButton
-                clientId={client.id}
-                contractId={c.id}
-                syncError={c.syncError}
-                conversationId={detail.conversation.id}
-                compact
-              />
-            ) : null}
           </div>
         ))}
       </div>

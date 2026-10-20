@@ -18,8 +18,6 @@ const takror = guruhdagilar.filter((p, i) => guruhdagilar.indexOf(p) !== i);
 
 check('har ruxsat biror guruhda', yoq.length === 0, yoq.join(', '));
 check('guruhlarda takror yo\'q', takror.length === 0, takror.join(', '));
-check('calls.brief mavjud', (PERMISSIONS as readonly string[]).includes('calls.brief'));
-check('calls.record mavjud', (PERMISSIONS as readonly string[]).includes('calls.record'));
 
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");
 process.exitCode = failed ? 1 : 0;

@@ -15,8 +15,6 @@ import { relative } from '@/lib/format';
 import { EmptyState, ErrorNote, Spinner, Toggle } from '@/components/ui';
 import { QrLoginDialog } from '@/components/QrLoginDialog';
 import { AccountProxyForm } from '@/components/AccountProxyForm';
-import { AccountPremiumForm } from '@/components/AccountPremiumForm';
-import { PremiumBadge } from '@/components/PremiumBadge';
 import { AccountRestrictions } from '@/components/AccountRestrictions';
 
 const STATUS_LABEL: Record<TelegramAccount['status'], string> = {
@@ -451,7 +449,6 @@ export default function TelegramPage() {
                       <span className={clsx('chip', SPAM_COLOR[account.spamStatus])}>
                         {SPAM_LABEL[account.spamStatus]}
                       </span>
-                      <PremiumBadge account={account} />
                     </div>
                     <p className="mt-1 font-mono text-xs text-ink-500">
                       {account.phone}
@@ -651,12 +648,6 @@ export default function TelegramPage() {
                       onSaved={() => queryClient.invalidateQueries({ queryKey: ['telegram-accounts'] })}
                     />
 
-                    {/* `key` — sana saqlangach forma yangi qiymatdan qayta boshlansin. */}
-                    <AccountPremiumForm
-                      key={account.premiumUntil ?? 'premium-yoq'}
-                      account={account}
-                      onSaved={() => queryClient.invalidateQueries({ queryKey: ['telegram-accounts'] })}
-                    />
 
                     {account.status === 'connected' ? (
                       <div className="flex flex-wrap items-center gap-2">

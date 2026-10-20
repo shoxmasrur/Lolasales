@@ -1,5 +1,5 @@
 import type { IAppLogRepository } from '@/domain/repositories/IAppLogRepository';
-import { AppLogCleaner, RETENTION_DAYS, TELEGRAM_RETENTION_DAYS, TRANSCRIPT_RETENTION_DAYS } from '@/application/services/AppLogCleaner';
+import { AppLogCleaner, RETENTION_DAYS, TELEGRAM_RETENTION_DAYS } from '@/application/services/AppLogCleaner';
 import { logEntryToRow } from '@/shared/logEntry';
 
 /**
@@ -85,38 +85,6 @@ function soxtaRepo(chaqiruvlar: Chaqiruv[], yiqilsin?: string | null): IAppLogRe
     oqim: 'telegram',
   });
   eq('oqim bilan kelgan cleaner info jurnalga tushmaydi', row, null);
-}
-
-// ── 4. Qo'ng'iroq transkripti 180 kundan keyin tozalanadi ──────────────
-// NEGA: transkript mijozning so'zlari — saqlash muddati cheklangan bo'lishi
-// kerak; xulosa va boshqa maydonlar qoladi.
-{
-  const kunlar: number[] = [];
-  const cleaner = new AppLogCleaner(soxtaRepo([]), {
-    clearTranscriptsOlderThan: async (d: number) => {
-      kunlar.push(d);
-      return 2;
-    },
-  });
-  cleaner.start();
-  cleaner.stop();
-  await new Promise((r) => setTimeout(r, 10));
-  eq('transkript 180 kun bilan tozalandi', kunlar, [180]);
-  eq('doimiy 180', TRANSCRIPT_RETENTION_DAYS, 180);
-}
-
-// Transkript tozalash yiqilsa ham xato tashqariga chiqmaydi, jurnal tozalash esa ketgan.
-{
-  const chaqiruvlar: Chaqiruv[] = [];
-  const cleaner = new AppLogCleaner(soxtaRepo(chaqiruvlar), {
-    clearTranscriptsOlderThan: async () => {
-      throw new Error('baza yiqildi');
-    },
-  });
-  cleaner.start();
-  cleaner.stop();
-  await new Promise((r) => setTimeout(r, 10));
-  eq('transkript yiqilsa ham jurnal tozalandi', chaqiruvlar.length, 2);
 }
 
 console.log(failed ? `\n${failed} ta test yiqildi` : "\nHammasi o'tdi");

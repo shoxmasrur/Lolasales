@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PremiumBadge } from '@/components/PremiumBadge';
 import type {
   BulkStartAccountPlan,
   BulkStartOutlook,
@@ -465,7 +464,6 @@ export function StartConversationsDialog({
                         {account.personaName ?? accountsQuery.data?.defaultPersonaName ?? ''}
                       </span>
                       <span className="text-ink-500">{account.label}</span>
-                      <PremiumBadge account={account} />
                       <span className="text-ink-500" title="Shu akkaunt bilan suhbati boshlangan mijozlar (jami)">
                         · suhbatda: {account.conversationClients} ta
                       </span>

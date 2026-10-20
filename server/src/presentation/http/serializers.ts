@@ -1,6 +1,5 @@
 import type { AccountCheckReport } from '@/application/services/AccountChecker';
 import type { AccountRestriction, TelegramAccount } from '@/domain/entities/TelegramAccount';
-import { premiumKunQoldi } from '@/domain/services/premium';
 import { activeRestrictions, remainingQuota, remainingLookups } from '@/domain/entities/TelegramAccount';
 
 /**
@@ -49,9 +48,6 @@ export function serializeTelegramAccount(account: TelegramAccount, todayIso: str
     isEnabled: account.isEnabled,
     styleVersion: account.styleVersion,
     llmModelId: account.llmModelId,
-    premiumUntil: account.premiumUntil,
-    // Panel soatiga emas, loyiha vaqt mintaqasidagi bugunga nisbatan.
-    premiumKunQoldi: account.premiumUntil ? premiumKunQoldi(account.premiumUntil, todayIso) : null,
     createdAt: account.createdAt,
   };
 }

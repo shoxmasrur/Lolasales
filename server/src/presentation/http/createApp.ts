@@ -12,10 +12,6 @@ import { importRoutes } from '@/presentation/http/routes/importRoutes';
 import { mediaRoutes } from '@/presentation/http/routes/mediaRoutes';
 import { telegramRoutes } from '@/presentation/http/routes/telegramRoutes';
 import { settingsRoutes } from '@/presentation/http/routes/settingsRoutes';
-import { holidayRoutes } from '@/presentation/http/routes/holidayRoutes';
-import { talabnomaRoutes } from '@/presentation/http/routes/talabnomaRoutes';
-import { reportRoutes } from '@/presentation/http/routes/reportRoutes';
-import { dailyRoutes } from '@/presentation/http/routes/dailyRoutes';
 import { logRoutes } from '@/presentation/http/routes/logRoutes';
 import { recontactListRoutes } from '@/presentation/http/routes/recontactListRoutes';
 import { recontactTopicRoutes } from '@/presentation/http/routes/recontactTopicRoutes';
@@ -24,7 +20,6 @@ import { statsRoutes } from '@/presentation/http/routes/statsRoutes';
 import { userRoutes } from '@/presentation/http/routes/userRoutes';
 import { agentRoutes } from '@/presentation/http/routes/agentRoutes';
 import { llmRoutes } from '@/presentation/http/routes/llmRoutes';
-import { qongiroqMcpRouter } from '@/presentation/mcp/qongiroqMcp';
 import { config } from '@/shared/config';
 
 export function createApp(container: Container): Express {
@@ -45,15 +40,6 @@ export function createApp(container: Container): Express {
   // Quyidagi barcha yo'llar avtorizatsiya talab qiladi.
   api.use(authenticate);
 
-  // Bulutdagi ovozli qo'ng'iroq agenti uchun MCP. Ruxsat asbob ichida
-  // tekshiriladi (`calls.brief`) — MCP protokoli xatoni asbob natijasi
-  // sifatida kutadi, HTTP 403 ni emas.
-  api.use('/mcp', qongiroqMcpRouter({
-    brifi: container.services.qongiroqBrifi,
-    natija: container.services.qongiroqNatijasi,
-    audit: container.repositories.audit,
-  }));
-
   // Bo'limga kirish huquqi — mount darajasida. Ichkaridagi amallar
   // (yozish, o'chirish) o'z ruxsatlarini alohida tekshiradi.
   api.use('/clients', requirePermission('clients.view'), clientRoutes(container));
@@ -70,12 +56,8 @@ export function createApp(container: Container): Express {
   // (`settingsRoutes` bilan bir xil naqsh), mount darajasida qo'shimcha
   // to'siq shart emas.
   api.use('/llm', llmRoutes(container));
-  api.use('/holidays', requirePermission('holidays.view'), holidayRoutes(container));
-  api.use('/talabnomalar', requirePermission('talabnoma.view'), talabnomaRoutes(container));
   api.use('/agent', agentRoutes(container));
   api.use('/users', userRoutes(container));
-  api.use('/reports', requirePermission('reports.view'), reportRoutes(container));
-  api.use('/daily', requirePermission('conversations.view'), dailyRoutes(container));
   api.use('/logs', requirePermission('logs.view'), logRoutes(container));
   // Qayta aloqa: ro'yxat `/`, mavzular `/topics…`, navbat `/bulk…` — yo'llar
   // to'qnashmaydi. Ichkaridagi yozish amallari o'z ruxsatini tekshiradi.

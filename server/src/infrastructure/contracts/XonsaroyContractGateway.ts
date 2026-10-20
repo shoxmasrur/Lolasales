@@ -1,6 +1,4 @@
 import type { ExternalContract, IContractGateway } from '@/domain/services/IContractGateway';
-import type { IKompaniyaGateway } from '@/domain/services/IKompaniyaGateway';
-import { crmKompaniyalari, type CrmKompaniya } from '@/domain/services/rekvizit';
 import { mapOrderShow } from '@/infrastructure/contracts/contractMapper';
 import { config } from '@/shared/config';
 import { childLogger } from '@/shared/logger';
@@ -53,7 +51,7 @@ interface SearchResponse {
  * manzilga qayta urilmaydi. 401/404/400 kabi javoblar manzilni
  * almashtirmaydi: ular "server ishlayapti, so'rov noto'g'ri" degani.
  */
-export class XonsaroyContractGateway implements IContractGateway, IKompaniyaGateway {
+export class XonsaroyContractGateway implements IContractGateway {
   private token: string | null = null;
   private tokenExpiresAt = 0;
   /** Bir vaqtda kelgan so'rovlar bitta loginni baham ko'radi. */
@@ -106,17 +104,6 @@ export class XonsaroyContractGateway implements IContractGateway, IKompaniyaGate
   async fetchByOrderId(orderId: number): Promise<ExternalContract | null> {
     const raw = await this.post<unknown>('/api/v4/order/show', { id: orderId });
     return mapOrderShow(raw);
-  }
-
-  /**
-   * Talabnoma rekvizitlari uchun. CRM bu yo'lni faqat GET bilan beradi.
-   * 404 (yo'l yo'q) ham xato: bo'sh ro'yxat "kompaniya topilmadi" deb
-   * noto'g'ri tushunilardi.
-   */
-  async listCompanies(): Promise<CrmKompaniya[]> {
-    const xom = await this.sorov<unknown>('GET', '/api/v1/crm/companies');
-    if (xom === null) throw new Error('CRM kompaniyalar yo\'li topilmadi (HTTP 404)');
-    return crmKompaniyalari(xom);
   }
 
   // ─── Ichki ──────────────────────────────────────────────────────────────

@@ -17,9 +17,7 @@ import {
   TELEGRAM_STATUS_LABEL,
 } from '@/lib/format';
 import { Avatar, ErrorNote, Spinner } from '@/components/ui';
-import { SyncContractButton } from '@/components/SyncContractButton';
 import { ClientPhonesCard } from '@/components/ClientPhonesCard';
-import { ClientCallsCard, type KartaQongiroq } from '@/components/ClientCallsCard';
 
 /*
  * Mijoz kartasi — «Mijozlar» sahifasidan ajratilgan: «Talabnomalar»
@@ -60,17 +58,11 @@ export interface ClientDetail {
    * aks holda raqam izsiz yo'qolardi.
    */
   blockedPhones: string[];
-  /** Ovozli agent qo'ng'iroqlari (eng yangisi birinchi). Eski server javobida yo'q bo'lishi mumkin. */
-  phoneCalls?: KartaQongiroq[];
-  /** Ovozli agent "raqam noto'g'ri" deb belgilagan raqamlar (E.164). */
-  wrongNumberPhones?: string[];
   /** Oyma-oy to'lovdagi kechikish — agent mijozga aynan shuni aytadi. */
   debtMonthly: number;
   debtTotal: number;
   daysOverdue: number;
   payments: ClientPayments;
-  /** Birinchi chiquvchi xabardan keyin kelgan to'lovlar yig'indisi. */
-  attribution: { anchorAt: string | null; amount: number };
 }
 
 /**
@@ -393,13 +385,7 @@ function TelegramIdentityCard({ client, canConfirm }: { client: Client; canConfi
  * va keyingi uchtasi ko'rsatiladi — xodimga aynan shular kerak. Qolgani
  * tugma bilan ochiladi.
  */
-function PaymentScheduleCard({
-  payments,
-  attribution,
-}: {
-  payments: ClientPayments;
-  attribution: { anchorAt: string | null; amount: number };
-}) {
+function PaymentScheduleCard({ payments }: { payments: ClientPayments }) {
   const [showAll, setShowAll] = useState(false);
 
   // Grafik bo'lmasa blok chizilmaydi — bo'sh quti xodimga hech narsa
@@ -466,11 +452,6 @@ function PaymentScheduleCard({
           <p className="mb-1 text-[11px] uppercase tracking-wide text-ink-500">
             Kelib tushgan to'lovlar
           </p>
-          {attribution.anchorAt && attribution.amount > 0 ? (
-            <p className="mb-1 text-[11px] text-emerald-500">
-              Suhbatdan keyin to'langan: {somShort(attribution.amount)}
-            </p>
-          ) : null}
           <ul className="space-y-0.5 text-[11px]">
             {payments.recent.slice(0, 8).map((p) => (
               <li key={`${p.dateIso}-${p.amount}`} className="flex justify-between gap-2">
@@ -657,7 +638,6 @@ export function ClientDetailBody({
         phone={detailQuery.data.client.phone}
         extraPhones={detailQuery.data.client.extraPhones}
         blockedPhones={detailQuery.data.blockedPhones ?? []}
-        wrongNumbers={detailQuery.data.wrongNumberPhones ?? []}
         writable={writable && !detailQuery.data.client.deletedAt}
       />
 
@@ -781,8 +761,6 @@ export function ClientDetailBody({
 
       <ClientMemoryCard clientId={detailQuery.data.client.id} canEdit={canEdit} />
 
-      <ClientCallsCard calls={detailQuery.data.phoneCalls ?? []} />
-
       <div>
         <p className="mb-2 text-[11px] uppercase tracking-wide text-ink-500">
           Shartnomalar ({detailQuery.data.contracts.length})
@@ -819,24 +797,12 @@ export function ClientDetailBody({
                 <dt className="text-ink-600">Ogohlantirishlar</dt>
                 <dd className="text-right text-ink-300">{c.warningCount}</dd>
               </dl>
-              {/* Har bir shartnoma alohida yangilanadi — mijozda
-                  bir nechtasi bo'lishi mumkin va ular turli
-                  holatda bo'ladi. */}
-              <SyncContractButton
-                clientId={detailQuery.data!.client.id}
-                contractId={c.id}
-                syncedAt={c.syncedAt}
-                syncError={c.syncError}
-              />
             </div>
           ))}
         </div>
       </div>
 
-      <PaymentScheduleCard
-        payments={detailQuery.data.payments}
-        attribution={detailQuery.data.attribution}
-      />
+      <PaymentScheduleCard payments={detailQuery.data.payments} />
 
       {canDelete ? (
         <div className="border-t border-ink-800 pt-4">

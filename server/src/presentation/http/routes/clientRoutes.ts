@@ -6,7 +6,6 @@ import type { Container } from '@/composition/container';
 import { currentUser, requirePermission } from '@/presentation/http/middleware/auth';
 import { parseBody, parseQuery } from '@/presentation/http/middleware/validate';
 import { normalizePhone } from '@/shared/phone';
-import { kartaQongiroqlari, notogriRaqamlar } from '@/domain/services/qongiroqKartasi';
 import { AppError, NotFoundError, ValidationError } from '@/shared/errors';
 import { canAcceptClients } from '@/domain/entities/TelegramAccount';
 import { ALOQA_KALITLARI } from '@/domain/entities/aloqaHolati';
@@ -62,13 +61,6 @@ const bulkLookupSchema = z.object({
    * mijozning biriktirilgan akkaunti (yoki avtomatik biriktirilgani).
    */
   accountIds: z.array(z.string().uuid()).optional(),
-});
-
-const bulkSyncSchema = z.object({
-  clientIds: z
-    .array(z.string().uuid())
-    .min(1, 'Kamida bitta mijoz tanlansin')
-    .max(BULK_MAX, `Bir vaqtda ${BULK_MAX} tagacha`),
 });
 
 const bulkStartSchema = z.object({
@@ -219,7 +211,7 @@ const updateSchema = z.object({
 
 export function clientRoutes(container: Container): Router {
   const router = Router();
-  const { clients, contracts, conversations, contractPayments, reports, audit, phoneBlocks, phoneCalls } =
+  const { clients, contracts, conversations, contractPayments, audit, phoneBlocks } =
     container.repositories;
   const { contractSync, qamrovTekshiruvchi } = container.services;
 
@@ -562,60 +554,6 @@ export function clientRoutes(container: Container): Router {
     res.json({ job: container.services.bulkStart.current() });
   });
 
-  // ─── Tanlanganlarni CRM'dan yangilash ───────────────────────────────────
-  //
-  // Import faylida telefon ustuni yo'q — raqam ham, kechikkan to'lov ham
-  // faqat shartnomalar bazasida. Kechasigi to'liq sinxronizatsiyani kutish
-  // operatorni bir kunga to'xtatib qo'yadi, shuning uchun belgilanganlarni
-  // darhol yangilash kerak.
-
-  router.post('/sync-contracts-bulk', requirePermission('contracts.sync'), async (req, res) => {
-    const user = currentUser(req);
-    const body = parseBody(bulkSyncSchema, req);
-    const { ids: clientIds, qoshimcha } = await qamrovdagilar(qamrov(req), body.clientIds, { boshBolmasin: true });
-
-    if (container.services.bulkContractSync.isRunning()) {
-      throw new ValidationError('Yangilash allaqachon ketyapti — tugashini kuting');
-    }
-
-    // Kechasigi to'liq sinxronizatsiya ham shu API'ga yozadi. Ikki tomondan
-    // birdan yuk berilsa ularning serveri javob bermay qo'yishi mumkin.
-    if (container.services.contractSyncScheduler.isRunning()) {
-      throw new ValidationError("Kechasigi to'liq yangilash ketyapti — tugashini kuting");
-    }
-
-    // Xotirada vazifa yo'q, lekin bazada tiklanishni kutayotgani bo'lishi
-    // mumkin (server endigina ko'tarilgan) — boshlashdan OLDIN rad etamiz.
-    // Egasi yo'q qotgan qator shu yerda yopiladi.
-    await container.services.bulkJobStore.assertFree('contract_sync');
-
-    const jobId = randomUUID();
-    const job = await container.services.bulkContractSync.start(clientIds, jobId, user.id);
-
-    await audit.record({
-      actor: user.email,
-      action: 'contracts.bulk_synced',
-      entity: 'client',
-      entityId: null,
-      payload: { count: clientIds.length, jobId },
-    });
-
-    res.json({ job, ...qoshimcha });
-  });
-
-  /** Joriy vazifa holati — socket uzilib qolsa zaxira sifatida. */
-  router.get('/sync-contracts-bulk', requirePermission('contracts.sync'), async (req, res) => {
-    res.json({
-      job: korinadiganVazifa(container.services.bulkContractSync.current(), currentUser(req).id, qamrov(req)),
-    });
-  });
-
-  router.post('/sync-contracts-bulk/stop', requirePermission('contracts.sync'), async (req, res) => {
-    begonaniToxtatma(container.services.bulkContractSync.current(), currentUser(req).id, qamrov(req));
-    container.services.bulkContractSync.stop();
-    res.json({ job: container.services.bulkContractSync.current() });
-  });
-
   /** Tab tugmalari yonidagi sonlar. `/:id` dan OLDIN turishi shart. */
   router.get('/tab-counts', async (req, res) => {
     res.json({ counts: await clients.tabCounts(qamrov(req)) });
@@ -710,13 +648,12 @@ export function clientRoutes(container: Container): Router {
     // Obyekt cheklovi: savat cheklanganga yopiq (yopiq holatda yiqiladi).
     if (client.deletedAt && qamrov(req).cheklangan) throw new NotFoundError('Mijoz', id);
 
-    const [clientContracts, conversation, blockedPhones, qongiroqlar] = await Promise.all([
+    const [clientContracts, conversation, blockedPhones] = await Promise.all([
       contracts.findByClientId(id, { includeDeleted: Boolean(client.deletedAt) }),
       conversations.findByClientId(id),
       // Uzilgan raqamlar kartada ko'rinadi: operator xato uzganini
       // qaytara olishi kerak, aks holda raqam izsiz yo'qolardi.
       phoneBlocks.listForClient(id),
-      phoneCalls.listRecentForClient(id, 20),
     ]);
 
     // Grafik va kelib tushgan to'lovlar — ASOSIY shartnoma bo'yicha.
@@ -730,19 +667,11 @@ export function clientRoutes(container: Container): Router {
         ])
       : [[], []];
 
-    // "Biz gaplashganimizdan keyin bu mijoz qancha to'ladi" — kartadagi
-    // yagona joy, bu savolga darhol javob beradi.
-    const attribution = await reports.forClient(id);
-
     res.json({
       client,
       contracts: clientContracts,
       conversation,
       blockedPhones,
-      // Ovozli agent qo'ng'iroqlari (oxirgi 20) va u "noto'g'ri" degan raqamlar —
-      // belgi uchun; raqam avtomatik uzilmaydi.
-      phoneCalls: kartaQongiroqlari(qongiroqlar),
-      wrongNumberPhones: notogriRaqamlar(qongiroqlar),
       payments: {
         contractId: primary?.id ?? null,
         contractNo: primary?.contractNo ?? null,
@@ -751,7 +680,6 @@ export function clientRoutes(container: Container): Router {
         schedule,
         recent: recentPayments,
       },
-      attribution: { anchorAt: attribution.anchorAt, amount: attribution.amount },
       // Ikkalasi ham: agent mijozga `debtMonthly` ni aytadi, xodim esa
       // umumiy kechikkan to'lovni ham ko'rib turishi kerak.
       debtMonthly: clientContracts.reduce((s, c) => s + c.debtMonthly, 0),

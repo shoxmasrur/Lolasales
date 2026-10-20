@@ -28,10 +28,6 @@ export const PERMISSIONS = [
   'clients.export',
   'contracts.sync',
 
-  // Elektron talabnomalar
-  'talabnoma.view',
-  'talabnoma.send',
-
   // Kampaniyalar
   'campaigns.view',
   'campaigns.create',
@@ -52,10 +48,6 @@ export const PERMISSIONS = [
   'settings.edit',
   'settings.kill_switch',
 
-  // Bayram kunlari
-  'holidays.view',
-  'holidays.manage',
-
   // Agent qoidalari va xotirasi
   'agent.view',
   'agent.edit',
@@ -66,13 +58,8 @@ export const PERMISSIONS = [
   'users.manage',
   'roles.manage',
 
-  // Qo'ng'iroq platformasi (ovozli agent, MCP orqali)
-  'calls.brief',
-  'calls.record',
-
   // Audit
   'audit.view',
-  'reports.view',
   'logs.view',
 ] as const;
 
@@ -161,22 +148,6 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     ],
   },
   {
-    section: 'talabnoma',
-    label: 'Talabnomalar',
-    items: [
-      {
-        key: 'talabnoma.view',
-        label: 'Ko\'rish',
-        hint: 'Mijozga yuborilgan rasmiy talabnomalar va ularning muddatini ko\'rish',
-      },
-      {
-        key: 'talabnoma.send',
-        label: 'Yuborish',
-        hint: 'Mijozga rasmiy talabnoma (PDF) yuborish. Yuborilgan talabnomani qaytarib bo\'lmaydi',
-      },
-    ],
-  },
-  {
     section: 'campaigns',
     label: 'Kampaniyalar',
     items: [
@@ -221,18 +192,6 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
     ],
   },
   {
-    section: 'holidays',
-    label: 'Bayram kunlari',
-    items: [
-      { key: 'holidays.view', label: 'Ko\'rish', hint: 'Bayram va dam olish kunlari ro\'yxati' },
-      {
-        key: 'holidays.manage',
-        label: 'Boshqarish',
-        hint: 'Bayram qo\'shish, tahrirlash, o\'chirish. Bu kunlari xabar yuborilmaydi va va\'da muddati suriladi',
-      },
-    ],
-  },
-  {
     section: 'agent',
     label: 'Agent qoidalari va xotirasi',
     items: [
@@ -250,23 +209,10 @@ export const PERMISSION_GROUPS: readonly PermissionGroup[] = [
       { key: 'roles.manage', label: 'Rollarni boshqarish', hint: 'Rol yaratish va ruxsatlarni belgilash' },
       { key: 'audit.view', label: 'Amallar jurnali', hint: 'Kim nima qilgani tarixi' },
       {
-        key: 'reports.view',
-        label: 'Tushum hisoboti',
-        hint: 'Suhbatdan keyin qancha to\'lov tushganini ko\'rish',
-      },
-      {
         key: 'logs.view',
         label: 'Tizim jurnali',
         hint: 'Xatolar va ogohlantirishlar. Mijoz ismi va telefon raqami ko\'rinadi',
       },
-    ],
-  },
-  {
-    section: 'calls',
-    label: 'Qo\'ng\'iroqlar',
-    items: [
-      { key: 'calls.brief', label: 'Qo\'ng\'iroqdan oldingi ma\'lumot', hint: 'Ovozli agent shartnoma raqami bo\'yicha mijoz va yozishmani ko\'radi' },
-      { key: 'calls.record', label: 'Qo\'ng\'iroq natijasini yozish', hint: 'Ovozli agent qo\'ng\'iroq natijasi va va\'dani saqlaydi' },
     ],
   },
 ];

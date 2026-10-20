@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { PremiumBadge } from '@/components/PremiumBadge';
 import type { BulkStartAccountPlan, TelegramAccount } from '@/lib/types';
 import { ErrorNote, Spinner } from '@/components/ui';
 import { Sheet } from '@/components/Sheet';
@@ -118,7 +117,7 @@ export function LookupAccountsDialog({
                   onChange={() => toggle(a.id)}
                 />
                 <span className="flex-1 text-xs text-ink-200">
-                  {a.label} <PremiumBadge account={a} />
+                  {a.label}
                 </span>
                 <span className="text-[11px] text-ink-500">
                   {a.remainingLookupsToday} ta qidiruv qoldi

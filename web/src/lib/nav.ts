@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import type { Permission } from '@/lib/types';
 import {
   IconAgent,
-  IconCalendar,
   IconCampaign,
   IconChat,
   IconClients,
@@ -31,18 +30,14 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { to: '/', label: 'Boshqaruv paneli', short: 'Panel', Icon: IconDashboard, end: true, permission: 'dashboard.view' },
   { to: '/chat', label: 'Suhbatlar', short: 'Suhbat', Icon: IconChat, permission: 'conversations.view' },
-  { to: '/daily', label: 'Kunlik xulosa', short: 'Kunlik', Icon: IconDashboard, permission: 'conversations.view' },
   { to: '/clients', label: 'Mijozlar', short: 'Mijoz', Icon: IconClients, permission: 'clients.view' },
   { to: '/campaigns', label: 'Kampaniyalar', short: 'Kampan.', Icon: IconCampaign, permission: 'campaigns.view' },
   { to: '/import', label: 'Import', short: 'Import', Icon: IconImport, permission: 'import.view' },
   { to: '/telegram', label: 'Telegram', short: 'Telegram', Icon: IconTelegram, permission: 'telegram.view' },
   { to: '/telegram-inbox', label: 'Telegram qutisi', short: 'Quti', Icon: IconInbox, permission: 'telegram.inbox' },
-  { to: '/talabnomalar', label: 'Talabnomalar', short: 'Talabn.', Icon: IconImport, permission: 'talabnoma.view' },
   { to: '/agent', label: 'Agent', short: 'Agent', Icon: IconAgent, permission: 'agent.view' },
   { to: '/users', label: 'Foydalanuvchilar', short: 'Xodim', Icon: IconUsers, permission: 'users.view' },
-  { to: '/reports', label: 'Hisobot', short: 'Hisobot', Icon: IconDashboard, permission: 'reports.view' },
   { to: '/logs', label: 'Tizim jurnali', short: 'Jurnal', Icon: IconDashboard, permission: 'logs.view' },
-  { to: '/holidays', label: 'Bayram kunlari', short: 'Bayram', Icon: IconCalendar, permission: 'holidays.view' },
   { to: '/settings', label: 'Sozlamalar', short: 'Sozlama', Icon: IconSettings, permission: 'settings.view' },
 ];
 

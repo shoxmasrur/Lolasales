@@ -92,14 +92,10 @@ async function bootstrap(): Promise<void> {
   container.services.scheduler.start();
   container.services.promiseWatcher.start();
   container.services.silenceWatcher.start();
-  container.services.oylikEslatmaWatcher.start();
   container.services.paymentCheckService.start();
   container.services.spamWatcher.start();
-  container.services.contractSyncScheduler.start();
   container.services.appLogCleaner.start();
-  container.services.debtSnapshots.start();
   container.services.connectionWatcher.start();
-  container.services.premiumEslatmaWatcher.start();
 
   httpServer.listen(config.PORT, () => {
     logger.info({ port: config.PORT }, `API tayyor: http://localhost:${config.PORT}`);
@@ -148,14 +144,12 @@ async function bootstrap(): Promise<void> {
       container.services.bulkLookup.pauseForShutdown();
       container.services.bulkStart.pauseForShutdown();
       container.services.bulkRecontact.pauseForShutdown();
-      container.services.bulkContractSync.pauseForShutdown();
       const idleAbort = new AbortController();
       const timedOut = await Promise.race([
         Promise.all([
           container.services.bulkLookup.idle(),
           container.services.bulkStart.idle(),
           container.services.bulkRecontact.idle(),
-          container.services.bulkContractSync.idle(),
         ]).then(() => false),
         sleep(BULK_IDLE_TIMEOUT_MS, idleAbort.signal).then(() => true),
       ]);
@@ -178,15 +172,10 @@ async function bootstrap(): Promise<void> {
     // ya'ni yarim yo'lda uzilgan partiya suhbatning urinishini sarflab,
     // xabarni yubormay qoldirardi.
     await container.services.silenceWatcher.stop();
-    // KUTILADI: yozuv agent chaqiruvidan oldin qo'shiladi.
-    await container.services.oylikEslatmaWatcher.stop();
     container.services.paymentCheckService.stop();
-    container.services.premiumEslatmaWatcher.stop();
     container.services.spamWatcher.stop();
-    container.services.contractSyncScheduler.stop();
     container.services.appLogCleaner.stop();
     container.services.connectionWatcher.stop();
-    container.services.debtSnapshots.stop();
     await container.services.telegram.shutdown();
     httpServer.close();
     await closePool();

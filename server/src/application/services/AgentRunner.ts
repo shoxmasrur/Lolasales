@@ -24,8 +24,6 @@ import type {
 import type {
   AgentDebtContext,
   AgentKnowledgeBlocks,
-  AgentPhoneCall,
-  AgentTalabnoma,
   AgentTurnInput,
   AgentTurnOutput,
   IAgentEngine,
@@ -47,10 +45,7 @@ import type { AgentEngineFactory, TanlanganDvigatel } from '@/application/servic
 import { hisoblaNarx } from '@/domain/services/llmNarxi';
 import type { ContractSyncService } from '@/application/services/ContractSyncService';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
-import type { IPhoneCallRepository } from '@/domain/repositories/IPhoneCallRepository';
 import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
-import type { ITalabnomaRepository } from '@/domain/repositories/ITalabnomaRepository';
-import { talabnomaRaqami } from '@/domain/services/talabnomaFormat';
 import type { OylikEslatmaMalumoti } from '@/domain/services/oylikEslatma';
 import { personaNameOf } from '@/domain/entities/TelegramAccount';
 import { bayramKuni, ishKuniga } from '@/domain/entities/bayram';
@@ -236,10 +231,6 @@ export class AgentRunner {
     private readonly usageLog: IAgentUsageRepository,
     /** Bayram kunlari — agent "bugun to'lang" demasligi uchun. */
     private readonly holidays: IHolidayRepository,
-    /** Ovozli agentning qo'ng'iroqlari — kontekstdagi "TELEFON SUHBATLARI". */
-    private readonly phoneCalls: Pick<IPhoneCallRepository, 'listRecentForClient'> | null = null,
-    /** Yuborilgan elektron talabnomalar — kontekstdagi "Talabnoma:" qatori. */
-    private readonly talabnomalar: Pick<ITalabnomaRepository, 'yuborilganlar'> | null = null,
   ) {}
 
   /**
@@ -1660,57 +1651,8 @@ export class AgentRunner {
         debtMonthly,
         debtSum: debtFirst + debtMonthly,
         daysOverdue,
-        phoneCalls: await this.telefonQongiroqlari(clientId),
-        talabnomalar: await this.yuborilganTalabnomalar(clientId),
       },
     };
-  }
-
-  /**
-   * Mijozga yuborilgan talabnomalar. Raqami yoki sanasi yo'q yozuv
-   * tashlab ketiladi: chala sana bilan agent mijozga noto'g'ri muddat
-   * aytgandan ko'ra, umuman aytmagani yaxshi. Xato javobni to'xtatmaydi.
-   */
-  private async yuborilganTalabnomalar(clientId: string): Promise<AgentTalabnoma[]> {
-    if (!this.talabnomalar) return [];
-    try {
-      const royxat = await this.talabnomalar.yuborilganlar(clientId);
-      return royxat.flatMap((t) =>
-        t.raqam !== null && t.sentAt && t.kuchgaKirish && t.muddatSanasi
-          ? [{
-              raqam: talabnomaRaqami(t.raqam),
-              // Yuborilgan kun Toshkent vaqti bo'yicha — muddat ham shu kundan sanalgan.
-              yuborilganIso: zonedParts(t.sentAt, config.TIMEZONE).isoDate,
-              summa: t.summa,
-              kuchgaKirishIso: t.kuchgaKirish,
-              muddatIso: t.muddatSanasi,
-              contractNo: t.contractNo,
-            }]
-          : [],
-      );
-    } catch (err) {
-      log.warn({ err, clientId }, 'Talabnomalarni o\'qib bo\'lmadi');
-      return [];
-    }
-  }
-
-  /** Oxirgi 3 ta qo'ng'iroq, 30 kun ichida. Xato javobni to'xtatmaydi. */
-  private async telefonQongiroqlari(clientId: string): Promise<AgentPhoneCall[]> {
-    if (!this.phoneCalls) return [];
-    try {
-      const since = new Date(this.clock.now().getTime() - 30 * 24 * 60 * 60 * 1000);
-      return (await this.phoneCalls.listRecentForClient(clientId, 3, since)).map((q) => ({
-        startedAt: q.startedAt,
-        agentName: q.agentName,
-        outcome: q.outcome,
-        summary: q.summary,
-        promiseDate: q.promiseDate,
-        promiseAmount: q.promiseAmount,
-      }));
-    } catch (err) {
-      log.warn({ err, clientId }, 'Telefon qo\'ng\'iroqlarini o\'qib bo\'lmadi');
-      return [];
-    }
   }
 
   /**

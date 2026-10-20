@@ -60,12 +60,12 @@ systemctl restart "$SERVICE"
 # Ko'tarilishini kutamiz — migratsiyalar shu paytda qo'llanadi.
 for i in $(seq 1 30); do
   if systemctl is-active --quiet "$SERVICE" \
-     && curl -sf -o /dev/null -w '' http://127.0.0.1:4100/api/health 2>/dev/null; then
+     && curl -sf -o /dev/null -w '' http://127.0.0.1:4200/api/health 2>/dev/null; then
     break
   fi
   # /api/health kirish talab qiladi (401) — bu ham "javob beryapti" degani.
   if systemctl is-active --quiet "$SERVICE" \
-     && [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4100/api/health || true)" = "401" ]; then
+     && [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4200/api/health || true)" = "401" ]; then
     break
   fi
   sleep 2

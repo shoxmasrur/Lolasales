@@ -6,7 +6,7 @@ import { loyihaIldizi } from '@/shared/projectRoot';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 /**
- * Loyiha ildizi — nisbiy yo'llar (MEDIA_DIR, TALABNOMA_ASSETS_DIR) va `.env`
+ * Loyiha ildizi — nisbiy yo'llar (MEDIA_DIR) va `.env`
  * shunga nisbatan. Qidiriladi: dev'da bu fayl `server/src/shared` da,
  * bundle'da `server/dist/main.js` ichida (`projectRoot.ts`).
  */
@@ -64,12 +64,6 @@ const schema = z.object({
   XONZODA_STT_API_KEY: z.string().optional(),
   XONZODA_STT_BASE_URL: z.string().default('https://xonsaroy.adiz.uz/api/v1'),
   MEDIA_DIR: z.string().default('storage/media'),
-  // ─── Elektron talabnoma ─────────────────────────────────────────────────
-  // Muhr/imzo/blank foni (fon.png, muhr.png, imzo.png) repoga kirmaydi —
-  // serverda shu papkada turadi; biri yo'q bo'lsa talabnoma o'chiq.
-  TALABNOMA_ASSETS_DIR: z.string().default('storage/talabnoma'),
-  // PDF headless Chrome/Chromium bilan yasaladi.
-  TALABNOMA_CHROME_PATH: z.string().default('google-chrome'),
   /** Bundan katta fayl yuklab olinmaydi (dashboardda faqat belgisi ko'rinadi). */
   MEDIA_MAX_MB: z.coerce.number().positive().default(50),
 
@@ -181,9 +175,6 @@ export const config: AppConfig = Object.freeze({
   MEDIA_DIR: path.isAbsolute(parsed.data.MEDIA_DIR)
     ? parsed.data.MEDIA_DIR
     : path.resolve(projectRoot, parsed.data.MEDIA_DIR),
-  TALABNOMA_ASSETS_DIR: path.isAbsolute(parsed.data.TALABNOMA_ASSETS_DIR)
-    ? parsed.data.TALABNOMA_ASSETS_DIR
-    : path.resolve(projectRoot, parsed.data.TALABNOMA_ASSETS_DIR),
 });
 
 export const isProd = config.NODE_ENV === 'production';

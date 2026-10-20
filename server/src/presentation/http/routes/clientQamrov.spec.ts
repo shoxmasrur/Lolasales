@@ -154,7 +154,6 @@ function bulkFake(nom: string) {
 }
 const bulkLookup = bulkFake('lookup');
 const bulkStart = bulkFake('start');
-const bulkContractSync = bulkFake('sync');
 const planlar: string[][] = [];
 
 const container = {
@@ -163,14 +162,12 @@ const container = {
     contracts: contractsRepo,
     conversations: { findByClientId: async () => null },
     contractPayments: { listSchedule: async () => [], listRecentPayments: async () => [] },
-    reports: { forClient: async () => ({ anchorAt: null, amount: 0 }) },
     audit,
     phoneBlocks: {
       report: async (q?: MijozQamrovi) => { qamrovlar.set('phoneBlocks', q); return []; },
       listForClient: async () => [],
       unblock: async (id: string) => { amallar.push(`unblock:${id}`); },
     },
-    phoneCalls: { listRecentForClient: async () => [] },
     telegramAccounts: { list: async () => [{ id: ACC, isEnabled: true, spamStatus: 'ok', label: 'A' }] },
   },
   services: {
@@ -178,12 +175,10 @@ const container = {
     qamrovTekshiruvchi: new QamrovTekshiruvchi(qamrovRepo),
     bulkLookup,
     bulkStart,
-    bulkContractSync,
     bulkJobStore: { assertFree: async () => undefined },
     bulkStartPlanner: {
       plan: async (ids: string[]) => { planlar.push(ids); return { accountPlan: [{ accountId: ACC }], reassigned: 0, assignments: new Map() }; },
     },
-    contractSyncScheduler: { isRunning: () => false },
   },
   useCases: {
     createClientFromContract: new CreateClientFromContract(
@@ -316,12 +311,6 @@ try {
     [st.status, bulkStart.startlar.at(-1)?.ids, st.json?.chiqarildi], [200, [VATAN], 1]);
   eq('cheklangan start — options.boshlaganUserId',
     (bulkStart.startlar.at(-1)?.extra as { boshlaganUserId?: string })?.boshlaganUserId, CHEK_UID);
-  const sy = await so('POST', '/sync-contracts-bulk', { clientIds: ikki }, C);
-  eq('cheklangan sync — faqat Vatan, chiqarildi 1',
-    [sy.status, bulkContractSync.startlar.at(-1)?.ids, sy.json?.chiqarildi], [200, [VATAN], 1]);
-  const hamma = await so('POST', '/sync-contracts-bulk', { clientIds: [BEGONA] }, C);
-  eq('cheklangan sync — hammasi begona: 422, boshlanmadi',
-    [hamma.status, bulkContractSync.startlar.length], [422, 1]);
 
   const ul = await so('POST', '/telegram-lookup-bulk', { clientIds: ikki });
   eq('cheklanmagan lookup — hammasi, chiqarildi yo\'q',
@@ -331,8 +320,6 @@ try {
   const usp = await so('POST', '/start-conversation-bulk/preview', { clientIds: ikki });
   eq('cheklanmagan start preview — hammasi, chiqarildi yo\'q',
     [amallar.at(-1), 'chiqarildi' in (usp.json ?? {})], [`preview:${ikki.join(',')}`, false]);
-  const uy = await so('POST', '/sync-contracts-bulk', { clientIds: ikki });
-  eq('cheklanmagan sync — hammasi', [uy.status, bulkContractSync.startlar.at(-1)?.ids], [200, ikki]);
 
   // ── Vazifa holati: boshqaning vazifasi ismsiz ──
   bulkStart.holat = {
@@ -341,25 +328,17 @@ try {
     skipReasons: { x: 1 },
   };
   bulkLookup.holat = { id: 'l1', total: 3, done: 1, status: 'running', currentName: 'Vali', boshlaganUserId: BOSHQA_UID };
-  bulkContractSync.holat = {
-    id: 'c1', total: 3, done: 1, status: 'running', currentName: 'Soli', boshlaganUserId: BOSHQA_UID,
-    missing: [{ clientId: BEGONA, name: 'Begona', reason: 'not_found' }], missingTruncated: 0,
-  };
   const gs = await so('GET', '/start-conversation-bulk', undefined, C);
   eq('cheklangan: boshqaning start holati — ismsiz, ro\'yxatsiz, sonlar bor',
     [gs.json.job.currentName, gs.json.job.skippedItems, gs.json.job.done, gs.json.job.skipReasons], [null, [], 2, { x: 1 }]);
   const gl = await so('GET', '/telegram-lookup-bulk', undefined, C);
   eq('cheklangan: boshqaning lookup holati — ismsiz', [gl.json.job.currentName, gl.json.job.done], [null, 1]);
-  const gc = await so('GET', '/sync-contracts-bulk', undefined, C);
-  eq('cheklangan: boshqaning sync holati — ismsiz, missing bo\'sh',
-    [gc.json.job.currentName, gc.json.job.missing, gc.json.job.total], [null, [], 3]);
 
   const ug = await so('GET', '/start-conversation-bulk');
   eq('cheklanmagan: holat to\'liq', [ug.json.job.currentName, ug.json.job.skippedItems.length], ['Ali Valiyev', 1]);
 
   for (const [yol, fake] of [
     ['/start-conversation-bulk/stop', bulkStart], ['/telegram-lookup-bulk/stop', bulkLookup],
-    ['/sync-contracts-bulk/stop', bulkContractSync],
   ] as const) {
     const r = await so('POST', yol, undefined, C);
     eq(`cheklangan: boshqaning vazifasini to'xtatish ${yol} — 403`,
@@ -376,8 +355,6 @@ try {
   // Egasi noma'lum (eski vazifa) — cheklanganga yopiq.
   bulkLookup.holat = { id: 'l2', total: 1, done: 0, status: 'running', currentName: 'Eski' };
   eq('cheklangan: egasiz vazifa — ismsiz', (await so('GET', '/telegram-lookup-bulk', undefined, C)).json.job.currentName, null);
-  eq('cheklanmagan: boshqaning vazifasini to\'xtatadi — 200',
-    [(await so('POST', '/sync-contracts-bulk/stop')).status, bulkContractSync.toxtatildi], [200, 1]);
   bulkLookup.holat = null;
   eq('vazifa yo\'q — null', (await so('GET', '/telegram-lookup-bulk', undefined, C)).json.job, null);
 } finally {

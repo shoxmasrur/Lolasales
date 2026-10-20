@@ -1,5 +1,4 @@
 import type { Interlocutor } from '@/domain/entities/AgentMemory';
-import type { QongiroqNatijasi } from '@/domain/entities/PhoneCall';
 import type { ConversationState, EscalationStage } from '@/domain/entities/Conversation';
 import type { OylikEslatmaMalumoti } from '@/domain/services/oylikEslatma';
 
@@ -157,7 +156,7 @@ export interface AgentTalabnoma {
 export interface AgentPhoneCall {
   readonly startedAt: Date;
   readonly agentName: string;
-  readonly outcome: QongiroqNatijasi;
+  readonly outcome: string;
   readonly summary: string | null;
   /** YYYY-MM-DD */
   readonly promiseDate: string | null;

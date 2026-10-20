@@ -21,7 +21,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Tiplar (server, web, mcp)
+      - name: Tiplar (server, web)
         run: npm run typecheck
 
       - name: Birlik testlari
@@ -33,16 +33,6 @@ jobs:
           npm run test:project-root --workspace=server
           npm run test:telegram-quota --workspace=server
           npm run test:spam-parser --workspace=server
-          npm run test:talabnoma-format --workspace=server
-          npm run test:talabnoma-qoidasi --workspace=server
-          npm run test:rekvizit --workspace=server
-          # Talabnoma HTML: so'zma-so'z matn, qochirish; rasm yo'llari parametr.
-          npm run test:talabnoma-html --workspace=server
-          # Chrome tekshiruvi: "yo'q" javobi keshlanmaydi (soxta brauzer skripti).
-          npm run test:talabnoma-chromium --workspace=server
-          # Soxta talabnoma repo bazadagi qoidalardan (bitta faol talabnoma,
-          # raqam bir marta, holat o'tishlari) chetga chiqmasin.
-          npm run test:talabnoma-fake --workspace=server
           npm run test:telegram-errors --workspace=server
           npm run test:peer-selection --workspace=server
           npm run test:tolov-kaliti --workspace=server
@@ -51,13 +41,9 @@ jobs:
           npm run test:contract-upsert-guard --workspace=server
           # Agent promptidagi taqiqlangan so'zlar (qarz, qachonroq, -da, ajoyib).
           npm run test:lugat --workspace=server
-          npm run test:tushum-belgilari --workspace=server
-          npm run test:tushum-eksporti --workspace=server
           npm run test:kun-chegarasi --workspace=server
           npm run test:norozilik --workspace=server
-          npm run test:kunlik-toifalar --workspace=server
           npm run test:bot-tokeni --workspace=server
-          npm run test:premium --workspace=server
           npm run test:mavzudan-tashqari --workspace=server
           npm run test:llm-narxi --workspace=server
           # Sof funksiya — `shared/config` ni tortmaydi, `.env` shart emas.
@@ -146,20 +132,13 @@ jobs:
           npm run test:chek-poygasi --workspace=server
           npm run test:oylik-eslatma --workspace=server
           npm run test:oylik-eslatma-vazifasi --workspace=server
-          npm run test:oylik-eslatma-watcher --workspace=server
           npm run test:uslub-versiyasi --workspace=server
           npm run test:prompt-composer --workspace=server
           npm run test:uslub-tamgasi --workspace=server
           npm run test:uslub-marshruti --workspace=server
-          npm run test:premium-watcher --workspace=server
-          npm run test:premium-marshruti --workspace=server
           npm run test:client-list-query --workspace=server
           npm run test:api-kalit --workspace=server
           npm run test:ruxsat-guruhlari --workspace=server
-          npm run test:qongiroq-brifi --workspace=server
-          npm run test:qongiroq-mcp --workspace=server
-          npm run test:phone-call-mapper --workspace=server
-          npm run test:qongiroq-natijasi --workspace=server
           npm run test:app-log-cleaner --workspace=server
           npm run test:bulk-job-store --workspace=server
           npm run test:bulk-job-resumer --workspace=server
@@ -167,7 +146,6 @@ jobs:
           npm run test:bulk-lookup-stop --workspace=server
           npm run test:bulk-start-resume --workspace=server
           npm run test:bulk-recontact-resume --workspace=server
-          npm run test:bulk-contract-sync-resume --workspace=server
           npm run test:stt-xonzoda --workspace=server
           npm run test:stt-taqqoslash --workspace=server
           npm run test:nomalum-ochuvchi --workspace=server
@@ -209,16 +187,6 @@ jobs:
           npm run test:nomalum-route --workspace=server
           # Suhbatlar ro'yxati `clientId` filtri: UUID repoga, aks holda 422.
           npm run test:conversation-list-route --workspace=server
-          # Talabnoma rekvizitlari: gateway `shared/config` ni tortadi. GET
-          # yo'li (tanasiz, Bearer), zaxira manzil va 10 daqiqalik kesh.
-          npm run test:kompaniyalar-gateway --workspace=server
-          # Talabnoma xizmati: `shared/logger` orqali `shared/config` ni tortadi.
-          # Yuborish tartibi (sinx → qoida → rekvizit → raqam → Telegram),
-          # xato holati, o'sha raqam bilan qayta urinish, parallel bosish.
-          npm run test:talabnoma-xizmati --workspace=server
-          # Talabnoma marshrutlari: 403 (view/send), xizmat xatosi code+message bilan,
-          # PDF sarlavhalari, UUID 400, sahifalash chegarasi.
-          npm run test:talabnoma-routes --workspace=server
           # Obyekt cheklovi: foydalanuvchi `objects` (qirqilgan, takrorsiz) saqlanadi,
           # `/users` va `/auth/me` da qaytadi, tahrirdan keyin kesh tozalanadi;
           # `/users/obyektlar` — `users.manage` siz 403.
@@ -235,12 +203,6 @@ jobs:
           # qayta aloqa ro'yxati repoga qamrov bilan, ommaviy yuborishda kesish +
           # `chiqarildi`, boshqaning navbati ismsiz va to'xtatilmaydi.
           npm run test:stats-qamrov --workspace=server
-          # Kunlik xulosa marshruti: filtrsiz javob, Obyekt/Agent filtri,
-          # filtr bo'yicha kesh kaliti, 2000 talik chegara va `jami`.
-          npm run test:daily-routes --workspace=server
-          # «CRM'dan yangilash» fon vazifasi (`shared/logger` → `shared/config`):
-          # bittadan sinx, bitta vazifa, kechasigi sinxni kutish, kesh tashlanadi.
-          npm run test:talabnoma-crm-yangilash --workspace=server
           # Fayl yetkazilgach yiqilgan hisob yozuvi xabarni "failed" qilmaydi.
           npm run test:dispatcher-fayl --workspace=server
           # Bu shoxda tegilgan, `shared/config` ni tortadigan specs: va'da

@@ -7,7 +7,6 @@ import {
   getSocket,
   type BulkLookupJob,
   type BulkStartJob,
-  type BulkContractSyncJob,
   type ServerEvent,
 } from '@/lib/socket';
 import { useCan } from '@/store/auth';
@@ -77,7 +76,6 @@ export default function ClientsPage() {
   const canCreate = useCan('clients.create');
   const canLookup = useCan('clients.telegram_lookup');
   const canStart = useCan('clients.start_conversation');
-  const canSyncContracts = useCan('contracts.sync');
   const canDelete = useCan('clients.delete');
   const writable = canEdit || canLookup || canStart;
   const isMobile = useIsMobile();
@@ -125,7 +123,7 @@ export default function ClientsPage() {
 
   // Checkbox ustuni: ommaviy amallardan bittasi mavjud bo'lsa ko'rinadi.
   // Savatda esa ular mantiqsiz — o'chirilgan mijozga xabar yozilmaydi.
-  const canSelect = (canLookup || canStart || canSyncContracts) && tab !== 'deleted';
+  const canSelect = (canLookup || canStart) && tab !== 'deleted';
 
   /**
    * Ekrandagi filtr — ro'yxat, "hammasini belgilash" va eksport UCHALASI
@@ -366,65 +364,6 @@ export default function ClientsPage() {
 
   const stopStart = useMutation({
     mutationFn: () => api.post('/clients/start-conversation-bulk/stop'),
-  });
-
-  // ─── Ommaviy CRM yangilash ────────────────────────────────────────────
-  const [syncJob, setSyncJob] = useState<BulkContractSyncJob | null>(null);
-  const [syncDismissed, setSyncDismissed] = useState(false);
-
-  // Zaxira: socket uzilsa ham progress qotib qolmasin.
-  useQuery({
-    queryKey: ['bulk-contract-sync'],
-    queryFn: async () => {
-      const data = await api.get<{ job: BulkContractSyncJob | null }>('/clients/sync-contracts-bulk');
-      if (data.job) {
-        setSyncJob(data.job);
-        if (data.job.status !== 'running') {
-          void queryClient.invalidateQueries({ queryKey: ['clients'] });
-          void queryClient.invalidateQueries({ queryKey: ['client-tab-counts'] });
-        }
-      }
-      return data;
-    },
-    enabled: canSyncContracts,
-    refetchInterval: syncJob?.status === 'running' ? 3_000 : false,
-    refetchIntervalInBackground: true,
-  });
-
-  useEffect(() => {
-    const socket = getSocket();
-    const onEvent = (event: ServerEvent): void => {
-      if (event.type !== 'contracts.sync_progress') return;
-      setSyncJob(event.job);
-      setSyncDismissed(false);
-
-      // Tugagach ro'yxat yangilanadi — yangi raqam va kechikkan to'lov
-      // darhol ko'rinsin.
-      if (event.job.status !== 'running') {
-        void queryClient.invalidateQueries({ queryKey: ['clients'] });
-        void queryClient.invalidateQueries({ queryKey: ['client-tab-counts'] });
-      }
-    };
-    socket.on('event', onEvent);
-    return () => {
-      socket.off('event', onEvent);
-    };
-  }, [queryClient]);
-
-  const startContractSync = useMutation({
-    mutationFn: () =>
-      api.post<{ job: BulkContractSyncJob }>('/clients/sync-contracts-bulk', {
-        clientIds: [...checked],
-      }),
-    onSuccess: (data) => {
-      setSyncJob(data.job);
-      setSyncDismissed(false);
-      setChecked(new Set());
-    },
-  });
-
-  const stopContractSync = useMutation({
-    mutationFn: () => api.post('/clients/sync-contracts-bulk/stop'),
   });
 
   const detailQuery = useQuery({
@@ -823,121 +762,6 @@ export default function ClientsPage() {
             </div>
           ) : null}
 
-          {/* Ketayotgan yoki endigina tugagan CRM yangilash. */}
-          {syncJob && !syncDismissed ? (
-            <div
-              className={clsx(
-                'mt-3 rounded-xl border px-4 py-3',
-                syncJob.status === 'running'
-                  ? 'border-brand-500/40 bg-brand-500/5'
-                  : syncJob.status === 'failed'
-                    ? 'border-red-500/40 bg-red-500/5'
-                    : 'border-emerald-500/40 bg-emerald-500/5',
-              )}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  {syncJob.status === 'running' ? <Spinner /> : null}
-                  <p className="truncate text-sm">
-                    {syncJob.status === 'running' ? (
-                      <>
-                        CRM'dan yangilanmoqda —{' '}
-                        <span className="tabular-nums">
-                          {syncJob.done}/{syncJob.total}
-                        </span>
-                        {syncJob.currentName ? (
-                          <span className="text-ink-500"> · {syncJob.currentName}</span>
-                        ) : null}
-                      </>
-                    ) : syncJob.status === 'failed' ? (
-                      <span className="text-red-300">Yangilash to'xtadi</span>
-                    ) : syncJob.status === 'stopped' ? (
-                      "Yangilash to'xtatildi"
-                    ) : (
-                      <span className="text-emerald-300">Yangilash tugadi</span>
-                    )}
-                  </p>
-                </div>
-
-                {syncJob.status === 'running' ? (
-                  <button
-                    type="button"
-                    className="btn-ghost !py-1 text-xs"
-                    disabled={stopContractSync.isPending}
-                    onClick={() => stopContractSync.mutate()}
-                  >
-                    To'xtatish
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-ghost !py-1 text-xs"
-                    onClick={() => setSyncDismissed(true)}
-                  >
-                    Yopish
-                  </button>
-                )}
-              </div>
-
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-800">
-                <div
-                  className={clsx(
-                    'h-full rounded-full transition-all',
-                    syncJob.status === 'failed' ? 'bg-red-400' : 'bg-brand-500',
-                  )}
-                  style={{ width: `${syncJob.total ? (syncJob.done / syncJob.total) * 100 : 0}%` }}
-                />
-              </div>
-
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                <span className="text-emerald-300">Shartnoma yangilandi: {syncJob.contracts}</span>
-                <span className="text-emerald-300">Yangi raqam: {syncJob.newPhones}</span>
-                <span className="text-ink-400">CRM'da topilmadi: {syncJob.notFound}</span>
-                {syncJob.noContract > 0 ? (
-                  <span className="text-amber-200">Shartnomasi yo'q: {syncJob.noContract}</span>
-                ) : null}
-                {syncJob.failed > 0 ? (
-                  <span className="text-red-300">Xato: {syncJob.failed}</span>
-                ) : null}
-              </div>
-
-              {syncJob.resumedCount ? (
-                <p className="mt-1.5 text-[11px] text-ink-500">
-                  Server yangilandi — vazifa to'xtagan joyidan davom etdi
-                  {syncJob.resumedCount > 1 ? ` (${syncJob.resumedCount} marta)` : ''}.
-                </p>
-              ) : null}
-
-              {/* Diqqat talab qiladiganlar. Faqat son yetarli emas edi:
-                  "3 tasi topilmadi" degan qatorni ko'rgan operator kimlar
-                  ekanini bilolmasdi. */}
-              {syncJob.missing.length > 0 ? (
-                <ul className="mt-2 max-h-40 space-y-0.5 overflow-y-auto text-[11px] text-ink-400">
-                  {syncJob.missing.map((m) => (
-                    <li key={`${m.clientId}-${m.reason}`} className="truncate">
-                      {m.name}
-                      <span className="text-ink-500">
-                        {' '}·{' '}
-                        {m.reason === 'no_contract'
-                          ? "bizda shartnomasi yo'q"
-                          : m.reason === 'not_found'
-                            ? "CRM'da topilmadi"
-                            : 'so\'rov xato berdi'}
-                      </span>
-                    </li>
-                  ))}
-                  {syncJob.missingTruncated > 0 ? (
-                    <li className="text-ink-500">va yana {syncJob.missingTruncated} ta</li>
-                  ) : null}
-                </ul>
-              ) : null}
-
-              {syncJob.error ? (
-                <p className="mt-1.5 text-[11px] text-red-300">{syncJob.error}</p>
-              ) : null}
-            </div>
-          ) : null}
-
           {/* Belgilangan mijozlar — amal paneli. */}
           {checked.size > 0 ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-ink-700 bg-ink-900/60 px-4 py-2.5">
@@ -974,22 +798,6 @@ export default function ClientsPage() {
                 </button>
               ) : null}
 
-              {canSyncContracts ? (
-                <button
-                  type="button"
-                  className="btn-ghost !py-1 text-xs"
-                  disabled={startContractSync.isPending || syncJob?.status === 'running'}
-                  onClick={() => {
-                    startContractSync.reset();
-                    startContractSync.mutate();
-                  }}
-                  title="Tanlanganlarning raqami va kechikkan to'lovini shartnomalar bazasidan olib keladi"
-                >
-                  {startContractSync.isPending ? <Spinner /> : null}
-                  CRM'dan yangilash
-                </button>
-              ) : null}
-
               <button
                 type="button"
                 className="btn-ghost !py-1 text-xs"
@@ -998,7 +806,6 @@ export default function ClientsPage() {
                 Bekor qilish
               </button>
               {startBulk.error ? <ErrorNote error={startBulk.error} /> : null}
-              {startContractSync.error ? <ErrorNote error={startContractSync.error} /> : null}
               {/* Suhbat boshlash xatosi tasdiqlash oynasida ko'rsatiladi. */}
             </div>
           ) : null}

@@ -1,13 +1,12 @@
+import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
+import type { ITalabnomaSukuti } from '@/domain/services/ITalabnomaSukuti';
+import { PgQamrovRepository } from '@/infrastructure/db/repositories/PgQamrovRepository';
 import { PgClientRepository } from '@/infrastructure/db/repositories/PgClientRepository';
 import { PgContractRepository } from '@/infrastructure/db/repositories/PgContractRepository';
 import { PgContractSyncRepository } from '@/infrastructure/db/repositories/PgContractSyncRepository';
 import { PgContractPaymentRepository } from '@/infrastructure/db/repositories/PgContractPaymentRepository';
-import { PgReportRepository } from '@/infrastructure/db/repositories/PgReportRepository';
-import { PgDailyRepository } from '@/infrastructure/db/repositories/PgDailyRepository';
 import { XonsaroyContractGateway } from '@/infrastructure/contracts/XonsaroyContractGateway';
 import { ContractSyncService } from '@/application/services/ContractSyncService';
-import { ContractSyncScheduler } from '@/application/services/ContractSyncScheduler';
-import { BulkContractSync } from '@/application/services/BulkContractSync';
 import { AppLogCleaner } from '@/application/services/AppLogCleaner';
 import { agentFailureReason } from '@/application/services/agentFailure';
 import { PgConversationRepository } from '@/infrastructure/db/repositories/PgConversationRepository';
@@ -17,7 +16,6 @@ import { PgPaymentPromiseRepository } from '@/infrastructure/db/repositories/PgP
 import { PgPaymentCheckRepository } from '@/infrastructure/db/repositories/PgPaymentCheckRepository';
 import { PaymentCheckService } from '@/application/services/PaymentCheckService';
 import { MissedMessageSync } from '@/application/services/MissedMessageSync';
-import { DebtSnapshotWriter } from '@/application/services/DebtSnapshotWriter';
 import { PgCampaignRepository } from '@/infrastructure/db/repositories/PgCampaignRepository';
 import { PgTelegramAccountRepository } from '@/infrastructure/db/repositories/PgTelegramAccountRepository';
 import { PgUserRepository } from '@/infrastructure/db/repositories/PgUserRepository';
@@ -31,21 +29,9 @@ import {
 import { PgAppLogRepository } from '@/infrastructure/db/repositories/PgAppLogRepository';
 import { PgAgentUsageRepository } from '@/infrastructure/db/repositories/PgAgentUsageRepository';
 import { PgClientPhoneBlockRepository } from '@/infrastructure/db/repositories/PgClientPhoneBlockRepository';
-import { PgTalabnomaRepository } from '@/infrastructure/db/repositories/PgTalabnomaRepository';
-import { PgQamrovRepository } from '@/infrastructure/db/repositories/PgQamrovRepository';
 import { QamrovTekshiruvchi } from '@/application/services/QamrovTekshiruvchi';
-import { ChromiumTalabnomaPdf } from '@/infrastructure/talabnoma/ChromiumTalabnomaPdf';
-import { RekvizitManbai } from '@/application/services/RekvizitManbai';
-import { TalabnomaSuhbati } from '@/application/services/TalabnomaSuhbati';
-import { TalabnomaXizmati } from '@/application/services/TalabnomaXizmati';
-import { TalabnomaSukuti } from '@/application/services/TalabnomaSukuti';
-import { TalabnomaCrmYangilash } from '@/application/services/TalabnomaCrmYangilash';
-import { PgHolidayRepository } from '@/infrastructure/db/repositories/PgHolidayRepository';
 import { BlockClientPhoneUseCase } from '@/application/usecases/clients/BlockClientPhone';
 import { PromptComposer } from '@/application/services/PromptComposer';
-import { QongiroqBrifi } from '@/application/services/QongiroqBrifi';
-import { QongiroqNatijasi } from '@/application/services/QongiroqNatijasi';
-import { PgPhoneCallRepository } from '@/infrastructure/db/repositories/PgPhoneCallRepository';
 import { AuthContext } from '@/presentation/http/middleware/auth';
 import {
   PgAuditRepository,
@@ -97,14 +83,11 @@ import { IncomingMediaProcessor } from '@/application/services/IncomingMediaProc
 import { OutreachScheduler } from '@/application/services/OutreachScheduler';
 import { PromiseWatcher } from '@/application/services/PromiseWatcher';
 import { SilenceWatcher } from '@/application/services/SilenceWatcher';
-import { PgOylikEslatmaRepository } from '@/infrastructure/db/repositories/PgOylikEslatmaRepository';
-import { OylikEslatmaWatcher } from '@/application/services/OylikEslatmaWatcher';
 import { AccountAssigner } from '@/application/services/AccountAssigner';
 import { AccountLabels } from '@/application/services/AccountLabels';
 import { AccountChecker } from '@/application/services/AccountChecker';
 import { SpamStatusWatcher } from '@/application/services/SpamStatusWatcher';
 import { TelegramConnectionWatcher } from '@/application/services/TelegramConnectionWatcher';
-import { PremiumEslatmaWatcher } from '@/application/services/PremiumEslatmaWatcher';
 import { SessiyaOgohlantiruvchi } from '@/application/services/SessiyaOgohlantiruvchi';
 
 import { LoginUseCase } from '@/application/usecases/auth/LoginUseCase';
@@ -143,14 +126,10 @@ export function createContainer() {
   const contracts = new PgContractRepository();
   const contractSyncRepo = new PgContractSyncRepository();
   const contractPayments = new PgContractPaymentRepository();
-  const oylikEslatmalar = new PgOylikEslatmaRepository();
-  const reports = new PgReportRepository();
-  const daily = new PgDailyRepository();
   const conversations = new PgConversationRepository();
   const messages = new PgMessageRepository();
   const nomalumSuhbatlar = new PgNomalumSuhbatRepository();
   const promises = new PgPaymentPromiseRepository();
-  const phoneCalls = new PgPhoneCallRepository();
   const paymentChecks = new PgPaymentCheckRepository();
   const campaigns = new PgCampaignRepository();
   const telegramAccounts = new PgTelegramAccountRepository();
@@ -234,51 +213,24 @@ export function createContainer() {
   // Mijozdan uzilgan raqamlar. Sinxronizatsiya ham, import ham shu
   // ro'yxatga qarab ishlaydi: uzilgan raqam qayta bog'lanmaydi.
   const phoneBlocks = new PgClientPhoneBlockRepository();
-  const holidays = new PgHolidayRepository();
+  // Bayramlar bazasi olib tashlangan: `evaluateWindow` har doim bo'sh ro'yxat oladi.
+  const holidays: IHolidayRepository = { list: async () => [] };
+  // Elektron talabnoma moduli olib tashlangan: hech qachon sukut qilmaydi.
+  const talabnomaSukuti: ITalabnomaSukuti = { sukutdami: async () => false };
   const contractGateway = new XonsaroyContractGateway();
   const contractSync = new ContractSyncService(
     contractGateway, contractSyncRepo, clients, clock, config.CONTRACTS_SYNC_ENABLED,
     phoneBlocks,
   );
 
-  // ─── Elektron talabnoma ─────────────────────────────────────────────────
-  // Rekvizit CRM kompaniyalaridan (xuddi shu shartnoma gateway'i), PDF —
-  // serverdagi Chromium + muhr/imzo rasmlari. Agent bu zanjirda yo'q.
-  const talabnomalar = new PgTalabnomaRepository();
   // Obyekt cheklovi guard'i: bitta yozuv bo'yicha amallarda ko'rinmasa 404.
   const qamrovTekshiruvchi = new QamrovTekshiruvchi(new PgQamrovRepository());
-  // Muddat ichida agentning o'zi boshlagan barcha xabarlari to'xtaydi.
-  const talabnomaSukuti = new TalabnomaSukuti(talabnomalar);
-  const rekvizitManbai = new RekvizitManbai(contractGateway, clock);
-  const talabnomaPdf = new ChromiumTalabnomaPdf(config.TALABNOMA_ASSETS_DIR, config.TALABNOMA_CHROME_PATH);
-  const talabnomaSuhbati = new TalabnomaSuhbati({ conversations, resolver, events });
-  const talabnomaXizmati = new TalabnomaXizmati({
-    talabnomalar, rekvizitManbai, pdf: talabnomaPdf, payments: contractPayments, contractSync,
-    holidays, dispatcher, messages, suhbat: talabnomaSuhbati, settings, accounts: telegramAccounts,
-    clients, contracts, storage: mediaStorage, audit, clock,
-  });
-  // «CRM'dan yangilash» tugmasi: INN/manzili yo'q nomzodlarni bittadan
-  // sinxlaydi. Rejalashtiruvchi pastroqda yaratiladi — yopilish uni faqat
-  // ish vaqtida o'qiydi (`BulkContractSync` dagi kabi, TDZ yo'q).
-  const talabnomaCrmYangilash = new TalabnomaCrmYangilash({
-    talabnomalar, rekvizitManbai, contractSync, clock,
-    nightlyBusy: () => contractSyncScheduler.isRunning(),
-    pauzaMs: config.CONTRACTS_SYNC_DELAY_MS,
-  });
 
   // Operator tanlagan mijozlarni CRM'dan darhol yangilash. Kechasigi
   // to'liq sinxronizatsiya bilan bir xil servisdan foydalanadi.
   // Ommaviy vazifalar holati bazada: deploy ularni yo'qotmaydi.
   const bulkJobs = new PgBulkJobRepository();
   const bulkJobStore = new BulkJobStore(bulkJobs, clock);
-  const bulkContractSync = new BulkContractSync(
-    clients, contracts, contractSync, events,
-    config.CONTRACTS_SYNC_DELAY_MS, config.CONTRACTS_SYNC_ENABLED, bulkJobStore,
-    // Rejalashtiruvchi pastroqda yaratiladi — yopilish o'zgaruvchini
-    // CHAQIRILGAN paytda o'qiydi. U faqat ish vaqtida (`run()` ichida,
-    // konteyner qurilib bo'lgach) chaqiriladi, shuning uchun TDZ xatosi yo'q.
-    () => contractSyncScheduler.isRunning(),
-  );
 
   const promptComposer = new PromptComposer(agentRules, lessons, clientProfiles);
   const agent = new AgentRunner(
@@ -286,7 +238,7 @@ export function createContainer() {
     dispatcher, settings, audit, events, clock,
     promptComposer, lessons, clientProfiles,
     contractPayments, contractSync, telegramAccounts, accountLabels, paymentChecks,
-    agentUsage, holidays, phoneCalls, talabnomalar,
+    agentUsage, holidays,
   );
 
   // Shartnoma raqami bo'yicha mijoz yaratish — operator tugmasi ham, noma'lum
@@ -434,9 +386,9 @@ export function createContainer() {
     instructAgent, recontactList, settings, holidays, events, clock, conversations, clients,
     talabnomaSukuti, undefined, bulkJobStore,
   );
-  // To'rttala ommaviy vazifa deploydan keyin davom etadi.
+  // Uchta ommaviy vazifa deploydan keyin davom etadi.
   const bulkJobResumer = new BulkJobResumer(
-    bulkJobs, clock, [bulkLookup, bulkStart, bulkRecontact, bulkContractSync], bulkJobStore,
+    bulkJobs, clock, [bulkLookup, bulkStart, bulkRecontact], bulkJobStore,
   );
   const createCampaign = new CreateCampaignUseCase(campaigns, contracts, settings, audit, events);
 
@@ -453,24 +405,6 @@ export function createContainer() {
   const silenceWatcher = new SilenceWatcher(
     conversations, promises, contracts, agent, settings, audit, clock, holidays, talabnomaSukuti,
   );
-  // Yangi oylik to'lov sanasi kelganda avval yozilgan mijozga eslatma.
-  const oylikEslatmaWatcher = new OylikEslatmaWatcher(
-    oylikEslatmalar, conversations, contracts, contractPayments, contractSync, agent, settings, clock, holidays, audit,
-    talabnomaSukuti,
-  );
-  // Telegram Premium tugashiga yaqin — administratorga xulosa boti orqali eslatma.
-  const premiumEslatmaWatcher = new PremiumEslatmaWatcher(
-    telegramAccounts, xulosaBoti, clock, config.TIMEZONE,
-    panelManzili && !panelManzili.includes('localhost') ? panelManzili : null,
-  );
-  // Bulutdagi ovozli agent uchun qo'ng'iroqdan oldingi ma'lumot (/api/mcp).
-  const qongiroqBrifi = new QongiroqBrifi({
-    contracts, clients, conversations, messages, promises,
-    payments: contractPayments, profiles: clientProfiles, accounts: telegramAccounts,
-    contractSync, settings, clock, phoneCalls,
-  });
-  // Ovozli agentning qo'ng'iroq natijasi (/api/mcp → qongiroq_natijasi).
-  const qongiroqNatijasi = new QongiroqNatijasi({ phoneCalls, contracts, conversations, promises, clock });
 
   const spamWatcher = new SpamStatusWatcher(telegramAccounts, telegram, audit, events);
   // Cheklovlarni uch manbadan yig'ib, akkaunt kartasiga chiqaradi.
@@ -481,10 +415,7 @@ export function createContainer() {
     telegramAccounts, telegram, clock,
     (accountId) => missedSync.afterReconnect(accountId),
   );
-  const contractSyncScheduler = new ContractSyncScheduler(contractSync, audit, clock, settingsRepo);
-  const appLogCleaner = new AppLogCleaner(appLog, phoneCalls);
-  // Kechikkan to'lov tarixi hech qayerda saqlanmasdi — bugundan boshlab to'planadi.
-  const debtSnapshots = new DebtSnapshotWriter(stats, clock);
+  const appLogCleaner = new AppLogCleaner(appLog);
 
   // Huquq tekshiruvi bazadan o'qiladi; kesh rol o'zgarganda tozalanadi.
   const auth = new AuthContext(tokens, users, apiTokens);
@@ -492,21 +423,20 @@ export function createContainer() {
   return {
     clock, events, hasher, tokens, settings, auth,
     repositories: {
-      clients, contracts, contractSyncRepo, contractPayments, reports, daily, conversations, messages, promises, campaigns,
+      clients, contracts, contractSyncRepo, contractPayments, conversations, messages, promises, campaigns,
       telegramAccounts, users, roles, apiTokens, importBatches, settingsRepo, audit, stats,
       agentRules, lessons, clientProfiles, appLog, paymentChecks, agentUsage, phoneBlocks, holidays,
-      recontactList, recontactTopics, oylikEslatmalar, llmModels, bulkJobs, phoneCalls, nomalumSuhbatlar,
-      talabnomalar,
+      recontactList, recontactTopics, llmModels, bulkJobs, nomalumSuhbatlar,
     },
     services: {
-      telegram, resolver, dispatcher, agent, scheduler, promiseWatcher, silenceWatcher, oylikEslatmaWatcher, accountLabels,
+      telegram, resolver, dispatcher, agent, scheduler, promiseWatcher, silenceWatcher, accountLabels,
       speechToText, sttTaqqoslash, mediaStorage, mediaProcessor, assigner, spamWatcher, accountChecker, connectionWatcher, promptComposer,
-      bulkLookup, bulkStart, bulkStartPlanner, contractGateway, contractSync, contractSyncScheduler,
-      bulkContractSync, appLogCleaner,
-      paymentCheckService, missedSync, debtSnapshots, bulkRecontact, xulosaBoti, llmKaliti,
-      premiumEslatmaWatcher, bulkJobStore, bulkJobResumer, qongiroqBrifi, qongiroqNatijasi,
+      bulkLookup, bulkStart, bulkStartPlanner, contractGateway, contractSync,
+      appLogCleaner,
+      paymentCheckService, missedSync, bulkRecontact, xulosaBoti, llmKaliti,
+      bulkJobStore, bulkJobResumer,
       nomalumAgent, shartnomaBoglovchi, javobYonaltiruvchi,
-      rekvizitManbai, talabnomaPdf, talabnomaXizmati, talabnomaCrmYangilash, qamrovTekshiruvchi,
+      qamrovTekshiruvchi,
     },
     useCases: {
       login, importDebtors, importPhones, startConversation,

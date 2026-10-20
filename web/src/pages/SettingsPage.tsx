@@ -83,152 +83,11 @@ function auditTafsilot(payload: unknown): string | null {
   return qismlar.length ? qismlar.join(' ') : null;
 }
 
-interface ContractSyncPanelData {
-  enabled: boolean;
-  hour: number;
-  running: boolean;
-  status: { at: string; durationSec: number; ok: number; notFound: number; failed: number } | null;
-  counts: { total: number; synced: number; failed: number };
-  errors: Array<{ contractId: string; contractNo: string; clientName: string; error: string }>;
-}
-
-/**
- * Shartnomalar bazasi integratsiyasining sog'ligi.
- *
- * To'liq yangilash ~15 daqiqa oladi, shuning uchun tugma javobni
- * kutmaydi: `running` bo'lganda panel o'zi 10 soniyada bir qayta
- * so'raydi va tugagach to'xtaydi.
- */
-function ContractSyncPanel() {
-  const canSync = useCan('contracts.sync');
-  const canView = useCan('settings.view');
-  const [showErrors, setShowErrors] = useState(false);
-
-  const query = useQuery({
-    queryKey: ['contract-sync'],
-    queryFn: () => api.get<ContractSyncPanelData>('/settings/contract-sync'),
-    enabled: canView,
-    refetchInterval: (q) => (q.state.data?.running ? 10_000 : false),
-  });
-
-  const run = useMutation({
-    mutationFn: () => api.post<{ started: boolean; reason?: string }>('/settings/contract-sync/run'),
-    onSuccess: () => void query.refetch(),
-  });
-
-  if (!canView) return null;
-  if (query.isLoading) return <Spinner />;
-
-  const data = query.data;
-  if (!data) return null;
-
-  const { status, counts } = data;
-
-  return (
-    <div>
-      <h2 className="mb-1 text-sm font-medium text-ink-200">Shartnomalar bazasi</h2>
-      <p className="mb-3 text-xs text-ink-500">
-        Kechikkan to'lov, to'lov grafigi va telefon raqamlari shu yerdan olinadi.
-      </p>
-
-      {!data.enabled ? (
-        <p className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-          Integratsiya o'chirilgan (<code>CONTRACTS_SYNC_ENABLED=false</code>). Shartnoma
-          ma'lumotlari faqat Excel importidan keladi.
-        </p>
-      ) : null}
-
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-        <dt className="text-ink-500">To'liq yangilash</dt>
-        <dd className="text-ink-300">
-          har kuni {String(data.hour).padStart(2, '0')}:00
-        </dd>
-
-        <dt className="text-ink-500">Oxirgi yangilash</dt>
-        <dd className="text-ink-300">
-          {status
-            ? `${relative(status.at)} · ${Math.max(1, Math.round(status.durationSec / 60))} daqiqa · ` +
-              `${status.ok} yangilandi` +
-              (status.notFound ? `, ${status.notFound} topilmadi` : '') +
-              (status.failed ? `, ${status.failed} xato` : '')
-            : 'hali yurmagan'}
-        </dd>
-
-        <dt className="text-ink-500">Yangilangan</dt>
-        <dd className="text-ink-300">
-          {counts.synced} / {counts.total} shartnoma
-          {counts.failed ? <span className="text-rose-400"> · {counts.failed} xato</span> : null}
-        </dd>
-      </dl>
-
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        {canSync ? (
-          <button
-            type="button"
-            className="btn-ghost !py-1 text-xs"
-            disabled={data.running || !data.enabled || run.isPending}
-            onClick={() => run.mutate()}
-          >
-            {data.running || run.isPending ? <Spinner /> : null}
-            {data.running ? 'Yangilanmoqda…' : 'Hozir to\'liq yangilash'}
-          </button>
-        ) : null}
-
-        {run.data && !run.data.started ? (
-          <span className="text-xs text-amber-400">{run.data.reason}</span>
-        ) : null}
-        {run.error ? <ErrorNote error={run.error} /> : null}
-      </div>
-
-      {data.errors.length ? (
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setShowErrors((v) => !v)}
-            className="text-xs text-ink-400 hover:text-ink-200"
-          >
-            {showErrors ? '▾' : '▸'} Topilmagan yoki xato bergan shartnomalar ({data.errors.length})
-          </button>
-
-          {showErrors ? (
-            <>
-              {/* Bu odatda Excel'dagi noto'g'ri shartnoma raqamini bildiradi —
-                  xodim ro'yxatni ko'rib, faylni tuzatishi kerak. */}
-              <div className="mt-2 table-wrap rounded-xl border border-ink-800">
-                <table className="w-full text-xs">
-                  <thead className="bg-ink-900/60 uppercase tracking-wide text-ink-500">
-                    <tr>
-                      <th className="px-4 py-2 text-left font-medium">Shartnoma</th>
-                      <th className="px-3 py-2 text-left font-medium">Mijoz</th>
-                      <th className="px-4 py-2 text-left font-medium">Sabab</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.errors.map((e) => (
-                      <tr key={e.contractId} className="border-t border-ink-800/60">
-                        <td className="px-4 py-1.5 font-mono text-ink-300">{e.contractNo}</td>
-                        <td className="px-3 py-1.5 text-ink-400">{e.clientName}</td>
-                        <td className="px-4 py-1.5 text-ink-500">
-                          {e.error === 'not_found' ? 'bazada topilmadi' : e.error}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 /**
  * OpenAI kaliti va til modellari — Sozlamalar sahifasining "AI modellari"
  * bo'limi.
  *
- * NEGA ALOHIDA KOMPONENT: `ContractSyncPanel` bilan bir xil sabab — bu
+ * NEGA ALOHIDA KOMPONENT: bu
  * yerda ham bir nechta mustaqil holat bor (kalit maydoni, "yangilash"
  * natijasi, tekshiruv xabarlari), ularni asosiy `SettingsPage`ning umumiy
  * `form` holatiga aralashtirish sahifani chalkashtirardi.
@@ -1173,8 +1032,6 @@ export default function SettingsPage() {
         ) : null}
 
         <RecontactTopicsSettings />
-
-        <ContractSyncPanel />
 
         <div className="card space-y-4">
           <XulosaBotiPanel />

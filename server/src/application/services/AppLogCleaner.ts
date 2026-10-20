@@ -1,5 +1,4 @@
 import type { AppLogFlag, IAppLogRepository } from '@/domain/repositories/IAppLogRepository';
-import type { IPhoneCallRepository } from '@/domain/repositories/IPhoneCallRepository';
 import { childLogger } from '@/shared/logger';
 
 const log = childLogger('app-log-cleaner');
@@ -18,7 +17,6 @@ export const RETENTION_DAYS = 14;
 export const TELEGRAM_RETENTION_DAYS = 3;
 
 /** Qo'ng'iroq transkripti shuncha kun saqlanadi; xulosa va boshqa maydonlar qoladi. */
-export const TRANSCRIPT_RETENTION_DAYS = 180;
 
 /** Sutkada bir marta yetarli — jadval sekin o'sadi. */
 const INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -34,7 +32,6 @@ export class AppLogCleaner {
 
   constructor(
     private readonly appLog: IAppLogRepository,
-    private readonly phoneCalls: Pick<IPhoneCallRepository, 'clearTranscriptsOlderThan'> | null = null,
   ) {}
 
   start(): void {
@@ -57,14 +54,6 @@ export class AppLogCleaner {
     // bitta xato tufayli Telegram izi abadiy tozalanmay qolardi.
     await this.tozala(null, RETENTION_DAYS);
     await this.tozala('telegram', TELEGRAM_RETENTION_DAYS);
-    if (this.phoneCalls) {
-      try {
-        const n = await this.phoneCalls.clearTranscriptsOlderThan(TRANSCRIPT_RETENTION_DAYS);
-        if (n) log.info({ n, days: TRANSCRIPT_RETENTION_DAYS }, 'Eski qo\'ng\'iroq transkriptlari tozalandi');
-      } catch (err) {
-        log.warn({ err }, 'Qo\'ng\'iroq transkriptlarini tozalab bo\'lmadi');
-      }
-    }
   }
 
   private async tozala(flag: AppLogFlag | null, days: number): Promise<void> {

@@ -25,7 +25,6 @@ import type {
 import type { IAgentEngine, AgentTurnOutput } from '@/domain/services/IAgentEngine';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
 import type { IHolidayRepository } from '@/domain/repositories/IHolidayRepository';
-import type { ITalabnomaRepository } from '@/domain/repositories/ITalabnomaRepository';
 import type { IClock, IEventBus } from '@/domain/services/support';
 import { CrmUnavailableError } from '@/shared/errors';
 
@@ -99,8 +98,6 @@ interface Stend {
   shartnomalar?: Contract[];
   /** Shartnoma bo'yicha sinxronizatsiya natijasi: 'ok' | 'error' | 'tashlash'. */
   sync?: (contractId: string) => 'ok' | 'error' | 'tashlash';
-  /** `ITalabnomaRepository.yuborilganlar` javobi. */
-  talabnomalar?: unknown[];
 }
 
 const build = (stend: Stend = {}) => {
@@ -184,8 +181,6 @@ const build = (stend: Stend = {}) => {
     {} as unknown as IPaymentCheckRepository,
     { record: async () => undefined } as unknown as IAgentUsageRepository,
     { list: async () => [] } as unknown as IHolidayRepository,
-    null,
-    { yuborilganlar: async () => stend.talabnomalar ?? [] } as unknown as Pick<ITalabnomaRepository, 'yuborilganlar'>,
   );
 
   return { runner, calls };
@@ -308,28 +303,6 @@ const tutib = async (fn: () => Promise<unknown>): Promise<unknown> => {
     'farq yo\'q — qayd yozilmadi',
     calls.qaydlar.every((m) => m.direction !== 'note'),
     JSON.stringify(calls.qaydlar),
-  );
-}
-
-// ── Talabnoma konteksti ───────────────────────────────────────────────
-// Yuborilgan talabnoma agentga raqam va tayyor sanalar bilan boradi;
-// raqami yoki sanasi chala yozuv tashlab ketiladi.
-{
-  const tayyor = {
-    id: 't1', contractId: 'c1', clientId: 'cl1', raqam: 1, holat: 'yuborildi', summa: 18_900_000,
-    kuchgaKirish: '2026-09-21', muddatSanasi: '2026-09-28',
-    // 23:30 UTC = Toshkentda ertasi kun — sana Toshkent bo'yicha olinishi kerak.
-    sentAt: new Date('2026-09-15T23:30:00Z'), contractNo: '7317MSO26NF',
-  };
-  const { runner } = build({ talabnomalar: [tayyor, { ...tayyor, id: 't2', raqam: null }] });
-  const { context } = await runner.buildContext('cl1');
-  check(
-    'talabnoma kontekstga tushdi',
-    JSON.stringify(context.talabnomalar) === JSON.stringify([{
-      raqam: 'ET-01', yuborilganIso: '2026-09-16', summa: 18_900_000,
-      kuchgaKirishIso: '2026-09-21', muddatIso: '2026-09-28', contractNo: '7317MSO26NF',
-    }]),
-    JSON.stringify(context.talabnomalar),
   );
 }
 
