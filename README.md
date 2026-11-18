@@ -182,6 +182,13 @@ npm run data:transcribe   # ovozlarni matnga o'giradi (davom ettiriladigan; limi
 npm run data:build        # data/training/ ga finetune_train.jsonl, finetune_val.jsonl, stats.json yozadi
 ```
 
+```bash
+npm run data:knowledge    # data/knowledge/ ga uslub profili, e'tiroz javoblari, FAQ qoralamalari
+```
+
+`data:knowledge` — agentni fine-tuning'siz yaxshilash yo'li: natijalar qoralama bo'lib, kurs
+faktlarini (narx, sana, manzil) odam tekshirgach bilim bazasi va uslub qoidalariga kiritiladi.
+
 Rollar: menejer «Lola Zunnunova Menejer» = `assistant`, mijoz = `user`. Karta va telefon
 raqamlari niqoblanadi. Tafsilot: `data/training/README.md`.
 

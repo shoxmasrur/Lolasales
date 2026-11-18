@@ -20,6 +20,7 @@
     "migrate": "npm run migrate --workspace=server",
     "seed": "npm run seed --workspace=server",
     "data:transcribe": "python3 -I scripts/data/transcribe_voices.py",
-    "data:build": "python3 -I scripts/data/build_training_data.py"
+    "data:build": "python3 -I scripts/data/build_training_data.py",
+    "data:knowledge": "python3 -I scripts/data/build_knowledge.py"
   }
 }
