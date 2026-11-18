@@ -36,3 +36,6 @@ coverage/
 # Subagent-driven development ishchi papkasi: leder, brieflar, hisobotlar,
 # review paketlari. Generatsiya qilinadi va faqat sessiya davomida kerak.
 /.superpowers/
+
+# Mijozlar bilan haqiqiy yozishmalar va ovozlar matni — maxfiy, GitHub'ga chiqmaydi.
+/data/
