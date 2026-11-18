@@ -76,11 +76,34 @@ def call_api(key: str, path: Path, language: str) -> dict:
     return {"status": status, "body": data, "retry_after": int(ra.group(1)) if ra else 2}
 
 
+class RateLimiter:
+    """Barcha ishchilar uchun umumiy: daqiqasiga eng ko'pi bilan `per_minute` so'rov.
+    Nai.uz tashkilot limiti — 60 so'rov/daq."""
+
+    def __init__(self, per_minute: float):
+        self.gap = 60.0 / per_minute
+        self.next = 0.0
+        self.lock = threading.Lock()
+
+    def wait(self):
+        with self.lock:
+            now = time.monotonic()
+            slot = max(now, self.next)
+            self.next = slot + self.gap
+        if slot > now:
+            time.sleep(slot - now)
+
+
+LIMITER = RateLimiter(55)
+
+
 def transcribe_one(key, item, export_root, language, stop: threading.Event):
     path = export_root / item["file"]
-    for attempt in range(5):
+    attempt = 0
+    while attempt < 5:
         if stop.is_set():
             raise StopAll()
+        LIMITER.wait()
         r = call_api(key, path, language)
         st, body = r["status"], r["body"]
         if st == 200 and body and body.get("data", {}).get("text", "").strip():
@@ -98,8 +121,13 @@ def transcribe_one(key, item, export_root, language, stop: threading.Event):
         if st == 402 or "insufficient" in code or "balance" in code or "quota" in code:
             stop.set()
             raise StopAll(f"balans/kvota: {st} {code}")
-        if st in (0, 429, 500, 502, 503, 504):
+        if st == 429:
+            # Limit — bu xato emas: urinish sanalmaydi, faqat kutiladi.
+            time.sleep(min(60, max(r["retry_after"], 5)))
+            continue
+        if st in (0, 500, 502, 503, 504):
             time.sleep(min(30, max(r["retry_after"], 2 ** attempt)))
+            attempt += 1
             continue
         return {"chat": item["chat"], "msg_id": item["msg_id"], "file": item["file"],
                 "error": f"{st} {code}".strip()}
