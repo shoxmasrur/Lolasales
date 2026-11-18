@@ -58,7 +58,7 @@ def call_api(key: str, path: Path, language: str) -> dict:
         "curl", "-sS", "--max-time", "180", "-D", "-", "-o", "-",
         "-X", "POST", f"{BASE_URL}/stt/transcribe",
         "-H", f"Authorization: Bearer {key}", "-H", "Accept: application/json",
-        "--form-string", f"language={language}", "-F", f"file=@{path}",
+        "--form-string", f"language={language}", "-F", 'file=@"' + str(path).replace("\\", "\\\\").replace('"', '\\"') + '"',
     ]
     p = subprocess.run(cmd, capture_output=True)
     if p.returncode != 0:
