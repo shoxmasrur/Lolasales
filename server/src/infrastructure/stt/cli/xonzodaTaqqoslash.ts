@@ -6,9 +6,9 @@ import { closePool, query } from '@/infrastructure/db/pool';
  * Qo'lda: npm run xonzoda-taqqoslash --workspace=server -- [N]
  *
  * Oxirgi N ta (sukut 10) kiruvchi ovozli xabarni XonzodaAI'ga yuborib,
- * natijani bazaga yozadi (chatda Aisha matni ostida ko'rinadi) va
+ * natijani bazaga yozadi (chatda Nai matni ostida ko'rinadi) va
  * ikkala matnni yonma-yon chiqaradi. Mijozga hech narsa yuborilmaydi,
- * asosiy `transcript` (Aisha) o'zgarmaydi.
+ * asosiy `transcript` (Nai) o'zgarmaydi.
  *
  * XonzodaAI bir vaqtda 2 ta so'rov qabul qiladi va jonli qo'ng'iroqlar bilan
  * bitta GPU'da — xabarlar bittadan yuboriladi.
@@ -43,7 +43,7 @@ if (!xabarlar.length) {
     const sana = m.createdAt.toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' });
     const davomiylik = m.media?.durationSec ? `${m.media.durationSec} s` : '?';
     console.log(`── ${sana} · ${m.media?.kind} · ${davomiylik} · ${m.id.slice(0, 8)}`);
-    console.log(`  Aisha : ${m.transcriptStatus === 'done' ? m.transcript : `(${m.transcriptStatus})`}`);
+    console.log(`  Nai : ${m.transcriptStatus === 'done' ? m.transcript : `(${m.transcriptStatus})`}`);
     const g = m.xonzoda;
     console.log(
       `  XonzodaAI: ${!g ? '(natija yo\'q)' : g.status === 'done' ? g.text : `(xato: ${g.error})`}` +

@@ -134,7 +134,7 @@ export default function MessageBubble({
           </div>
         ) : null}
 
-        {/* XonzodaAI — faqat solishtirish uchun: agentga Aisha matni boradi. */}
+        {/* XonzodaAI — faqat solishtirish uchun: agentga Nai matni boradi. */}
         {message.xonzoda ? (
           <div className="mb-1 border-l-2 border-current/15 pl-2 opacity-70">
             <p className="text-[10px] uppercase tracking-wide opacity-60">

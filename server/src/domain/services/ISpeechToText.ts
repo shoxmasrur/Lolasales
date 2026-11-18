@@ -13,7 +13,7 @@ export type TranscriptionResult =
 
 /**
  * Ovozli xabarni matnga o'girish.
- * Provayder almashtirilsa (Aisha → boshqa xizmat) faqat implementatsiya o'zgaradi.
+ * Provayder almashtirilsa (Nai → boshqa xizmat) faqat implementatsiya o'zgaradi.
  */
 export interface ISpeechToText {
   readonly available: boolean;

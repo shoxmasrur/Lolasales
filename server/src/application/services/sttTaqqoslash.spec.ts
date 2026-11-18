@@ -8,7 +8,7 @@ import type { DomainEvent, IEventBus } from '@/domain/services/support';
 /**
  * Qo'lda ishga tushiriladi: npm run test:stt-taqqoslash --workspace=server
  *
- * XonzodaAI solishtiruvi fonda ishlaydi va asosiy oqimga (Aisha matni,
+ * XonzodaAI solishtiruvi fonda ishlaydi va asosiy oqimga (Nai matni,
  * agent javobi) TEGMASLIGI kerak. Bazaga ham, tarmoqqa ham chiqmaydi.
  */
 let failed = 0;
@@ -25,7 +25,7 @@ const xabar = (id: string, kind: string | null, path: string | null = `media/${i
     id,
     conversationId: 'suhbat-1',
     media: kind ? { kind, path, mimeType: 'audio/ogg', sizeBytes: 10, durationSec: 3, fileName: null } : null,
-    transcript: 'aisha matni',
+    transcript: 'nai matni',
     transcriptStatus: 'done',
   }) as unknown as Message;
 

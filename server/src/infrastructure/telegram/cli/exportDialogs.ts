@@ -3,7 +3,7 @@ import path from 'node:path';
 import { Api, TelegramClient, sessions } from 'teleproto';
 
 import { PgTelegramAccountRepository } from '@/infrastructure/db/repositories/PgTelegramAccountRepository';
-import { AishaSpeechToText } from '@/infrastructure/stt/AishaSpeechToText';
+import { NaiSpeechToText } from '@/infrastructure/stt/NaiSpeechToText';
 import { closePool } from '@/infrastructure/db/pool';
 import { logger } from '@/shared/logger';
 
@@ -14,7 +14,7 @@ import { logger } from '@/shared/logger';
  *   npm run export-dialogs --workspace=server -- telegram_oila
  *   npm run export-dialogs --workspace=server -- telegram_oila --dialogs 40 --messages 300
  *
- * Ovozli xabarlar Aisha STT orqali matnga o'giriladi. Transkript natijasi
+ * Ovozli xabarlar Nai STT orqali matnga o'giriladi. Transkript natijasi
  * keshlanadi (`--out` papkasidagi json), shuning uchun skriptni qayta
  * ishga tushirish bir xil audio uchun ikkinchi marta to'lov qildirmaydi.
  *
@@ -29,7 +29,7 @@ interface ExportedMessage {
   out: boolean;
   text: string;
   media: string | null;
-  /** Ovozli xabar matni (Aisha STT). */
+  /** Ovozli xabar matni (Nai STT). */
   transcript?: string | null;
   transcriptError?: string;
 }
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     .then((raw) => JSON.parse(raw) as Record<string, string>)
     .catch(() => ({}));
 
-  const stt = new AishaSpeechToText();
+  const stt = new NaiSpeechToText();
   logger.info({ label, sttAvailable: stt.available }, 'Eksport boshlandi');
 
   const client = new TelegramClient(
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
           item.transcript = cache[key];
           sttOk += 1;
         } else if (!stt.available) {
-          item.transcriptError = 'AISHA_API_KEY sozlanmagan';
+          item.transcriptError = 'NAI_STT_API_KEY sozlanmagan';
         } else {
           try {
             const buffer = (await client.downloadMedia(message, {})) as Buffer | undefined;

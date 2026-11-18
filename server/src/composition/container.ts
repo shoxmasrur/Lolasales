@@ -38,7 +38,7 @@ import { AccountGate } from '@/infrastructure/telegram/AccountGate';
 import { MtprotoTelegramGateway } from '@/infrastructure/telegram/MtprotoTelegramGateway';
 import { BotApi } from '@/infrastructure/telegram/BotApi';
 import { XulosaBoti } from '@/application/services/XulosaBoti';
-import { AishaSpeechToText } from '@/infrastructure/stt/AishaSpeechToText';
+import { NaiSpeechToText } from '@/infrastructure/stt/NaiSpeechToText';
 import { XonzodaSpeechToText } from '@/infrastructure/stt/XonzodaSpeechToText';
 import { ClaudeTuzilganLlm } from '@/infrastructure/ai/ClaudeTuzilganLlm';
 import { personaNameOf } from '@/domain/entities/TelegramAccount';
@@ -164,8 +164,8 @@ export function createContainer() {
   // konteynerda alohida ushlab turilmaydi, `AgentEngineFactory` o'zi
   // standart holat uchun ichida yaratadi.
   const engineFactory = new AgentEngineFactory(llmModels, llmKaliti);
-  const speechToText = new AishaSpeechToText();
-  // XonzodaAI — faqat Aisha bilan solishtirish uchun (kalit bo'lmasa o'chiq).
+  const speechToText = new NaiSpeechToText();
+  // XonzodaAI — faqat Nai bilan solishtirish uchun (kalit bo'lmasa o'chiq).
   const xonzodaStt = new XonzodaSpeechToText({
     apiKey: config.XONZODA_STT_API_KEY,
     baseUrl: config.XONZODA_STT_BASE_URL,
@@ -248,7 +248,7 @@ export function createContainer() {
     paymentChecks, conversations, purchases, courses, xaridXizmati,
     agent, dispatcher, audit, events, clock, settings,
   );
-  // Ovozli xabarni XonzodaAI'ga ham yuboradi — faqat Aisha bilan solishtirish.
+  // Ovozli xabarni XonzodaAI'ga ham yuboradi — faqat Nai bilan solishtirish.
   const sttTaqqoslash = new SttTaqqoslash(xonzodaStt, mediaStorage, messages, events);
   const handleIncoming = new HandleIncomingMessageUseCase(
     clients, conversations, messages, replyDebouncer, settings, mediaProcessor, events,

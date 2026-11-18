@@ -139,7 +139,7 @@ o'zgarmaydi.
 
 ## 5. Rasm, ovoz va fayllar
 
-Ovozli xabar STT (Aisha) orqali matnga o'giriladi. Rasm va PDF vision bilan tasniflanadi:
+Ovozli xabar STT (Nai) orqali matnga o'giriladi. Rasm va PDF vision bilan tasniflanadi:
 chek bo'lsa chek tekshiruvi ochiladi va agent "qabul qildim, tekshirib chiqamiz" deydi —
 to'lovni faqat menejer tasdiqlaydi. Fayllar statik papkadan berilmaydi: har so'rov
 (`GET /api/media/:messageId`) avtorizatsiyadan o'tadi.
@@ -171,7 +171,21 @@ gunzip -c /var/backups/lolasales/hourly-20261020-1400.sql.gz | psql "$DATABASE_U
 sudo systemctl start lolasales
 ```
 
-## 8. Ma'lum cheklovlar
+## 8. LLM o'qitish ma'lumotlari (Telegram eksporti)
+
+Eski yozishmalar (Telegram HTML eksporti → `data/tg_export_text/*.jsonl`) va ovozli
+xabarlar matni (Nai.uz STT) asosida fine-tuning ma'lumotlari tayyorlanadi. `data/` papkasi
+mijozlarning haqiqiy yozishmalarini saqlaydi va **git'ga qo'shilmaydi**.
+
+```bash
+npm run data:transcribe   # ovozlarni matnga o'giradi (davom ettiriladigan; limit 60 so'rov/daq)
+npm run data:build        # data/training/ ga finetune_train.jsonl, finetune_val.jsonl, stats.json yozadi
+```
+
+Rollar: menejer «Lola Zunnunova Menejer» = `assistant`, mijoz = `user`. Karta va telefon
+raqamlari niqoblanadi. Tafsilot: `data/training/README.md`.
+
+## 9. Ma'lum cheklovlar
 
 - **Maxfiylik sozlamasi** — mijoz raqam bo'yicha qidiruvni yopgan bo'lsa, uni topib
   bo'lmaydi (`privacy_restricted`).

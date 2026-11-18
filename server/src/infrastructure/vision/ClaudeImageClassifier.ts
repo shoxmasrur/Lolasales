@@ -79,7 +79,7 @@ const KALIT_TURI: Record<AgentAuthMode, string> = {
  * Rasmni tasniflash — avtorizatsiya turiga qarab ikki yo'l.
  *
  *   • API kalit (`sk-ant-api…`) — Anthropic Messages API, `fetch` bilan
- *     (`AishaSpeechToText` bilan bir xil naqsh).
+ *     (`NaiSpeechToText` bilan bir xil naqsh).
  *   • Obuna tokeni (`sk-ant-oat…`) — Claude Agent SDK `query()`. Token
  *     Claude Code uchun berilgan va to'g'ridan-to'g'ri Messages API'da
  *     ishlashi kafolatlanmagan; SDK yo'li esa prodda agentning o'zida har

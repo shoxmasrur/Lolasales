@@ -18,6 +18,8 @@
     "build": "npm run build --workspace=server && npm run build --workspace=web",
     "typecheck": "npm run typecheck --workspace=server && npm run typecheck --workspace=web",
     "migrate": "npm run migrate --workspace=server",
-    "seed": "npm run seed --workspace=server"
+    "seed": "npm run seed --workspace=server",
+    "data:transcribe": "python3 -I scripts/data/transcribe_voices.py",
+    "data:build": "python3 -I scripts/data/build_training_data.py"
   }
 }

@@ -52,15 +52,15 @@ const schema = z.object({
   OPENAI_MODEL: z.string().default('gpt-5.6'),
   OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
 
-  // ─── Media va nutqni matnga o'girish (Aisha Group) ──────────────────────
-  AISHA_API_KEY: z.string().optional(),
-  AISHA_BASE_URL: z.string().default('https://back.aisha.group'),
+  // ─── Media va nutqni matnga o'girish (Nai.uz) ───────────────────────────
+  NAI_STT_API_KEY: z.string().optional(),
+  NAI_STT_BASE_URL: z.string().default('https://my.neuronai.uz/api/v1'),
   STT_LANGUAGE: z.enum(['uz', 'ru', 'en']).default('uz'),
   STT_MAX_MB: z.coerce.number().positive().default(20),
   STT_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
   // ─── XonzodaAI STT (o'zimizning platforma) — FAQAT solishtirish uchun ─────
-  // Ovozli xabar Aisha bilan birga shunga ham yuboriladi; natija chatda
-  // Aisha matni ostida ko'rinadi, agentga bormaydi. Kalit bo'lmasa o'chiq.
+  // Ovozli xabar Nai bilan birga shunga ham yuboriladi; natija chatda
+  // Nai matni ostida ko'rinadi, agentga bormaydi. Kalit bo'lmasa o'chiq.
   XONZODA_STT_API_KEY: z.string().optional(),
   XONZODA_STT_BASE_URL: z.string().default('https://xonsaroy.adiz.uz/api/v1'),
   MEDIA_DIR: z.string().default('storage/media'),

@@ -249,7 +249,7 @@ export interface Message {
   media: MessageMedia | null;
   transcript: string | null;
   transcriptStatus: 'none' | 'pending' | 'done' | 'failed';
-  /** XonzodaAI (o'zimizning STT) natijasi — faqat Aisha bilan solishtirish uchun. */
+  /** XonzodaAI (o'zimizning STT) natijasi — faqat Nai bilan solishtirish uchun. */
   xonzoda?: {
     status: 'done' | 'failed';
     text: string | null;

@@ -174,7 +174,7 @@ export class IncomingMediaProcessor {
     }
 
     if (!this.stt.available) {
-      log.warn('STT sozlanmagan (AISHA_API_KEY yo\'q) — ovoz matnga o\'girilmadi');
+      log.warn('STT sozlanmagan (NAI_STT_API_KEY yo\'q) — ovoz matnga o\'girilmadi');
       return {
         media: stored,
         transcript: null,

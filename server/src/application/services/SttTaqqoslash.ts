@@ -15,11 +15,11 @@ const log = childLogger('stt:taqqoslash');
 const NAVBAT_CHEGARASI = 100;
 
 /**
- * Ovozli xabarni XonzodaAI'ga ham yuborib, natijani Aisha matni yoniga yozadi.
+ * Ovozli xabarni XonzodaAI'ga ham yuborib, natijani Nai matni yoniga yozadi.
  *
- * NEGA FONDA: asosiy matn (Aisha) va agent javobi buni KUTMASLIGI kerak —
+ * NEGA FONDA: asosiy matn (Nai) va agent javobi buni KUTMASLIGI kerak —
  * XonzodaAI jonli qo'ng'iroqlar bilan bitta GPU'da ishlaydi va band bo'lishi
- * mumkin. Natija agentga bormaydi: bu faqat XonzodaAI sifatini Aisha bilan
+ * mumkin. Natija agentga bormaydi: bu faqat XonzodaAI sifatini Nai bilan
  * solishtirish uchun (foydalanuvchi qarori, 2026-10-15).
  *
  * NEGA KETMA-KET: platforma bir vaqtda 2 ta so'rov qabul qiladi va

@@ -178,7 +178,7 @@ export class HandleIncomingMessageUseCase {
 
     await this.conversations.touchInbound(conversation.id, incoming.receivedAt);
     this.events.publish({ type: 'message.created', conversationId: conversation.id, messageId: saved.id });
-    // Kutilmaydi: agent javobi Aisha matni bilan darhol ketadi. Solishtiruv
+    // Kutilmaydi: agent javobi Nai matni bilan darhol ketadi. Solishtiruv
     // monitoring uchun — u hech qachon kiruvchi xabarni buzmasligi kerak.
     try {
       this.sttTaqqoslash?.boshla(saved);

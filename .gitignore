@@ -39,3 +39,4 @@ coverage/
 
 # Mijozlar bilan haqiqiy yozishmalar va ovozlar matni — maxfiy, GitHub'ga chiqmaydi.
 /data/
+__pycache__/
