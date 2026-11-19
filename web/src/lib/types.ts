@@ -510,6 +510,8 @@ export interface OutreachSettings {
   izohAvtoOraliqMin: number;
   izohAvtoKunlar: number;
   izohAvtoMaxYangi: number;
+  hamyonYoqilgan: boolean;
+  hamyonKutishDaq: number;
 }
 
 /**

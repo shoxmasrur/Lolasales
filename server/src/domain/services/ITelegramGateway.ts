@@ -365,6 +365,13 @@ export interface ITelegramGateway {
   ): Promise<TelegramHistoryMessage[]>;
 
   /**
+   * Botning mini-ilovasini (Mini App) ochish uchun URL oladi.
+   * URL manzilida `tgWebAppData` (initData) bor — uni LOGGA YOZMANG.
+   * Hech qanday xabar yuborilmaydi.
+   */
+  openWebApp(accountId: string, bot: TelegramPeerRef): Promise<string>;
+
+  /**
    * Izohlari yoqilgan (muhokama guruhi bog'langan) kanallar — faqat O'QISH.
    * Kanal va guruhga hech narsa yozilmaydi, qo'shilish so'rovi yuborilmaydi.
    */

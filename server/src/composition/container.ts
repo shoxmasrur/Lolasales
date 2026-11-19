@@ -80,6 +80,9 @@ import { ImportLeadsUseCase } from '@/application/usecases/import/ImportLeadsUse
 import { MijozYaratuvchi } from '@/application/services/MijozYaratuvchi';
 import { IzohYiguvchi } from '@/application/services/IzohYiguvchi';
 import { AvtoIzohYiguvchi } from '@/application/services/AvtoIzohYiguvchi';
+import { HamyonTekshiruvchi } from '@/application/services/HamyonTekshiruvchi';
+import { HamyonKlienti } from '@/infrastructure/hamyoncha/HamyonKlienti';
+import { PgHamyonRepository } from '@/infrastructure/db/repositories/PgHamyonRepository';
 import { StartConversationUseCase } from '@/application/usecases/messaging/StartConversationUseCase';
 import { HandleIncomingMessageUseCase } from '@/application/usecases/messaging/HandleIncomingMessageUseCase';
 import { SendManualMessageUseCase } from '@/application/usecases/messaging/SendManualMessageUseCase';
@@ -283,6 +286,13 @@ export function createContainer() {
   const izohYiguvchi = new IzohYiguvchi(telegram, clients, mijozYaratuvchi, createCampaign, settings, audit, clock);
   // Shu yig'ishning avtomatik varianti (sozlamada yoqilgandagina ishlaydi).
   const avtoIzohYiguvchi = new AvtoIzohYiguvchi(izohYiguvchi, telegramAccounts, settings, audit);
+  // Chek kelgach pul Hamyoncha (@hamyoncha_finance_bot) orqali tekshiriladi.
+  const hamyonRepo = new PgHamyonRepository();
+  const hamyonKlienti = new HamyonKlienti(telegram, telegramAccounts, settings);
+  const hamyonTekshiruvchi = new HamyonTekshiruvchi(
+    hamyonKlienti, hamyonRepo, paymentCheckService, purchases, courses, conversations, clients,
+    xulosaBoti, settings, audit, events, clock,
+  );
 
   // ─── Fon jarayonlari ────────────────────────────────────────────────────
   const scheduler = new OutreachScheduler(
@@ -322,7 +332,7 @@ export function createContainer() {
       appLogCleaner,
       paymentCheckService, missedSync, xulosaBoti, llmKaliti,
       bulkJobStore, bulkJobResumer,
-      mijozYaratuvchi, izohYiguvchi, avtoIzohYiguvchi,
+      mijozYaratuvchi, izohYiguvchi, avtoIzohYiguvchi, hamyonTekshiruvchi,
       xaridXizmati, kartaYuboruvchi, eslatmaKuzatuvchi,
     },
     useCases: {

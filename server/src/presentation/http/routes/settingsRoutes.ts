@@ -49,6 +49,8 @@ const updateSchema = z.object({
   izohAvtoOraliqMin: z.number().int().min(5).max(1440).optional(),
   izohAvtoKunlar: z.number().int().min(1).max(30).optional(),
   izohAvtoMaxYangi: z.number().int().min(1).max(50).optional(),
+  hamyonYoqilgan: z.boolean().optional(),
+  hamyonKutishDaq: z.number().int().min(5).max(180).optional(),
 });
 
 // Token uzunligi cheklanadi: bazaga tasodifan butun fayl yopishtirilmasin.

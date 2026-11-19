@@ -155,6 +155,8 @@
     "test:izoh-muallifi": "tsx src/infrastructure/telegram/izohMuallifi.spec.ts",
     "test:izoh-yiguvchi": "tsx src/application/services/izohYiguvchi.spec.ts",
     "test:avto-izoh-yiguvchi": "tsx src/application/services/avtoIzohYiguvchi.spec.ts",
+    "test:hamyon-mosligi": "tsx src/domain/services/hamyonMosligi.spec.ts",
+    "test:hamyon-tekshiruvchi": "tsx src/application/services/hamyonTekshiruvchi.spec.ts",
     "test:kunlik-xulosa": "tsx src/application/services/kunlikXulosa.spec.ts",
     "test:voronka": "tsx src/domain/services/voronka.spec.ts"
   },

@@ -779,6 +779,37 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <div className="card space-y-3">
+          <h2 className="text-sm font-medium">Hamyoncha: to'lovni avtomatik tekshirish</h2>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.hamyonYoqilgan}
+              disabled={!admin}
+              onChange={(e) => patch('hamyonYoqilgan', e.target.checked)}
+            />
+            Chek kelganda pulni @hamyoncha_finance_bot orqali tekshirish
+          </label>
+          <p className="text-[11px] leading-relaxed text-ink-500">
+            Kutilgan summa va vaqt bo'yicha aynan bitta mos tushum topilsa, chek avtomatik tasdiqlanadi va
+            yopiq guruh havolasi yuboriladi. Shubha bo'lsa (takroriy chek, summa mos emas, pul topilmadi)
+            suhbat menejerga o'tadi va admin botiga xabar ketadi. Hamyoncha tushumni ~15 daqiqa kechiktirib
+            yozishi mumkin, shuning uchun pul topilmasa shuncha kutiladi.
+          </p>
+          <div className="max-w-xs">
+            <label className="label">Kutish (daqiqa)</label>
+            <input
+              type="number"
+              min={5}
+              max={180}
+              className="input"
+              value={form.hamyonKutishDaq}
+              disabled={!admin}
+              onChange={(e) => patch('hamyonKutishDaq', Number(e.target.value))}
+            />
+          </div>
+        </div>
+
         <LlmSettingsPanel />
 
         <div className="card space-y-4">
@@ -868,6 +899,8 @@ export default function SettingsPage() {
                   izohAvtoOraliqMin: form.izohAvtoOraliqMin,
                   izohAvtoKunlar: form.izohAvtoKunlar,
                   izohAvtoMaxYangi: form.izohAvtoMaxYangi,
+                  hamyonYoqilgan: form.hamyonYoqilgan,
+                  hamyonKutishDaq: form.hamyonKutishDaq,
                 })
               }
             >

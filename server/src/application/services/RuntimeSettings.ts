@@ -58,6 +58,14 @@ export interface OutreachSettings {
   izohAvtoKunlar: number;
   /** Bir yurishda olinadigan yangi leadlarning eng ko'pi (1–50). */
   izohAvtoMaxYangi: number;
+  /** Hamyoncha orqali pulni avtomatik tekshirish (standart: o'chiq). */
+  hamyonYoqilgan: boolean;
+  /** Pul tushmagan bo'lsa, shuncha daqiqa kutilib, keyin adminga aytiladi (5–180). */
+  hamyonKutishDaq: number;
+  /** Hamyoncha botiga kirish uchun akkaunt; null — birinchi ulangan akkaunt. */
+  hamyonAkkauntId: string | null;
+  /** Bot chatining manzili (birinchi marta topilgach saqlanadi). */
+  hamyonBot: { peerId: string; accessHash: string } | null;
 }
 
 export const IZOH_KALIT_SOZLARI = ['menga xabar bering', 'menga yozing', 'qiziqaman', 'narxi', '+'];
@@ -98,6 +106,10 @@ export class RuntimeSettings {
       izohAvtoOraliqMin: stored.izohAvtoOraliqMin ?? 60,
       izohAvtoKunlar: stored.izohAvtoKunlar ?? 3,
       izohAvtoMaxYangi: stored.izohAvtoMaxYangi ?? 10,
+      hamyonYoqilgan: stored.hamyonYoqilgan ?? false,
+      hamyonKutishDaq: stored.hamyonKutishDaq ?? 30,
+      hamyonAkkauntId: stored.hamyonAkkauntId ?? null,
+      hamyonBot: stored.hamyonBot ?? null,
     };
   }
 

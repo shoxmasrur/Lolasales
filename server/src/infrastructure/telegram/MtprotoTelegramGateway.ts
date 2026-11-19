@@ -1398,6 +1398,24 @@ export class MtprotoTelegramGateway implements ITelegramGateway {
       .reverse();
   }
 
+  async openWebApp(accountId: string, bot: TelegramPeerRef): Promise<string> {
+    return this.gate.run(
+      accountId,
+      { kind: 'other', priority: 'manual', label: 'webApp' },
+      async () => {
+        const client = this.requireClient(accountId);
+        const peer = toInputPeer(bot);
+        const natija = await client.invoke(
+          new Api.messages.RequestMainWebView({ peer, bot: peer, platform: 'android' }),
+        );
+        if (!(natija instanceof Api.WebViewResultUrl)) {
+          throw new Error('Bot mini-ilova URL\'ini qaytarmadi');
+        }
+        return natija.url;
+      },
+    );
+  }
+
   // ─── Kanal izohlari (faqat O'QISH) ───────────────────────────────────────
   //
   // QATTIQ QOIDA: bu bo'limdagi hech bir chaqiruv kanal yoki guruhga
