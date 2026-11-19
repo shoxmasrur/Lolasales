@@ -3,7 +3,7 @@ import { MEDIA_PLACEHOLDER, REVIEW_KINDS, VOICE_KINDS } from '@/domain/entities/
 import type { ReceiptSource } from '@/domain/entities/PaymentCheck';
 import { RECEIPT_REVIEW_REASON } from '@/domain/entities/PaymentCheck';
 import type { IncomingMedia } from '@/domain/services/ITelegramGateway';
-import type { IImageClassifier, ImageKind } from '@/domain/services/IImageClassifier';
+import type { IImageClassifier, ImageKind, ReceiptDetails } from '@/domain/services/IImageClassifier';
 import { mimeQollanadi, pdfMi } from '@/domain/services/IImageClassifier';
 import type { IMediaStorage } from '@/domain/services/IMediaStorage';
 import type { ISpeechToText } from '@/domain/services/ISpeechToText';
@@ -33,6 +33,8 @@ export interface ProcessedMedia {
   readonly imageStatus: ImageStatus;
   /** Operator uchun tavsif — promptga tushmaydi. */
   readonly imageNote: string | null;
+  /** Faqat `tolov` rasmida: chekdan o'qilgan summa, vaqt va karta (Hamyoncha solishtiruvi uchun). */
+  readonly receiptDetails?: ReceiptDetails | null;
 }
 
 /**
@@ -116,6 +118,7 @@ export class IncomingMediaProcessor {
     let imageKind: ImageKind | null = null;
     let imageStatus: ImageStatus = 'none';
     let imageNote: string | null = null;
+    let receiptDetails: ReceiptDetails | null = null;
     /** Rasm haqiqatan vision'ga yuborildimi — belgini tanlashda kerak. */
     let visionGaYuborildi = false;
     const chekBolishiMumkin = REVIEW_KINDS.has(incoming.kind);
@@ -131,6 +134,7 @@ export class IncomingMediaProcessor {
         imageKind = tasnif.kind;
         imageStatus = tasnif.failed ? 'failed' : 'done';
         imageNote = tasnif.note;
+        receiptDetails = tasnif.details ?? null;
       } else {
         // Bu yerga endi PDF tushmaydi — u `mimeQollanadi()` dan o'tib
         // tasniflanadi. Qoladigani: HEIC, TIFF, `.docx` kabi tasnifchi
@@ -170,6 +174,7 @@ export class IncomingMediaProcessor {
         imageKind,
         imageStatus,
         imageNote,
+        receiptDetails,
       };
     }
 

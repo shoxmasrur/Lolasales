@@ -23,6 +23,49 @@ export type MosQaror =
   /** Avtomatik hal qilib bo'lmaydi — admin ko'rsin. */
   | { readonly kind: 'shubha'; readonly sabab: string };
 
+/** Chekdagi vaqt va tushum vaqti orasidagi eng katta farq, daqiqa. */
+export const VAQT_FARQI_DAQIQA = 20;
+/** O'zbekiston vaqti: UTC+5, yozgi vaqtga o'tmaydi. */
+const UTC_OFFSET_DAQIQA = 300;
+
+export type ChekQarori = { readonly ok: true } | { readonly ok: false; readonly sabab: string };
+
+/**
+ * Chek rasmidan o'qilgan ma'lumotni Hamyonchadagi tushum va bizning karta bilan solishtiradi.
+ *
+ * Hammasi mos kelsagina `ok`. O'qib bo'lmagan maydon (summa) — shubha: tushum bilan
+ * tasodifan mos kelgan boshqa odam to'lovini tasdiqlab yubormaslik uchun.
+ * Karta va vaqt chekda ko'rinmasa (ba'zi ilovalar yashiradi) — shu maydon tekshirilmaydi.
+ */
+export function chekniSolishtir(i: {
+  chek: { amount: number | null; paidAt: string | null; card4: string | null } | null;
+  tushum: HamyonTushum;
+  /** Bizning faol karta oxirgi 4 raqami; `null` — karta yo'q. */
+  bizningKarta4: string | null;
+}): ChekQarori {
+  const c = i.chek;
+  if (!c || c.amount === null) return { ok: false, sabab: "Chekdan summani o'qib bo'lmadi (rasm xira yoki chek emas)" };
+
+  if (c.amount !== i.tushum.amount) {
+    return { ok: false, sabab: `Chekda ${c.amount} so'm, Hamyonchada ${i.tushum.amount} so'm tushgan` };
+  }
+
+  if (c.card4 && i.bizningKarta4 && c.card4 !== i.bizningKarta4) {
+    return { ok: false, sabab: `Chekdagi karta (…${c.card4}) bizning karta (…${i.bizningKarta4}) emas` };
+  }
+
+  if (c.paidAt) {
+    const [sana, vaqt] = c.paidAt.split(' ') as [string, string];
+    const chekUtc = Date.parse(`${sana}T${vaqt}:00Z`) - UTC_OFFSET_DAQIQA * 60_000;
+    const farq = Math.abs(chekUtc - i.tushum.date.getTime()) / 60_000;
+    if (Number.isNaN(farq) || farq > VAQT_FARQI_DAQIQA) {
+      return { ok: false, sabab: `Chekdagi vaqt (${c.paidAt}) Hamyonchadagi tushum vaqtidan ${Math.round(farq)} daqiqa farq qiladi` };
+    }
+  }
+
+  return { ok: true };
+}
+
 /** Chekdan oldingi necha soatlik tushumlar ko'riladi. */
 export const OYNA_SOAT = 3;
 /** Soat farqi chegarasi: kelajakdagi tushum (soat noaniqligi) uchun zaxira, daqiqa. */

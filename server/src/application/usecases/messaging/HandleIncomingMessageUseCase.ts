@@ -5,6 +5,7 @@ import type {
 } from '@/domain/repositories/IConversationRepository';
 import type { IMessageRepository } from '@/domain/repositories/IMessageRepository';
 import type { ITelegramAccountRepository } from '@/domain/repositories/ITelegramAccountRepository';
+import type { ReceiptDetails } from '@/domain/services/IImageClassifier';
 import type { IncomingMessage } from '@/domain/services/ITelegramGateway';
 import { canAgentReply } from '@/domain/entities/Conversation';
 import { RECEIPT_REVIEW_REASON } from '@/domain/entities/PaymentCheck';
@@ -83,6 +84,8 @@ export class HandleIncomingMessageUseCase {
     private readonly mijozYaratuvchi: Pick<MijozYaratuvchi, 'reklamadan'> | null = null,
     /** O'z Telegram akkauntlarimiz — ular bir-biriga yozsa lead ochilmaydi. */
     private readonly akkauntlar: Pick<ITelegramAccountRepository, 'list'> | null = null,
+    /** Chekdan o'qilgan summa/vaqt/karta saqlanadi (Hamyoncha solishtiruvi uchun). */
+    private readonly chekMalumoti: { saqla(checkId: string, info: ReceiptDetails): Promise<void> } | null = null,
   ) {}
 
   async execute(incoming: IncomingMessage): Promise<IncomingOutcome> {
@@ -200,6 +203,12 @@ export class HandleIncomingMessageUseCase {
 
       try {
         const check = await this.paymentChecks.openReceiptReview(conversation.id, client.id, saved.id, source);
+        // Chekdan o'qilgan ma'lumot — xato bo'lsa chek oqimini to'xtatmaydi.
+        if (processed.receiptDetails && this.chekMalumoti) {
+          await this.chekMalumoti.saqla(check.id, processed.receiptDetails).catch((err) =>
+            log.warn({ conversationId: conversation.id, err }, 'Chek ma\'lumoti saqlanmadi'),
+          );
+        }
         log.info(
           { conversationId: conversation.id, checkId: check.id, receiptSource: check.receiptSource, kind: processed.media.kind },
           'To\'lov cheki tekshirishga olindi',

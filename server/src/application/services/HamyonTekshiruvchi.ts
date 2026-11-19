@@ -4,7 +4,7 @@ import type { ICourseRepository } from '@/domain/repositories/ICourseRepository'
 import type { IPurchaseRepository } from '@/domain/repositories/IPurchaseRepository';
 import type { IAuditRepository } from '@/domain/repositories/ISupportRepositories';
 import { kutilganChekSummasi } from '@/domain/services/karta';
-import { OYNA_SOAT, tushumniTanla, type HamyonTushum } from '@/domain/services/hamyonMosligi';
+import { chekniSolishtir, OYNA_SOAT, tushumniTanla, type HamyonTushum } from '@/domain/services/hamyonMosligi';
 import type { IClock, IEventBus } from '@/domain/services/support';
 import type { PaymentCheckService } from '@/application/services/PaymentCheckService';
 import type { RuntimeSettings } from '@/application/services/RuntimeSettings';
@@ -54,6 +54,8 @@ export class HamyonTekshiruvchi {
     private readonly audit: IAuditRepository,
     private readonly events: IEventBus,
     private readonly clock: IClock,
+    /** Mijozga bitta neutral xabar (shubha topilganda). `null` — yuborilmaydi. */
+    private readonly mijozgaXabar: ((conversationId: string, matn: string) => Promise<void>) | null = null,
   ) {}
 
   start(): void {
@@ -96,7 +98,8 @@ export class HamyonTekshiruvchi {
     let hal = 0;
     for (const chek of cheklar) {
       try {
-        if (await this.birChek(chek, s.hamyonKutishDaq)) hal += 1;
+        const faolKarta = (s.paymentCards ?? []).find((k) => k.active);
+        if (await this.birChek(chek, s.hamyonKutishDaq, faolKarta ? faolKarta.number.slice(-4) : null)) hal += 1;
       } catch (err) {
         log.error({ err, checkId: chek.id }, "Chekni Hamyoncha bilan tekshirib bo'lmadi");
         // Hamyonchaga ulanib bo'lmayapti va kutish tugagan — jim qolmaymiz, admin bilsin.
@@ -114,7 +117,7 @@ export class HamyonTekshiruvchi {
   }
 
   /** `true` — chek hal qilindi (tasdiqlandi yoki adminga berildi). */
-  private async birChek(chek: HamyonChek, kutishDaq: number): Promise<boolean> {
+  private async birChek(chek: HamyonChek, kutishDaq: number, bizningKarta4: string | null): Promise<boolean> {
     const hozir = this.clock.now();
     const xarid = chek.purchaseId ? await this.purchases.findById(chek.purchaseId) : null;
     const kurs = xarid?.courseId ? await this.courses.findById(xarid.courseId) : null;
@@ -141,6 +144,14 @@ export class HamyonTekshiruvchi {
 
     // Mos tushum: avval atomik biriktiramiz, so'ng tasdiqlaymiz.
     const t = qaror.tushum;
+
+    // Chekdagi summa, vaqt va karta ham Hamyonchadagi haqiqiy tushumga mos bo'lishi shart.
+    const solishtiruv = chekniSolishtir({ chek: chek.receiptInfo, tushum: t, bizningKarta4 });
+    if (!solishtiruv.ok) {
+      await this.shubha(chek, solishtiruv.sabab);
+      return true;
+    }
+
     if (!(await this.repo.egalla(t.id, chek.id, t.amount, t.date))) return false; // poyga — keyingi tikda qayta ko'riladi
 
     const natija = await this.checks.confirmReceipt(chek.conversationId, ACTOR, t.amount);
@@ -188,6 +199,14 @@ export class HamyonTekshiruvchi {
     });
     this.events.publish({ type: 'conversation.updated', conversationId: chek.conversationId });
     log.warn({ checkId: chek.id, sabab: qisqa }, 'Chek shubhali — adminga berildi');
+
+    // Mijoz jim qolmasin: ayblovsiz, bitta neutral xabar (`hamyon_holati` bir marta yoziladi).
+    if (this.mijozgaXabar) {
+      await this.mijozgaXabar(
+        chek.conversationId,
+        "To'lovingizni tekshiryapmiz, biroz vaqt oladi. Tasdiqlanishi bilan yozaman 🙂",
+      ).catch((err) => log.warn({ err, checkId: chek.id }, "Mijozga xabar ketmadi"));
+    }
 
     const nom = await this.mijozNomi(chek.clientId);
     await this.admin.xabarYubor(

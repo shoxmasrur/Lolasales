@@ -70,8 +70,41 @@ export interface ImageClassifyInput {
   readonly fileName: string;
 }
 
+/**
+ * To'lov chekidan o'qilgan ma'lumot (faqat `tolov` turida). Har biri `null`
+ * bo'lishi mumkin: chekda ko'rinmasa yoki o'qib bo'lmasa.
+ *
+ * XAVFSIZLIK: qiymatlar qat'iy tekshiriladi (`parseReceiptDetails`) — rasmga
+ * yozilgan matn bu maydonlarga erkin matn bo'lib o'tolmaydi.
+ */
+export interface ReceiptDetails {
+  /** So'm, butun son. */
+  readonly amount: number | null;
+  /** Chekda ko'rsatilgan vaqt (mahalliy), "YYYY-MM-DD HH:MM". */
+  readonly paidAt: string | null;
+  /** Qabul qiluvchi karta oxirgi 4 raqami. */
+  readonly card4: string | null;
+}
+
+const VAQT_SHABLONI = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
+
+/** Model qaytargan chek ma'lumotini tekshirib TURGA aylantiradi; yaroqsiz maydon — `null`. */
+export function parseReceiptDetails(raw: unknown): ReceiptDetails {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const summa = typeof o.summa === 'number' ? o.summa : typeof o.summa === 'string' ? Number(o.summa.replace(/[\s,]/g, '')) : NaN;
+  const vaqt = typeof o.vaqt === 'string' ? o.vaqt.trim() : '';
+  const karta = typeof o.karta === 'string' ? o.karta.replace(/\D/g, '') : '';
+  return {
+    amount: Number.isInteger(summa) && summa > 0 && summa <= 1_000_000_000 ? summa : null,
+    paidAt: VAQT_SHABLONI.test(vaqt) ? vaqt : null,
+    card4: karta.length >= 4 ? karta.slice(-4) : null,
+  };
+}
+
 export interface ImageClassifyResult {
   readonly kind: ImageKind;
+  /** Faqat `tolov` turida: chekdan o'qilgan summa, vaqt va karta. */
+  readonly details?: ReceiptDetails | null;
   /** Operator uchun qisqa tavsif. Promptga HECH QACHON tushmaydi. */
   readonly note: string | null;
   /**

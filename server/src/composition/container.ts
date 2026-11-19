@@ -254,12 +254,15 @@ export function createContainer() {
   );
   // Ovozli xabarni XonzodaAI'ga ham yuboradi — faqat Nai bilan solishtirish.
   const sttTaqqoslash = new SttTaqqoslash(xonzodaStt, mediaStorage, messages, events);
+  const hamyonRepo = new PgHamyonRepository();
   const handleIncoming = new HandleIncomingMessageUseCase(
     clients, conversations, messages, replyDebouncer, settings, mediaProcessor, events,
     paymentCheckService, sttTaqqoslash,
     // Notanish yozuvchi — reklama leadi.
     mijozYaratuvchi,
     telegramAccounts,
+    // Chekdan o'qilgan summa/vaqt/karta — Hamyoncha solishtiruvi uchun.
+    { saqla: (checkId, info) => hamyonRepo.chekMalumotiniSaqla(checkId, info) },
   );
   // Ommaviy suhbat boshlash — kampaniya rejalashtiruvchisi bilan bir xil
   // himoya ostida (ish oynasi, tasodifiy pauza, spam cheklovida to'xtash).
@@ -287,11 +290,16 @@ export function createContainer() {
   // Shu yig'ishning avtomatik varianti (sozlamada yoqilgandagina ishlaydi).
   const avtoIzohYiguvchi = new AvtoIzohYiguvchi(izohYiguvchi, telegramAccounts, settings, audit);
   // Chek kelgach pul Hamyoncha (@hamyoncha_finance_bot) orqali tekshiriladi.
-  const hamyonRepo = new PgHamyonRepository();
   const hamyonKlienti = new HamyonKlienti(telegram, telegramAccounts, settings);
   const hamyonTekshiruvchi = new HamyonTekshiruvchi(
     hamyonKlienti, hamyonRepo, paymentCheckService, purchases, courses, conversations, clients,
     xulosaBoti, settings, audit, events, clock,
+    // Shubha topilganda mijozga bitta neutral xabar (ayblovsiz).
+    async (conversationId, matn) => {
+      const conversation = await conversations.findById(conversationId);
+      if (!conversation) return;
+      await dispatcher.send({ conversation, body: matn, author: 'agent', meta: { kind: 'hamyon_kutish' } });
+    },
   );
 
   // ─── Fon jarayonlari ────────────────────────────────────────────────────

@@ -28,10 +28,15 @@ function qur(o: {
   yoqilgan?: boolean;
   killSwitch?: boolean;
   tasdiqNatijasi?: string;
+  /** Chekdan o'qilgan ma'lumot; berilmasa — tushumga mos (200 000, 14:55, karta 2996). */
+  receiptInfo?: { amount: number | null; paidAt: string | null; card4: string | null } | null;
 }) {
   const chek: HamyonChek = {
     id: 'ch1', conversationId: 'cv1', clientId: 'cl1', purchaseId: 'p1', createdAt: daqOldin(o.chekYoshiDaq),
+    // Tushum 09:55Z (HOZIR - 5 daq) = mahalliy 14:55.
+    receiptInfo: o.receiptInfo === undefined ? { amount: 200_000, paidAt: '2026-11-19 14:55', card4: '2996' } : o.receiptInfo,
   };
+  const mijozXabarlari: string[] = [];
   const log = { tasdiq: [] as Array<[string, string, number]>, update: [] as unknown[], xabar: [] as string[], holat: [] as unknown[], egalla: [] as string[], bosh: [] as string[] };
   const servis = new HamyonTekshiruvchi(
     { kirimlar: async () => { if (o.tushumlar instanceof Error) throw o.tushumlar; return o.tushumlar ?? []; } },
@@ -48,12 +53,18 @@ function qur(o: {
     { update: async (...a: unknown[]) => { log.update.push(a); } } as never,
     { findById: async () => ({ id: 'cl1', fullName: 'Sinov Mijoz' }) } as never,
     { xabarYubor: async (m: string) => { log.xabar.push(m); return true; } },
-    { get: async () => ({ hamyonYoqilgan: o.yoqilgan ?? true, hamyonKutishDaq: 30, killSwitch: o.killSwitch ?? false }) } as never,
+    {
+      get: async () => ({
+        hamyonYoqilgan: o.yoqilgan ?? true, hamyonKutishDaq: 30, killSwitch: o.killSwitch ?? false,
+        paymentCards: [{ id: 'k', number: '4073420068052996', holder: 'X', bank: 'Y', active: true }],
+      }),
+    } as never,
     { record: async () => undefined } as never,
     { publish: () => undefined } as never,
     { now: () => HOZIR, todayIso: () => '2026-11-19' } as never,
+    async (_c: string, matn: string) => { mijozXabarlari.push(matn); },
   );
-  return { servis, log };
+  return { servis, log, mijozXabarlari };
 }
 
 async function main(): Promise<void> {
@@ -112,6 +123,35 @@ async function main(): Promise<void> {
     const { servis, log } = qur({ chekYoshiDaq: 2, tushumlar: [{ id: 't1', amount: 200_000, date: daqOldin(5) }], tasdiqNatijasi: 'no_review' });
     await servis.bajar();
     check("menejer shu orada yopgan → tushum bo'shatildi", [log.bosh, log.xabar.length], [['t1'], 0]);
+  }
+
+  const T = [{ id: 't1', amount: 200_000, date: daqOldin(5) }];
+  {
+    const { servis, log, mijozXabarlari } = qur({ chekYoshiDaq: 2, tushumlar: T, receiptInfo: { amount: 700_000, paidAt: '2026-11-19 14:55', card4: '2996' } });
+    await servis.bajar();
+    check("chekdagi summa Hamyonchadan farq qiladi → tasdiqlanmadi, admin + mijozga neutral xabar", [log.tasdiq.length, log.xabar.length, mijozXabarlari.length], [0, 1, 1]);
+    check('admin xabarida ikki summa ham bor', [log.xabar[0]?.includes('700000'), log.xabar[0]?.includes('200000')], [true, true]);
+    check('mijozga ayblovsiz matn', mijozXabarlari[0]?.includes('tekshiryapmiz'), true);
+  }
+  {
+    const { servis, log } = qur({ chekYoshiDaq: 2, tushumlar: T, receiptInfo: { amount: 200_000, paidAt: '2026-11-19 14:55', card4: '1111' } });
+    await servis.bajar();
+    check('chekdagi karta bizniki emas → shubha', [log.tasdiq.length, log.xabar.length], [0, 1]);
+  }
+  {
+    const { servis, log } = qur({ chekYoshiDaq: 2, tushumlar: T, receiptInfo: { amount: 200_000, paidAt: '2026-11-19 12:00', card4: '2996' } });
+    await servis.bajar();
+    check('chekdagi vaqt tushum vaqtidan ancha farq qiladi → shubha', [log.tasdiq.length, log.xabar.length], [0, 1]);
+  }
+  {
+    const { servis, log } = qur({ chekYoshiDaq: 2, tushumlar: T, receiptInfo: null });
+    await servis.bajar();
+    check("chek o'qilmadi (ma'lumot yo'q) → avtomatik tasdiqlanmaydi, admin", [log.tasdiq.length, log.xabar.length], [0, 1]);
+  }
+  {
+    const { servis, log } = qur({ chekYoshiDaq: 2, tushumlar: T, receiptInfo: { amount: 200_000, paidAt: null, card4: null } });
+    await servis.bajar();
+    check("karta va vaqt chekda ko'rinmasa — faqat summa solishtiriladi → tasdiqlandi", log.tasdiq.length, 1);
   }
 
   if (failed) {
