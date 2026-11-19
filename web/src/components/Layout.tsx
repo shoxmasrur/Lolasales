@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useChekBildirishnomasi } from '@/lib/chekBildirishnoma';
 import { useAuth, usePermission } from '@/store/auth';
 import type { DashboardStats, OutreachSettings } from '@/lib/types';
 import { initials } from '@/lib/format';
@@ -35,6 +36,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   });
 
   const needsHuman = stats?.stats.conversationsNeedingHuman ?? 0;
+  // Yangi chek kelganda ovoz va brauzer bildirishnomasi; sarlavhada son ko'rinadi.
+  useChekBildirishnomasi(stats?.stats.navbatdagiCheklar ?? 0);
   const killSwitch = settings?.settings.killSwitch ?? false;
 
   const location = useLocation();

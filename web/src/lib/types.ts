@@ -411,6 +411,18 @@ export interface Campaign {
 }
 
 /** Sotuv paneli raqamlari ("bugun" — Asia/Tashkent bo'yicha). */
+/** Dashboard: admin tekshirishi kerak bo'lgan chek. */
+export interface PendingReceipt {
+  checkId: string;
+  conversationId: string;
+  clientName: string;
+  createdAt: string;
+  receiptInfo: { amount: number | null; paidAt: string | null; card4: string | null } | null;
+  hamyonHolati: 'mos' | 'shubha' | null;
+  hamyonSabab: string | null;
+  humanReason: string | null;
+}
+
 export interface DashboardStats {
   clientsTotal: number;
   clientsOnTelegram: number;

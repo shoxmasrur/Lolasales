@@ -40,6 +40,45 @@ export class PgHamyonRepository {
     ]);
   }
 
+  /**
+   * Dashboard uchun: admin ko'rishi kerak bo'lgan ochiq cheklar. Shubhalilar birinchi,
+   * keyin eng eskisi (uzoq kutganlar oldinda).
+   */
+  async tekshirishKeraklar(): Promise<
+    Array<{
+      checkId: string;
+      conversationId: string;
+      clientName: string;
+      createdAt: Date;
+      receiptInfo: ReceiptDetails | null;
+      hamyonHolati: 'mos' | 'shubha' | null;
+      hamyonSabab: string | null;
+      humanReason: string | null;
+    }>
+  > {
+    const { rows } = await query(
+      `SELECT pc.id, pc.conversation_id, cl.full_name, pc.created_at, pc.receipt_info,
+              pc.hamyon_holati, pc.hamyon_sabab, c.human_reason
+         FROM payment_checks pc
+         JOIN clients cl ON cl.id = pc.client_id
+         JOIN conversations c ON c.id = pc.conversation_id
+        WHERE pc.status = 'reviewing' AND pc.receipt_source = 'tolov'
+          AND pc.created_at > now() - interval '7 days'
+        ORDER BY (pc.hamyon_holati = 'shubha') DESC NULLS LAST, pc.created_at
+        LIMIT 50`,
+    );
+    return rows.map((r) => ({
+      checkId: r.id as string,
+      conversationId: r.conversation_id as string,
+      clientName: (r.full_name as string | null)?.trim() || "Noma'lum mijoz",
+      createdAt: r.created_at as Date,
+      receiptInfo: (r.receipt_info as ReceiptDetails | null) ?? null,
+      hamyonHolati: (r.hamyon_holati as 'mos' | 'shubha' | null) ?? null,
+      hamyonSabab: (r.hamyon_sabab as string | null) ?? null,
+      humanReason: (r.human_reason as string | null) ?? null,
+    }));
+  }
+
   /** Berilganlar orasidan allaqachon biriktirilgan tushum id'lari. */
   async bandIdlar(ids: string[]): Promise<Set<string>> {
     if (!ids.length) return new Set();

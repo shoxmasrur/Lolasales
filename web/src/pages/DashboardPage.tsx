@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
-import type { ClientSource, DashboardStats } from '@/lib/types';
+import { useState } from 'react';
+import { bildirishnomaRuxsati, bildirishnomaSora } from '@/lib/chekBildirishnoma';
+import type { ClientSource, DashboardStats, PendingReceipt } from '@/lib/types';
 import { som, somShort } from '@/lib/format';
 import { BOSQICH_CLASS, MANBA_YORLIGI } from '@/lib/xarid';
 import { EmptyState, StatCard } from '@/components/ui';
@@ -10,6 +12,71 @@ import { chartColors, useTheme } from '@/store/theme';
 import { useIsMobile } from '@/lib/useBreakpoint';
 
 const MANBALAR: ClientSource[] = ['reklama', 'guruh', 'raqam', 'qolda'];
+
+function daqiqaOldin(iso: string): string {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  return m < 60 ? `${m} daq oldin` : `${Math.floor(m / 60)} soat oldin`;
+}
+
+/**
+ * Admin tekshirishi kerak bo'lgan cheklar. Shubhali (Hamyoncha mos kelmagan) cheklar
+ * birinchi va qizil; ro'yxat har 15 soniyada yangilanadi. Chek bo'lmasa blok ko'rinmaydi.
+ */
+function PendingReceipts() {
+  const { data } = useQuery({
+    queryKey: ['stats', 'pending-receipts'],
+    queryFn: () => api.get<{ items: PendingReceipt[] }>('/stats/pending-receipts'),
+    refetchInterval: 15_000,
+  });
+  const [ruxsat, setRuxsat] = useState(bildirishnomaRuxsati());
+  const items = data?.items ?? [];
+  if (!items.length) return null;
+
+  const shubhali = items.filter((i) => i.hamyonHolati === 'shubha').length;
+
+  return (
+    <div className={`card border ${shubhali ? 'border-red-500/60' : 'border-amber-500/60'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-ink-200">
+          Tekshirish kerak bo'lgan cheklar: {items.length}
+          {shubhali ? <span className="ml-2 text-red-400">(shubhali: {shubhali})</span> : null}
+        </h2>
+        <div className="flex items-center gap-2">
+          {ruxsat === 'default' ? (
+            <button
+              type="button"
+              className="btn-ghost text-xs"
+              onClick={() => void bildirishnomaSora().then(() => setRuxsat(bildirishnomaRuxsati()))}
+            >
+              Bildirishnomani yoqish
+            </button>
+          ) : null}
+          <Link to="/chat?filter=receipt" className="btn-primary text-xs">
+            Ochish
+          </Link>
+        </div>
+      </div>
+      <ul className="mt-3 divide-y divide-ink-800">
+        {items.map((i) => (
+          <li key={i.checkId} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2 text-sm">
+            <div className="min-w-0">
+              <span className="font-medium">{i.clientName}</span>
+              <span className="ml-2 text-xs text-ink-500">
+                {i.receiptInfo?.amount ? `chekda ${som(i.receiptInfo.amount)}` : "summa o'qilmagan"} · {daqiqaOldin(i.createdAt)}
+              </span>
+              {i.hamyonHolati === 'shubha' && i.hamyonSabab ? (
+                <p className="mt-0.5 text-xs text-red-400">Shubha: {i.hamyonSabab}</p>
+              ) : null}
+            </div>
+            <span className={`text-xs ${i.hamyonHolati === 'shubha' ? 'text-red-400' : 'text-amber-400'}`}>
+              {i.hamyonHolati === 'shubha' ? 'Shubhali' : 'Tasdiq kutmoqda'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { data, isLoading } = useQuery({
@@ -57,6 +124,7 @@ export default function DashboardPage() {
         />
       ) : (
         <div className="space-y-5 p-4 md:p-6">
+          <PendingReceipts />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <StatCard
               label="Bugun yangi mijozlar"

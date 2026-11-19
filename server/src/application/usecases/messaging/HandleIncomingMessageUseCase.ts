@@ -85,7 +85,11 @@ export class HandleIncomingMessageUseCase {
     /** O'z Telegram akkauntlarimiz — ular bir-biriga yozsa lead ochilmaydi. */
     private readonly akkauntlar: Pick<ITelegramAccountRepository, 'list'> | null = null,
     /** Chekdan o'qilgan summa/vaqt/karta saqlanadi (Hamyoncha solishtiruvi uchun). */
-    private readonly chekMalumoti: { saqla(checkId: string, info: ReceiptDetails): Promise<void> } | null = null,
+    private readonly chekMalumoti: {
+      saqla(checkId: string, info: ReceiptDetails): Promise<void>;
+      /** Yangi chek tekshiruvga tushganda (adminga xabar uchun). */
+      yangiChek?(clientId: string, info: ReceiptDetails | null): Promise<void>;
+    } | null = null,
   ) {}
 
   async execute(incoming: IncomingMessage): Promise<IncomingOutcome> {
@@ -207,6 +211,12 @@ export class HandleIncomingMessageUseCase {
         if (processed.receiptDetails && this.chekMalumoti) {
           await this.chekMalumoti.saqla(check.id, processed.receiptDetails).catch((err) =>
             log.warn({ conversationId: conversation.id, err }, 'Chek ma\'lumoti saqlanmadi'),
+          );
+        }
+        // Admin xabardor bo'lsin (faqat `tolov` cheki; takroriy rasm yangi tekshiruv ochmaydi).
+        if (source === 'tolov' && this.chekMalumoti?.yangiChek) {
+          await this.chekMalumoti.yangiChek(client.id, processed.receiptDetails ?? null).catch((err) =>
+            log.warn({ conversationId: conversation.id, err }, 'Admin xabari ketmadi'),
           );
         }
         log.info(

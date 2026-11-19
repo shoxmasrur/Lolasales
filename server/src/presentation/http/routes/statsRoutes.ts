@@ -27,5 +27,10 @@ export function statsRoutes(container: Container): Router {
     });
   });
 
+  /** Admin ko'rishi kerak bo'lgan ochiq cheklar (shubhalilar birinchi). */
+  router.get('/pending-receipts', async (_req, res) => {
+    res.json({ items: await container.repositories.hamyon.tekshirishKeraklar() });
+  });
+
   return router;
 }

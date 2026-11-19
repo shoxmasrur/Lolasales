@@ -262,7 +262,20 @@ export function createContainer() {
     mijozYaratuvchi,
     telegramAccounts,
     // Chekdan o'qilgan summa/vaqt/karta — Hamyoncha solishtiruvi uchun.
-    { saqla: (checkId, info) => hamyonRepo.chekMalumotiniSaqla(checkId, info) },
+    {
+      saqla: (checkId, info) => hamyonRepo.chekMalumotiniSaqla(checkId, info),
+      // Hamyoncha avto-tekshiruvi o'chiq bo'lsa har yangi chek admin ko'rishini kutadi — admin botiga xabar.
+      // (Yoqilgan bo'lsa admin faqat shubhali holatda xabar oladi.)
+      yangiChek: async (clientId, info) => {
+        if ((await settings.get()).hamyonYoqilgan) return;
+        const mijoz = await clients.findById(clientId);
+        await xulosaBoti.xabarYubor(
+          `🧾 Yangi chek tekshirishni kutmoqda\nMijoz: ${mijoz?.fullName?.trim() || "Noma'lum"}\n` +
+            (info?.amount ? `Chekda: ${info.amount} so'm\n` : '') +
+            `Dashboard → Suhbatlar → «Chek keldi»`,
+        );
+      },
+    },
   );
   // Ommaviy suhbat boshlash — kampaniya rejalashtiruvchisi bilan bir xil
   // himoya ostida (ish oynasi, tasodifiy pauza, spam cheklovida to'xtash).
@@ -331,7 +344,7 @@ export function createContainer() {
       clients, conversations, messages, campaigns,
       telegramAccounts, users, roles, apiTokens, importBatches, settingsRepo, audit, stats,
       agentRules, lessons, clientProfiles, appLog, paymentChecks, agentUsage, phoneBlocks,
-      llmModels, bulkJobs, courses, purchases,
+      llmModels, bulkJobs, courses, purchases, hamyon: hamyonRepo,
     },
     services: {
       telegram, resolver, dispatcher, agent, scheduler, accountLabels,
