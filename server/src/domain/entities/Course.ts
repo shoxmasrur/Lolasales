@@ -1,5 +1,11 @@
 export type LinkAfter = 'birinchi_qism' | 'toliq';
 
+/** Kursning narx varianti (masalan, seminar qatori). `price` — so'm. */
+export interface PriceOption {
+  readonly label: string;
+  readonly price: number;
+}
+
 export interface Course {
   id: string;
   name: string;
@@ -17,6 +23,8 @@ export interface Course {
   installmentParts: number | null;
   installmentFirstMin: number | null;
   linkAfter: LinkAfter;
+  /** Narx variantlari; bo'sh yoki yo'q — kursning bitta narxi (`price`). */
+  priceOptions?: readonly PriceOption[];
 }
 
 export type KnowledgeKind = 'dastur' | 'savol_javob' | 'etiroz' | 'boshqa';

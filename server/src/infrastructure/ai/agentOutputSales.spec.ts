@@ -39,7 +39,7 @@ const schema = AGENT_OUTPUT_SCHEMA as { required: string[]; properties: Record<s
 check('hamma maydon required', [...schema.required].sort(), Object.keys(schema.properties).sort());
 check('sxema maydonlari', Object.keys(schema.properties).sort(), [
   'clientMemory', 'courseId', 'escalate', 'installment', 'interlocutor', 'lesson', 'note', 'reply', 'replySecond',
-  'sendCard', 'stage',
+  'selectedPrice', 'sendCard', 'stage',
 ]);
 check('clientType variantlari', (schema.properties.clientMemory as any).properties.clientType.enum,
   ['tez_qaror', 'oylaydigan', 'narxga_sezgir', 'shubhali', null]);

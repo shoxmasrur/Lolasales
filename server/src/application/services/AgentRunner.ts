@@ -676,6 +676,13 @@ export class AgentRunner {
       log.info({ conversationId: conversation.id, courseId }, 'Agent sotuvda yo\'q kursni ko\'rsatdi — e\'tiborsiz');
     }
 
+    // 2b. Narx varianti (qator): faqat kursning o'z variantlaridan biri bo'lsa jami summa bo'ladi —
+    // karta xabarida mijoz tanlagan qator narxi chiqishi uchun (`XaridXizmati.narxBelgila`).
+    if (xaridNavbati && output.selectedPrice) {
+      const narx = output.selectedPrice;
+      await xaridQadam('narx_varianti', () => this.xarid.narxBelgila(clientId, narx));
+    }
+
     // 3. Bo'lib to'lash — faqat `true` qo'llanadi (izoh `XaridXizmati.bolibTolash` da).
     if (xaridNavbati && output.installment) await xaridQadam('bolib_tolash', () => this.xarid.bolibTolash(clientId));
 

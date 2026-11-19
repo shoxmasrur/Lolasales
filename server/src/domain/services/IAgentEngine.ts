@@ -144,6 +144,8 @@ export interface AgentTurnOutput {
   readonly sendCard: boolean;
   /** Mijoz bo'lib to'lashni tanladi. */
   readonly installment: boolean;
+  /** Mijoz tanlagan narx varianti (qator) — kursning `priceOptions` idan biri; so'mda. */
+  readonly selectedPrice?: number | null;
   readonly escalate: { reason: string } | null;
   readonly internalNote: string | null;
   readonly lesson: AgentLessonCapture | null;

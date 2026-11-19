@@ -20,6 +20,7 @@ const COURSE_COLS: Record<keyof NewCourse, string> = {
   installmentParts: 'installment_parts',
   installmentFirstMin: 'installment_first_min',
   linkAfter: 'link_after',
+  priceOptions: 'price_options',
 };
 
 const KNOWLEDGE_COLS: Record<keyof NewKnowledge, string> = {
@@ -40,8 +41,10 @@ function sets<T extends object>(
   for (const [key, value] of Object.entries(patch) as Array<[keyof T, unknown]>) {
     const col = cols[key];
     if (!col || value === undefined) continue;
-    values.push(value);
-    parts.push(`${col} = $${startAt + values.length - 1}`);
+    // jsonb ustun: massivni JSON matn sifatida yuboramiz (pg massivni Postgres massiviga aylantirardi).
+    const jsonb = col === 'price_options';
+    values.push(jsonb ? JSON.stringify(value) : value);
+    parts.push(`${col} = $${startAt + values.length - 1}${jsonb ? '::jsonb' : ''}`);
   }
   return { sql: parts.join(', '), values };
 }
@@ -63,11 +66,12 @@ export class PgCourseRepository implements ICourseRepository {
     const { rows } = await query(
       `INSERT INTO courses
          (name, description, sales_start, sales_end, price, duration, topics, starts_on, group_link,
-          is_active, installment_allowed, installment_parts, installment_first_min, link_after)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+          is_active, installment_allowed, installment_parts, installment_first_min, link_after, price_options)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb) RETURNING *`,
       [
         d.name, d.description, d.salesStart, d.salesEnd, d.price, d.duration, d.topics, d.startsOn,
         d.groupLink, d.isActive, d.installmentAllowed, d.installmentParts, d.installmentFirstMin, d.linkAfter,
+        JSON.stringify(d.priceOptions ?? []),
       ],
     );
     return mapCourse(rows[0]!);

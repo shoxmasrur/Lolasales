@@ -102,9 +102,28 @@ export class XaridXizmati {
     if (!course) throw new NotFoundError('Kurs', courseId);
     const xarid = await this.faolXarid(clientId);
     if (!KURS_ALMASHADI.includes(xarid.stage)) return xarid;
-    if (xarid.courseId === course.id && xarid.totalAmount === course.price) return xarid;
+    // Mijoz tanlagan narx varianti (masalan, qator) agent kursni qayta aytganda ham saqlanadi.
+    const variantNarxi = (course.priceOptions ?? []).some((o) => o.price === xarid.totalAmount);
+    if (xarid.courseId === course.id && (xarid.totalAmount === course.price || variantNarxi)) return xarid;
 
     const updated = await this.purchases.setCourse(xarid.id, course.id, course.price);
+    this.events.publish({ type: 'client.updated', clientId });
+    return updated;
+  }
+
+  /**
+   * Mijoz tanlagan narx variantini (qator) xaridning jami summasi qiladi.
+   * Faqat karta yuborilgunga qadar va faqat kursning o'z variantlaridan biri bo'lsa;
+   * boshqa narx (o'ylab topilgan) e'tiborsiz — `null`.
+   */
+  async narxBelgila(clientId: string, narx: number): Promise<Purchase | null> {
+    const xarid = await this.purchases.findActiveByClient(clientId);
+    if (!xarid?.courseId || !KURS_ALMASHADI.includes(xarid.stage)) return null;
+    const course = await this.courses.findById(xarid.courseId);
+    if (!course || !(course.priceOptions ?? []).some((o) => o.price === narx)) return null;
+    if (xarid.totalAmount === narx) return xarid;
+
+    const updated = await this.purchases.setCourse(xarid.id, course.id, narx);
     this.events.publish({ type: 'client.updated', clientId });
     return updated;
   }

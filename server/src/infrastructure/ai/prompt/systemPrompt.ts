@@ -137,6 +137,9 @@ Javobingizni faqat JSON obyekt sifatida qaytaring. Maydonlar:
   true bo'lsa \`reply\` da tabiiy matn yozing ("Mana karta, to'lovdan keyin chekni shu yerga yuboring"),
   raqamni yozmang.
 - installment: mijoz bo'lib to'lashni tanladi (kursda ruxsat etilgan bo'lsa) — true; aks holda false.
+- selectedPrice: kursda "Narx variantlari" bo'lsa va mijoz variantni (masalan, qatorni) ANIQ tanlagan bo'lsa —
+  shu variantning narxi (so'mda butun son, ro'yxatdagi qiymatlardan aynan biri). Mijoz tanlamagan yoki
+  variant yo'q bo'lsa — null. Mijoz tanlagan variantni keyingi javoblarda ham takrorlang (o'zgarmasa ham).
 - escalate: menejer aralashuvi kerak bo'lsa sabab (matn), aks holda null. Sabablar: bazada javobi
   yo'q savol, shikoyat, pulni qaytarish talabi, menejer yoki telefon orqali gaplashishni so'radi,
   "boshqa yozmang" dedi, haqorat qildi.
@@ -257,7 +260,9 @@ function kursBloki(c: Course, knowledge: readonly CourseKnowledge[]): string {
   const lines = [
     `▸ ${c.name} (id: ${c.id})`,
     c.description ? `  Tavsif: ${c.description}` : null,
-    `  Narx: ${som(c.price)}`,
+    c.priceOptions?.length
+      ? `  Narx variantlari: ${c.priceOptions.map((o) => `${o.label} — ${som(o.price)}`).join('; ')}`
+      : `  Narx: ${som(c.price)}`,
     c.duration ? `  Davomiylik: ${c.duration}` : null,
     c.startsOn ? `  Boshlanishi: ${formatUzDate(c.startsOn)}` : null,
     `  Sotuv tugaydi: ${formatUzDate(c.salesEnd)}`,
@@ -331,7 +336,7 @@ export const AGENT_OUTPUT_SCHEMA: Record<string, unknown> = {
   type: 'object',
   additionalProperties: false,
   required: [
-    'reply', 'replySecond', 'stage', 'courseId', 'sendCard', 'installment', 'escalate', 'note', 'lesson',
+    'reply', 'replySecond', 'stage', 'courseId', 'sendCard', 'installment', 'selectedPrice', 'escalate', 'note', 'lesson',
     'clientMemory', 'interlocutor',
   ],
   properties: {
@@ -359,6 +364,10 @@ export const AGENT_OUTPUT_SCHEMA: Record<string, unknown> = {
     installment: {
       type: 'boolean',
       description: 'Mijoz bo\'lib to\'lashni tanladi',
+    },
+    selectedPrice: {
+      type: ['integer', 'null'],
+      description: 'Mijoz tanlagan narx varianti (qator) narxi, so\'mda — "Narx variantlari" dan aynan biri, aks holda null',
     },
     escalate: {
       type: ['string', 'null'],

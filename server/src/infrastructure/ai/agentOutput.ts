@@ -20,6 +20,7 @@ export interface RawAgentOutput {
   courseId?: string | null;
   sendCard?: boolean | null;
   installment?: boolean | null;
+  selectedPrice?: number | null;
   escalate?: string | null;
   note?: string | null;
   lesson?: { lesson?: string; evidence?: string | null } | null;
@@ -108,6 +109,11 @@ export function toTurnOutput(
     // Faqat aniq `true`: "true" satri yoki boshqa qiymat karta yubormaydi.
     sendCard: parsed.sendCard === true,
     installment: parsed.installment === true,
+    // Faqat musbat butun son; haqiqiy variantga mosligini `XaridXizmati.narxBelgila` tekshiradi.
+    selectedPrice:
+      typeof parsed.selectedPrice === 'number' && Number.isInteger(parsed.selectedPrice) && parsed.selectedPrice > 0
+        ? parsed.selectedPrice
+        : null,
     escalate: parsed.escalate ? { reason: sanitize(parsed.escalate) ?? 'sabab ko\'rsatilmagan' } : null,
     internalNote: sanitize(parsed.note),
     lesson:

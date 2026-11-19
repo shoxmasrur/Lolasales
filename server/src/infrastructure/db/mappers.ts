@@ -318,6 +318,11 @@ export function mapCourse(r: Row): Course {
     installmentParts: numOrNull(r.installment_parts),
     installmentFirstMin: numOrNull(r.installment_first_min),
     linkAfter: r.link_after,
+    priceOptions: Array.isArray(r.price_options)
+      ? (r.price_options as Array<{ label?: unknown; price?: unknown }>)
+          .filter((o) => typeof o.label === 'string' && Number.isFinite(Number(o.price)) && Number(o.price) > 0)
+          .map((o) => ({ label: String(o.label), price: Number(o.price) }))
+      : [],
   };
 }
 
