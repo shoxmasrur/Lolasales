@@ -93,6 +93,7 @@ async function bootstrap(): Promise<void> {
   container.services.appLogCleaner.start();
   container.services.connectionWatcher.start();
   container.services.eslatmaKuzatuvchi.start();
+  container.services.avtoIzohYiguvchi.start();
   // Kunlik sotuv xulosasi (bot ulangan bo'lsa) — kechqurun bir marta.
   const xulosaToxtat = container.services.xulosaBoti.rejaBoshla(
     container.repositories.stats, container.clock, config.TIMEZONE,
@@ -167,6 +168,7 @@ async function bootstrap(): Promise<void> {
     }
     await container.services.scheduler.stop();
     await container.services.eslatmaKuzatuvchi.stop();
+    await container.services.avtoIzohYiguvchi.stop();
     xulosaToxtat();
     container.services.spamWatcher.stop();
     container.services.appLogCleaner.stop();

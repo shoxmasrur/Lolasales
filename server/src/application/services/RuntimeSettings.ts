@@ -48,6 +48,16 @@ export interface OutreachSettings {
   izohKalitSozlari: string[];
   /** Bir yig'ishda barcha postlar bo'yicha jami o'qiladigan izohlar (50–2000). */
   izohLimit: number;
+  /** Kalit so'zga mos izoh egalarini AVTOMATIK lead qilish (standart: o'chiq). */
+  izohAvtoYoqilgan: boolean;
+  /** Qaysi akkaunt kanallarni o'qiydi; null — birinchi ulangan akkaunt. */
+  izohAvtoAkkauntId: string | null;
+  /** Avtomatik tekshiruv oralig'i, daqiqa (5–1440). */
+  izohAvtoOraliqMin: number;
+  /** Faqat oxirgi shuncha kunlik postlar izohlari o'qiladi (1–30). */
+  izohAvtoKunlar: number;
+  /** Bir yurishda olinadigan yangi leadlarning eng ko'pi (1–50). */
+  izohAvtoMaxYangi: number;
 }
 
 export const IZOH_KALIT_SOZLARI = ['menga xabar bering', 'menga yozing', 'qiziqaman', 'narxi', '+'];
@@ -83,6 +93,11 @@ export class RuntimeSettings {
       kompaniyaNomi: stored.kompaniyaNomi ?? 'LolaSales',
       izohKalitSozlari: stored.izohKalitSozlari ?? IZOH_KALIT_SOZLARI,
       izohLimit: stored.izohLimit ?? 500,
+      izohAvtoYoqilgan: stored.izohAvtoYoqilgan ?? false,
+      izohAvtoAkkauntId: stored.izohAvtoAkkauntId ?? null,
+      izohAvtoOraliqMin: stored.izohAvtoOraliqMin ?? 60,
+      izohAvtoKunlar: stored.izohAvtoKunlar ?? 3,
+      izohAvtoMaxYangi: stored.izohAvtoMaxYangi ?? 10,
     };
   }
 

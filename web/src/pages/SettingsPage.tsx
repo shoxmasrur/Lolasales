@@ -723,6 +723,60 @@ export default function SettingsPage() {
               cheklovlariga yaqinlashtiradi.
             </p>
           </div>
+
+          <div className="max-w-md space-y-3 border-t border-ink-800 pt-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.izohAvtoYoqilgan}
+                disabled={!admin}
+                onChange={(e) => patch('izohAvtoYoqilgan', e.target.checked)}
+              />
+              Avtomatik: kalit so'zga mos izoh egasini lead qilib, taklif yuborish
+            </label>
+            <p className="text-[11px] leading-relaxed text-ink-500">
+              Yoqilsa, birinchi ulangan akkaunt a'zo kanallarni o'zi o'qiydi. Birinchi xabar kampaniya
+              orqali (ish vaqti, limit va pauza bilan) ketadi. Kill switch hammasini to'xtatadi.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <label className="label">Oraliq (daq.)</label>
+                <input
+                  type="number"
+                  min={5}
+                  max={1440}
+                  className="input"
+                  value={form.izohAvtoOraliqMin}
+                  disabled={!admin}
+                  onChange={(e) => patch('izohAvtoOraliqMin', Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="label">Oxirgi (kun)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  className="input"
+                  value={form.izohAvtoKunlar}
+                  disabled={!admin}
+                  onChange={(e) => patch('izohAvtoKunlar', Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="label">Bir yurishda max</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  className="input"
+                  value={form.izohAvtoMaxYangi}
+                  disabled={!admin}
+                  onChange={(e) => patch('izohAvtoMaxYangi', Number(e.target.value))}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <LlmSettingsPanel />
@@ -810,6 +864,10 @@ export default function SettingsPage() {
                   eslatmaSoat: form.eslatmaSoat,
                   izohKalitSozlari: form.izohKalitSozlari.map((k) => k.trim()).filter(Boolean),
                   izohLimit: form.izohLimit,
+                  izohAvtoYoqilgan: form.izohAvtoYoqilgan,
+                  izohAvtoOraliqMin: form.izohAvtoOraliqMin,
+                  izohAvtoKunlar: form.izohAvtoKunlar,
+                  izohAvtoMaxYangi: form.izohAvtoMaxYangi,
                 })
               }
             >

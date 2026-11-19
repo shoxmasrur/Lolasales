@@ -44,6 +44,11 @@ const updateSchema = z.object({
   kompaniyaNomi: z.string().trim().min(1).max(80).optional(),
   izohKalitSozlari: z.array(z.string().trim().min(1).max(100)).max(50).optional(),
   izohLimit: z.number().int().min(50).max(2000).optional(),
+  izohAvtoYoqilgan: z.boolean().optional(),
+  izohAvtoAkkauntId: z.string().uuid().nullable().optional(),
+  izohAvtoOraliqMin: z.number().int().min(5).max(1440).optional(),
+  izohAvtoKunlar: z.number().int().min(1).max(30).optional(),
+  izohAvtoMaxYangi: z.number().int().min(1).max(50).optional(),
 });
 
 // Token uzunligi cheklanadi: bazaga tasodifan butun fayl yopishtirilmasin.

@@ -79,6 +79,7 @@ import { LoginUseCase } from '@/application/usecases/auth/LoginUseCase';
 import { ImportLeadsUseCase } from '@/application/usecases/import/ImportLeadsUseCase';
 import { MijozYaratuvchi } from '@/application/services/MijozYaratuvchi';
 import { IzohYiguvchi } from '@/application/services/IzohYiguvchi';
+import { AvtoIzohYiguvchi } from '@/application/services/AvtoIzohYiguvchi';
 import { StartConversationUseCase } from '@/application/usecases/messaging/StartConversationUseCase';
 import { HandleIncomingMessageUseCase } from '@/application/usecases/messaging/HandleIncomingMessageUseCase';
 import { SendManualMessageUseCase } from '@/application/usecases/messaging/SendManualMessageUseCase';
@@ -280,6 +281,8 @@ export function createContainer() {
   const createCampaign = new CreateCampaignUseCase(campaigns, clients, settings, audit, events);
   // Kanal izohlaridan lead: faqat o'qiydi, birinchi xabar kampaniya orqali.
   const izohYiguvchi = new IzohYiguvchi(telegram, clients, mijozYaratuvchi, createCampaign, settings, audit, clock);
+  // Shu yig'ishning avtomatik varianti (sozlamada yoqilgandagina ishlaydi).
+  const avtoIzohYiguvchi = new AvtoIzohYiguvchi(izohYiguvchi, telegramAccounts, settings, audit);
 
   // ─── Fon jarayonlari ────────────────────────────────────────────────────
   const scheduler = new OutreachScheduler(
@@ -319,7 +322,7 @@ export function createContainer() {
       appLogCleaner,
       paymentCheckService, missedSync, xulosaBoti, llmKaliti,
       bulkJobStore, bulkJobResumer,
-      mijozYaratuvchi, izohYiguvchi,
+      mijozYaratuvchi, izohYiguvchi, avtoIzohYiguvchi,
       xaridXizmati, kartaYuboruvchi, eslatmaKuzatuvchi,
     },
     useCases: {

@@ -505,6 +505,11 @@ export interface OutreachSettings {
   izohKalitSozlari: string[];
   /** Bir yig'ishda jami o'qiladigan izohlar (50–2000). */
   izohLimit: number;
+  izohAvtoYoqilgan: boolean;
+  izohAvtoAkkauntId: string | null;
+  izohAvtoOraliqMin: number;
+  izohAvtoKunlar: number;
+  izohAvtoMaxYangi: number;
 }
 
 /**
