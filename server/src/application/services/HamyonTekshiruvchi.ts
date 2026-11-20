@@ -186,7 +186,8 @@ export class HamyonTekshiruvchi {
     const qisqa = sabab.slice(0, SABAB_UZUNLIGI);
     await this.conversations.update(chek.conversationId, {
       needsHuman: true,
-      humanKind: null,
+      // Admin ko'rib chiqquncha agent jim qolmasin: mijozning savollariga javob beradi.
+      humanKind: 'menejer_xabari',
       humanReason: `Hamyoncha: ${qisqa}`,
     });
     await this.repo.holat(chek.id, 'shubha', qisqa);
