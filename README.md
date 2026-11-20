@@ -189,6 +189,15 @@ npm run data:knowledge    # data/knowledge/ ga uslub profili, e'tiroz javoblari,
 `data:knowledge` — agentni fine-tuning'siz yaxshilash yo'li: natijalar qoralama bo'lib, kurs
 faktlarini (narx, sana, manzil) odam tekshirgach bilim bazasi va uslub qoidalariga kiritiladi.
 
+Dars/efir yozuvlari (`data/kesilgan/*.ogg`, Lola Zunnunovaning o'z ovozi, monolog):
+
+```bash
+npm run data:kesilgan     # ~10 daqiqalik bo'laklarga bo'lib Nai.uz bilan matnga o'giradi → data/kesilgan_transcripts/
+npm run data:lessons      # data/knowledge/ ga lessons_corpus.jsonl, lessons_style_profile.json, lessons_topics.json
+```
+
+Bu sotuv suhbati emas, kurs mazmuni va muallif ovozi: kurs faktlari (narx, sana) undan olinmaydi.
+
 Rollar: menejer «Lola Zunnunova Menejer» = `assistant`, mijoz = `user`. Karta va telefon
 raqamlari niqoblanadi. Tafsilot: `data/training/README.md`.
 
