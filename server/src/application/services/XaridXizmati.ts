@@ -118,7 +118,8 @@ export class XaridXizmati {
    */
   async narxBelgila(clientId: string, narx: number): Promise<Purchase | null> {
     const xarid = await this.purchases.findActiveByClient(clientId);
-    if (!xarid?.courseId || !KURS_ALMASHADI.includes(xarid.stage)) return null;
+    if (!xarid) return this.qatorniKotar(clientId, narx);
+    if (!xarid.courseId || !KURS_ALMASHADI.includes(xarid.stage)) return null;
     const course = await this.courses.findById(xarid.courseId);
     if (!course || !(course.priceOptions ?? []).some((o) => o.price === narx)) return null;
     if (xarid.totalAmount === narx) return xarid;
@@ -126,6 +127,38 @@ export class XaridXizmati {
     const updated = await this.purchases.setCourse(xarid.id, course.id, narx);
     this.events.publish({ type: 'client.updated', clientId });
     return updated;
+  }
+
+  /**
+   * To'liq to'lagan mijoz yuqoriroq narxli qatorni (oldingi qator) tanladi: xarid
+   * qayta ochiladi — jami summa yangi qator narxiga, bosqich `qisman_toladi` ga,
+   * to'langan summa o'zgarmaydi. Karta farq (jami − to'langan) bilan ketadi, chek
+   * tasdig'i esa shu xaridga qo'shiladi. Yangi narx kursning o'z variantlaridan biri
+   * va to'langandan katta bo'lishi shart; havola qayta yuborilmaydi (atomik belgi).
+   */
+  private async qatorniKotar(clientId: string, narx: number): Promise<Purchase | null> {
+    const oxirgi = await this.purchases.findLatestByClient(clientId);
+    if (!oxirgi?.courseId || oxirgi.stage !== 'toladi') return null;
+    const course = await this.courses.findById(oxirgi.courseId);
+    if (!course || !(course.priceOptions ?? []).some((o) => o.price === narx)) return null;
+    if (narx <= (oxirgi.totalAmount ?? 0) || narx <= oxirgi.paidAmount) return null;
+
+    try {
+      await this.purchases.setCourse(oxirgi.id, oxirgi.courseId, narx);
+      const updated = await this.purchases.setStage(oxirgi.id, 'qisman_toladi');
+      await this.audit.record({
+        actor: 'agent',
+        action: 'purchase.row_upgrade',
+        entity: 'purchase',
+        entityId: oxirgi.id,
+        payload: { clientId, from: oxirgi.totalAmount, to: narx, paid: oxirgi.paidAmount, at: this.clock.now().toISOString() },
+      });
+      this.events.publish({ type: 'client.updated', clientId });
+      return updated;
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') return null; // boshqa faol xarid bor
+      throw err;
+    }
   }
 
   /**

@@ -21,7 +21,15 @@ export function tanlanganKarta(cards: PaymentCard[]): PaymentCard | null {
  * kursning minimal birinchi qismi; keyingi qismni agent o'zi aytadi (`null`).
  */
 export function kartaSummasi(course: Course, purchase: Purchase): number | null {
-  if (!purchase.installment) return purchase.totalAmount ?? course.price;
+  if (!purchase.installment) {
+    const jami = purchase.totalAmount ?? course.price;
+    // Qatori almashtirilgan (oldin to'lagan) xarid: faqat farq to'lanadi.
+    if (purchase.paidAmount > 0) {
+      const farq = jami - purchase.paidAmount;
+      return farq > 0 ? farq : null;
+    }
+    return jami;
+  }
   return purchase.paidAmount === 0 ? course.installmentFirstMin : null;
 }
 

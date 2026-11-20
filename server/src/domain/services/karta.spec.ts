@@ -31,6 +31,8 @@ check("to'liq — xariddagi summa, kurs narxi emas", kartaSummasi({ ...COURSE, p
 check("to'liq — totalAmount null bo'lsa kurs narxi", kartaSummasi(COURSE, { ...P, totalAmount: null }), 1_500_000);
 check('birinchi qism', kartaSummasi(COURSE_BT, { ...P, installment: true, paidAmount: 0 }), 500_000);
 check('keyingi qism', kartaSummasi(COURSE_BT, { ...P, installment: true, paidAmount: 500_000 }), null);
+check('qator almashtirildi — faqat farq', kartaSummasi(COURSE, { ...P, totalAmount: 1_000_000, paidAmount: 300_000 }), 700_000);
+check('qator almashtirildi — farq yo\'q', kartaSummasi(COURSE, { ...P, totalAmount: 300_000, paidAmount: 300_000 }), null);
 check("kurs yo'q", kartaTayyorligi({ cards: [K2], course: null, purchase: P }), { ok: false, reason: 'kurs_yoq' });
 check("karta yo'q", kartaTayyorligi({ cards: [], course: COURSE, purchase: P }), { ok: false, reason: 'karta_yoq' });
 check("bo'lib to'lash ruxsat emas", kartaTayyorligi({ cards: [K2], course: COURSE, purchase: { ...P, installment: true } }), { ok: false, reason: 'bolib_tolash_yoq' });
