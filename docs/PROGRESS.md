@@ -53,3 +53,12 @@ orqali yaxshilash (A yo'li) uchun ishlatiladi. Fine-tuning ma'lumotlari zaxira s
 - Har bir o'zgarishdan keyin `main` ga push qilinadi (`shoxmasrur/Lolasales`).
 - Skriptlar: `npm run data:transcribe` (davom ettiriladigan), `data:build`, `data:knowledge`.
 - Ma'lumotdagi narxlar vaqt bo'yicha o'zgargan; agent faqat kurs bazasidagi joriy faktni aytadi.
+
+## Yangilanish (2026-11-20): dars yozuvlari va murojaat qoidalari
+- `data/kesilgan/` dagi 9 ta dars/efir yozuvi (~7 soat, Lola Zunnunova ovozi) Nai.uz bilan to'liq matnga o'girildi
+  (`npm run data:kesilgan`, ~10 daqiqalik bo'laklar; `-c copy` bilan kesish ortiqcha pul yechishiga olib kelgani uchun qayta kodlanadi va davomiylik tekshiriladi).
+- `npm run data:lessons` → `data/knowledge/lessons_*` (corpus, uslub profili, mavzular). Bu sotuv suhbati emas — kurs mazmuni va muallif ovozi.
+- Agent qoidalariga yangi bo'lim `murojaat_va_sotish`: murojaat chegarasi (ismsiz → opa → opajon; «qizlar/jonim/azizam» yo'q),
+  qayerdan eshitgani, nima kutayotgani, kurs nima berishi mumkinligi (natijaga kafolatsiz). Bazaga ham kiritilgan.
+- Kurs bilimiga 3 ta yozuv: darslar qanday o'tadi, nimalar o'rgatiladi, kimga va nima berishi mumkin.
+- Keyingi: boshqa seminar sotuvi uchun ma'lumotlarni foydalanuvchi beradi; shu kurs bo'yicha sinov (README §6) davom etadi.

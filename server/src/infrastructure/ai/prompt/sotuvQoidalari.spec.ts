@@ -38,12 +38,12 @@ check('aniq sana yo\'q', /\d{1,2}-(yanvar|fevral|mart|aprel|may|iyun|iyul|avgust
 // ─── Bo'limlar ro'yxati (brief jadvali) ──────────────────────────────────
 const KERAKLI_BULLETS = [
   'real_team_style', 'human_tone', 'style', 'anti_repetition', 'channel_rules', 'media', 'stop_signals',
-  'salomlashish', 'ehtiyojni_aniqlash', 'kursni_taqdim_etish', 'narx_va_tolov', 'yopish', 'chek',
+  'salomlashish', 'ehtiyojni_aniqlash', 'kursni_taqdim_etish', 'murojaat_va_sotish', 'narx_va_tolov', 'yopish', 'chek',
   'prohibitions', 'first_messages', 'client_types',
 ];
 const KERAKLI_MISOLLAR = ['etirozlar', 'dialog_misollari', 'tone_examples'];
 const YANGI = new Set([
-  'salomlashish', 'ehtiyojni_aniqlash', 'kursni_taqdim_etish', 'narx_va_tolov', 'yopish', 'chek',
+  'salomlashish', 'ehtiyojni_aniqlash', 'kursni_taqdim_etish', 'murojaat_va_sotish', 'narx_va_tolov', 'yopish', 'chek',
   'first_messages', 'etirozlar', 'dialog_misollari',
 ]);
 
