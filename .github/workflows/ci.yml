@@ -48,6 +48,7 @@ jobs:
           # Agent promptidagi taqiqlangan so'zlar (qarz, qachonroq, -da, ajoyib).
           npm run test:lugat --workspace=server
           # Standart sotuv qoidalari: qarz so'zlari yo'q, brief bo'limlari, e'tirozlar, mijoz turlari.
+          npm run test:javob-berish --workspace=server
           npm run test:sotuv-qoidalari --workspace=server
           npm run test:bot-tokeni --workspace=server
           npm run test:llm-narxi --workspace=server

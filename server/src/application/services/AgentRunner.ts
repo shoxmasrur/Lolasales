@@ -739,8 +739,11 @@ export class AgentRunner {
     // mijoz javob berib, `touchInbound` holatni `active` qilgan bo'lsa, u
     // ustidan yozilmaydi.
     if (sent) await this.conversations.markContactedIfNew(conversation.id);
+    // To'lagan mijoz bilan suhbat menejerga ko'rsatilsa ham agent jim qolmaydi
+    // (qatorni almashtirish, savollar): faqat ogohlantirish belgisi.
+    const tolaganMijoz = escalated && (await this.xarid.tolanganKurslar(clientId).catch(() => [])).length > 0;
     await this.conversations.update(conversation.id, {
-      ...(escalated ? { needsHuman: true, humanReason } : {}),
+      ...(escalated ? { needsHuman: true, humanReason, ...(tolaganMijoz ? { humanKind: 'menejer_xabari' as const } : {}) } : {}),
       ...(output.sessionId ? { agentSessionId: output.sessionId } : {}),
       ...(output.internalNote ? { summary: output.internalNote } : {}),
     });

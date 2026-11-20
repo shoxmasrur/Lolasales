@@ -428,7 +428,8 @@ export class PaymentCheckService {
   }
 
   private async menejerga(conversationId: string, humanReason: string): Promise<void> {
-    await this.conversations.update(conversationId, { needsHuman: true, humanKind: null, humanReason });
+    // `menejer_xabari`: menejer ko'radi, lekin agent mijozga javob berishda davom etadi.
+    await this.conversations.update(conversationId, { needsHuman: true, humanKind: 'menejer_xabari', humanReason });
   }
 
   private async qayd(actor: string, check: PaymentCheck, payload: Record<string, unknown>): Promise<void> {

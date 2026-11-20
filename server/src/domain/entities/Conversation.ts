@@ -18,11 +18,14 @@ export const CONVERSATION_STATES: readonly ConversationState[] = ['new', 'contac
  *   • `'chek_tekshiruvi'` — mijoz chek yoki aniqlanmagan rasm/fayl
  *     yubordi, menejer "Tasdiqlash" yoki "Rad etish" ni bosishi kutilyapti.
  *     Agent javob ham, eslatma ham yozmaydi.
+ *   • `'menejer_xabari'` — menejerga ma'lumot (masalan, to'lagan mijoz qatorini
+ *     almashtirmoqchi yoki guruh havolasi kiritilmagan). Agent BU holatda ham
+ *     mijozga javob berishda davom etadi — jim qolmaydi.
  *   • NULL — qolgan hammasi (agent operatorga o'tkazgan, operator).
  *
  * `human_kind` — CHECK cheklovisiz oddiy TEXT ustun.
  */
-export type HumanKind = 'agent_error' | 'chek_tekshiruvi';
+export type HumanKind = 'agent_error' | 'chek_tekshiruvi' | 'menejer_xabari';
 
 export interface Conversation {
   readonly id: string;
@@ -53,9 +56,11 @@ export function isTerminal(state: ConversationState): boolean {
 /**
  * Agent mijozning xabariga JAVOB yozishi (yoki eslatma yuborishi) mumkinmi.
  *
- * `needsHuman` ning barcha turini birdek to'sadi: suhbat operator qo'liga
- * o'tgan va agentning aralashuvi faqat ziyon qiladi.
+ * `needsHuman` ning `menejer_xabari` dan boshqa barcha turi to'sadi: suhbat
+ * operator qo'liga o'tgan va agentning aralashuvi faqat ziyon qiladi.
+ * `menejer_xabari` — faqat ogohlantirish: mijozga javob to'xtamaydi.
  */
 export function canAgentReply(conversation: Conversation): boolean {
-  return conversation.agentEnabled && !conversation.needsHuman && !isTerminal(conversation.state);
+  const operatorKutilyapti = conversation.needsHuman && conversation.humanKind !== 'menejer_xabari';
+  return conversation.agentEnabled && !operatorKutilyapti && !isTerminal(conversation.state);
 }
